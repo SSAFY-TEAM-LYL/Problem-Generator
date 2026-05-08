@@ -1,0 +1,40 @@
+# IPE workspace ignore rules
+
+# Generated outputs (per IMPLEMENTATION_ROADMAP P0)
+outputs/
+workdir/
+
+# Python build / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.env
+.env.local
+venv/
+.venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java build artifacts
+*.class
