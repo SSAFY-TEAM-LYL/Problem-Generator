@@ -14,7 +14,7 @@ from typing import Any
 
 from ipe.llm import CODER_MODEL, get_chat
 from ipe.observability import LLMCallTracker
-from ipe.state import ProblemState
+from ipe.state import LLMCallRecord, ProblemState
 
 SYSTEM_PROMPT = """You are The Coder — a master competitive programmer.
 
@@ -111,27 +111,29 @@ def run(
         {"role": "user", "content": user},
     ]
 
+    # 불변성 유지 — state["llm_calls"]를 mutate하지 않고 복사 후 변경분만 반환 (B2 fix)
+    calls: list[LLMCallRecord] = list(state.get("llm_calls") or [])
+
     if tracker is not None:
-        if "llm_calls" not in state:
-            state["llm_calls"] = []
-        resp = tracker.invoke(chat, messages, node="coder", state_calls=state["llm_calls"])
-        content = str(resp.content)
+        resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
     else:
         # Test/dev path — 회계 없이 직접 호출
         resp = chat.invoke(messages)
-        content = str(resp.content)
+    content = str(resp.content)
 
     code, impossible = _parse_response(content)
 
     if impossible:
         return {
             **state,
+            "llm_calls": calls,
             "feedback_message": f"Coder declared IMPOSSIBLE: {impossible}",
             "last_failed_node": "architect",
         }
 
     return {
         **state,
+        "llm_calls": calls,
         "solution_code": code,
         "feedback_message": None,
         "last_failed_node": None,

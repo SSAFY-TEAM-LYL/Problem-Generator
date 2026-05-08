@@ -114,6 +114,10 @@ class LLMCallTracker:
         )
 
         # state["llm_calls"]에 record 추가
+        # trace_path는 환경 독립적 상대경로로 저장 (B4 fix, 2026-05-08).
+        # 형식: "<traces_dir.name>/<seq>_<node>.json" (예: "llm_traces/0001_architect.json")
+        # 운영에서는 outputs/<run_id>/llm_traces/ 가 traces_dir이므로
+        # outputs root 기준의 의미 있는 상대 경로가 된다.
         record: LLMCallRecord = {
             "seq": seq,
             "node": node,
@@ -122,7 +126,7 @@ class LLMCallTracker:
             "output_tokens": out_tok,
             "cost_usd": cost,
             "timestamp": ts,
-            "trace_path": str(trace_path),
+            "trace_path": f"{self.traces_dir.name}/{trace_path.name}",
         }
         state_calls.append(record)
 
