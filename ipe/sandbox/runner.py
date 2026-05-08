@@ -14,7 +14,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar, Literal
 
-
 RunStatus = Literal[
     "OK",             # 정상 종료 (returncode == 0)
     "RTE",            # Runtime Error (returncode != 0, but not other status)
