@@ -328,3 +328,77 @@ REVIEW_REPORT 본문은 **활성 워크스페이스 외부**로 이동했지만,
 | `archive/REVIEW_REPORT_2026-05-07.md` | 210 | 외부 리뷰 (archival, Round 2 입력) |
 
 활성 6 → 5로 정리. archive 1건 신설.
+
+---
+
+## 12. Round 5 — Phase-branch 워크플로 도입 (2026-05-08)
+
+> 사용자 지시: "이제부터 각 페이즈별로 별도 브랜치에서 작업하고 합치도록 하자. 이전의 내역들도 그렇게 수정해보는건 어떄?"
+>
+> /plan에서 3가지 옵션 제시 (A: historical reference / B: full rewrite + force push / C: forward only). 사용자가 권장 옵션 A 선택 → "권장하는 옵션대로 진행해".
+
+### 12.1 변경 내용
+
+#### Historical phase branches (force push 없이 안전하게)
+
+main의 commit history는 **그대로 보존**, 각 phase 완료 시점 commit에 branch reference만 추가:
+
+| Branch | 가리키는 commit | 의미 |
+|---|---|---|
+| `feat/p0-bootstrap` | `83e6bbf` | P0 Bootstrap 완료 시점 |
+| `feat/c-readme` | `ef2f64b` | README 추가 (Round 5의 "C" 단계) |
+| `feat/p1-sandbox` | `3f8d7bb` | P1 Sandbox Foundation 완료 시점 |
+
+세 branch 모두 원격에 push 완료. main과 동일 history를 공유하지만 phase 단위 navigate 가능.
+
+### 12.2 앞으로의 워크플로 (P2부터)
+
+```bash
+# 1. Phase 시작
+git checkout main
+git pull
+git checkout -b feat/p2-llm-layer
+
+# 2. Sub-task별 commit
+# (현재처럼 P2.1, P2.2, ... 작업)
+
+# 3. Phase 끝나면 push
+git push -u origin feat/p2-llm-layer
+
+# 4. (옵션) GitHub PR 생성 → review → merge
+gh pr create --base main --head feat/p2-llm-layer --title "feat(p2): LLM Layer"
+gh pr merge --merge   # --no-ff (merge commit 생성, phase 경계 명시)
+
+# 5. main 동기화
+git checkout main
+git pull
+```
+
+### 12.3 Merge 정책
+
+**`--no-ff` (merge commit 생성)** 채택. 이유:
+- main에 phase 경계가 merge commit으로 명시됨 (history 가독성)
+- `git log --first-parent main`으로 phase-level 요약 가능
+- squash와 달리 sub-task별 commit history 보존
+
+대안 (채택 X):
+- `--squash`: sub-task history 압축 — 가독성↓ debugging↓
+- `ff-only`: linear history — branch의 의미 약해짐
+
+### 12.4 PR vs 직접 merge
+
+**선택**: GitHub PR 사용 (CI/리뷰 채널이 명확). 단일 개발자에게는 약간의 오버헤드지만:
+- diff 검토 가능
+- 미래 multi-developer 확장 용이
+- GitHub UI history navigate 명확
+
+CI 통과 안 되면 merge 차단 (P12 GitHub Actions 도입 후).
+
+### 12.5 force push 회피 근거
+
+기존 commit history (Round 1~4)를 force push로 재작성하지 않은 이유:
+- 이미 GitHub origin에 push된 commits — force push 시 다른 clone (없더라도 향후 가능성) 충돌
+- Round 1~4 정합성은 이미 검증됨 (P0/P1 DoD 통과)
+- 가벼운 reference만으로도 phase 단위 navigate 가능
+
+향후 진짜 phase-격리 history가 꼭 필요하면 별도 라운드에서 검토.
