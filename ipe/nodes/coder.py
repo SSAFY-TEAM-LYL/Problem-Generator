@@ -87,12 +87,13 @@ def _parse_response(text: str) -> tuple[str, str | None]:
 def run(
     state: ProblemState,
     *,
-    tracker: LLMCallTracker | None = None,
+    tracker: LLMCallTracker,
 ) -> ProblemState:
     """Coder 노드 실행 — golden solution 작성 (혹은 IMPOSSIBLE 선언).
 
-    ``tracker``가 제공되면 LLM 호출이 ``state["llm_calls"]``에 누적되고
-    raw trace가 디스크에 저장된다. None이면 회계 없이 직접 호출 (test/dev path).
+    ``tracker``는 required (B3 fix, P4 진입 시점). production/test 모두 동일한
+    LLM 호출 경로를 사용 — 테스트는 ``LLMCallTracker(tmp_run_id, tmp_traces_dir)``
+    + ``chat`` mock 패턴으로 동등한 회계를 수행.
     """
     language = state.get("target_language", "python")
     chat = get_chat(CODER_MODEL, temperature=0.7)
@@ -113,12 +114,7 @@ def run(
 
     # 불변성 유지 — state["llm_calls"]를 mutate하지 않고 복사 후 변경분만 반환 (B2 fix)
     calls: list[LLMCallRecord] = list(state.get("llm_calls") or [])
-
-    if tracker is not None:
-        resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
-    else:
-        # Test/dev path — 회계 없이 직접 호출
-        resp = chat.invoke(messages)
+    resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
     content = str(resp.content)
 
     code, impossible = _parse_response(content)
