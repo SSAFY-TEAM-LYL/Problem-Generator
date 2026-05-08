@@ -44,6 +44,8 @@ def _build_profile(workdir: str) -> str:
 (allow file-ioctl)
 
 ;; 시스템 라이브러리/바이너리 read
+(allow file-read* (subpath "/bin"))
+(allow file-read* (subpath "/sbin"))
 (allow file-read* (subpath "/usr"))
 (allow file-read* (subpath "/System"))
 (allow file-read* (subpath "/Library"))
