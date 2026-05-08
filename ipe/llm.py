@@ -40,17 +40,14 @@ def get_chat(
 
     ``temperature``는 모델이 지원할 때만 전달 — Opus는 거부.
     API 키는 ``langchain-anthropic``이 ``ANTHROPIC_API_KEY`` 환경변수에서 자동 로드.
+
+    구현은 ARCH §3.3.1을 따라 ``**kwargs`` unpacking 패턴 — mypy strict에서
+    ``# type: ignore`` 없이도 통과 (B1 fix, 2026-05-08).
     """
+    kwargs: dict[str, Any] = {"model": model, "max_tokens": max_tokens}
     if temperature is not None and model in _TEMPERATURE_CAPABLE:
-        return ChatAnthropic(
-            model=model,  # type: ignore[call-arg]
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-    return ChatAnthropic(
-        model=model,  # type: ignore[call-arg]
-        max_tokens=max_tokens,
-    )
+        kwargs["temperature"] = temperature
+    return ChatAnthropic(**kwargs)
 
 
 # ============================================================================

@@ -108,7 +108,9 @@ class TestLLMCallTracker:
         # 100*15 + 50*75 = 5250 / 1M = 0.00525
         assert rec["cost_usd"] == pytest.approx(0.00525)
         assert rec["timestamp"]  # ISO 8601 string
-        assert rec["trace_path"].endswith("0001_architect.json")
+        # B4: trace_path는 traces_dir.name 기준 상대경로 (절대경로 X)
+        assert rec["trace_path"] == "traces/0001_architect.json"
+        assert not rec["trace_path"].startswith("/")  # 절대경로 거부
 
         # trace 파일 존재 + 내용 확인
         trace_files = list(traces_dir.iterdir())
