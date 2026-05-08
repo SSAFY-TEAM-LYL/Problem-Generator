@@ -9,6 +9,7 @@ T3은 모든 OS에서 동작하는 마지막 fallback.
 
 from __future__ import annotations
 
+import contextlib
 import resource
 import subprocess
 import sys
@@ -33,10 +34,8 @@ def _build_preexec(spec: RunSpec) -> Callable[[], None]:
             (resource.RLIMIT_NPROC, nproc),
             (resource.RLIMIT_NOFILE, 256),
         ):
-            try:
+            with contextlib.suppress(ValueError, OSError):
                 resource.setrlimit(res_id, (val, val))
-            except (ValueError, OSError):
-                pass
 
     return _apply
 
