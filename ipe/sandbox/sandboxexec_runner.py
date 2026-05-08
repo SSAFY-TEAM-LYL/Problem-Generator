@@ -27,40 +27,32 @@ from ipe.sandbox.runner import RunResult, RunSpec, RunStatus, SandboxedRunner
 def _build_profile(workdir: str) -> str:
     """sandbox-exec용 profile (S-expression DSL).
 
-    workdir 내부는 read/write, /tmp는 read/write 허용. 그 외 시스템 라이브러리와
-    /Users는 read만 (venv binary 등을 호출 가능하게). network는 default deny.
+    macOS dev 환경 친화적인 설계:
+    - ``(allow default)``로 기본 syscall은 모두 허용 (dyld/Mach-O 로드 등)
+    - ``network*``는 명시적 deny (DNS 조회 + TCP/UDP 차단)
+    - ``file-write*``는 workdir + /tmp 외 모두 deny
+
+    이는 strict ``(deny default)`` 대비 보안은 약하지만,
+    macOS의 내부 syscall 다양성(IOKit/dyld_shared_cache 등) 때문에
+    실용적인 절충안. 운영 모드는 T1(Docker) 권장.
     """
     return f"""(version 1)
-(deny default)
+(allow default)
 
-;; 프로세스 라이프사이클
-(allow process-fork)
-(allow process-exec)
-(allow signal (target self))
+;; Network 완전 차단
+(deny network*)
 
-;; sysctl / mach / ioctl
-(allow sysctl-read)
-(allow mach-lookup)
-(allow file-ioctl)
-
-;; 시스템 라이브러리/바이너리 read
-(allow file-read* (subpath "/bin"))
-(allow file-read* (subpath "/sbin"))
-(allow file-read* (subpath "/usr"))
-(allow file-read* (subpath "/System"))
-(allow file-read* (subpath "/Library"))
-(allow file-read* (subpath "/opt"))
-(allow file-read* (subpath "/private/var"))
-(allow file-read* (subpath "/private/etc"))
-(allow file-read* (subpath "/Users"))
-
-;; workdir + tmp는 read/write
-(allow file-read* (subpath "{workdir}"))
+;; 외부 파일 시스템 write 차단 (workdir + /tmp만 허용)
+(deny file-write*)
 (allow file-write* (subpath "{workdir}"))
-(allow file-read* (subpath "/private/tmp"))
 (allow file-write* (subpath "/private/tmp"))
-(allow file-read* (subpath "/tmp"))
 (allow file-write* (subpath "/tmp"))
+
+;; sandbox-exec 자체가 사용하는 임시 파일 write 허용 (필요 시)
+(allow file-write*
+    (regex "^/private/var/folders/")
+    (regex "^/dev/null$")
+    (regex "^/dev/dtracehelper$"))
 """
 
 
