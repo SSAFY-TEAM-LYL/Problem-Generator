@@ -17,8 +17,14 @@ import pytest
 from langchain_core.messages import BaseMessage
 
 from ipe.nodes import coder, executor
+from ipe.observability import LLMCallTracker
 from ipe.sandbox.rlimit_runner import RlimitRunner
 from ipe.state import ProblemState
+
+
+def _make_tracker(tmp_path: Path) -> LLMCallTracker:
+    """tracker 헬퍼 — production path와 동일한 회계를 활성화."""
+    return LLMCallTracker("test-run", tmp_path / "traces")
 
 
 def _make_mock_chat(content: str) -> MagicMock:
@@ -46,6 +52,7 @@ def test_happy_path_a_plus_b(
     """A+B 정해 → Phase A 통과 → final_status == 'success'."""
     fake = "```python\na, b = map(int, input().split())\nprint(a + b)\n```"
     _patch_coder_chat(monkeypatch, fake)
+    tracker = _make_tracker(tmp_path)
 
     state: ProblemState = {
         "target_algorithm": "Two Sum",
@@ -59,7 +66,7 @@ def test_happy_path_a_plus_b(
     }
 
     # 1) Coder
-    state = coder.run(state)
+    state = coder.run(state, tracker=tracker)
     assert "solution_code" in state
     assert "a + b" in state["solution_code"]
     assert state.get("last_failed_node") is None
@@ -81,17 +88,20 @@ def test_happy_path_a_plus_b(
     assert results[1]["actual"] == "30"
 
 
-def test_impossible_routes_to_architect(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_impossible_routes_to_architect(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """``IMPOSSIBLE: <reason>``이 펜스 앞에 있으면 architect로."""
     fake = "IMPOSSIBLE: contradictory constraints\n```python\npass\n```"
     _patch_coder_chat(monkeypatch, fake)
+    tracker = _make_tracker(tmp_path)
 
     state: ProblemState = {
         "target_language": "python",
         "problem_description": "x",
         "constraints": "x",
     }
-    state = coder.run(state)
+    state = coder.run(state, tracker=tracker)
 
     assert state["last_failed_node"] == "architect"
     feedback = state.get("feedback_message") or ""
@@ -105,6 +115,7 @@ def test_wrong_output_routes_to_coder(
     """항상 0을 출력하는 오답 솔루션 → Phase A failure → coder."""
     fake = "```python\nprint(0)\n```"
     _patch_coder_chat(monkeypatch, fake)
+    tracker = _make_tracker(tmp_path)
 
     state: ProblemState = {
         "target_language": "python",
@@ -112,7 +123,7 @@ def test_wrong_output_routes_to_coder(
         "constraints": "x",
         "sample_testcases": [{"input": "1 2\n", "expected_output": "3"}],
     }
-    state = coder.run(state)
+    state = coder.run(state, tracker=tracker)
     state = executor.run(
         state, runner=RlimitRunner(), workdir_root=tmp_path / "wd"
     )
@@ -128,6 +139,7 @@ def test_syntax_error_routes_to_coder(
     """python syntax error → 런타임 RTE → Phase A failure → coder."""
     fake = "```python\nthis is not python(\n```"
     _patch_coder_chat(monkeypatch, fake)
+    tracker = _make_tracker(tmp_path)
 
     state: ProblemState = {
         "target_language": "python",
@@ -135,7 +147,7 @@ def test_syntax_error_routes_to_coder(
         "constraints": "x",
         "sample_testcases": [{"input": "1\n", "expected_output": "1"}],
     }
-    state = coder.run(state)
+    state = coder.run(state, tracker=tracker)
     state = executor.run(
         state, runner=RlimitRunner(), workdir_root=tmp_path / "wd"
     )

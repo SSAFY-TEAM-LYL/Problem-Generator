@@ -208,11 +208,62 @@ def run(
             "feedback_message": None,
         }
 
-    # 일부 실패 — P3 단계는 단순히 coder (P4에서 3-way 휴리스틱)
+    # P4 — Phase A 3-way 휴리스틱 라우팅 (REVIEW W3)
+    target = _decide_phase_a_route(results)
+    feedback_msg = _build_phase_a_feedback(results, target)
     return {
         **state,
         "iteration_count": next_iter,
         "execution_results": results,
-        "last_failed_node": "coder",
-        "feedback_message": f"phase A failures: {failures}/{len(samples)}",
+        "last_failed_node": target,
+        "feedback_message": feedback_msg,
     }
+
+
+def _decide_phase_a_route(results: list[dict[str, Any]]) -> str:
+    """Phase A failure 결과로부터 라우팅 결정.
+
+    - (a) 다수 통과 + 소수 실패 + 크래시 없음 → architect (sample expected_output 의심)
+    - (b) 전체 실패 + 컴파일 OK + 모든 sample이 OK 상태 + 출력이 모두 unique
+          → architect (sample 전체가 잘못되었을 가능성, REVIEW W3 신규 분기)
+    - (c) else (다수 실패 + 크래시 동반 또는 출력 패턴 불일관) → coder
+
+    sample 1개일 때 unique check는 자동 충족 (vacuously true)되므로,
+    분기 (b)는 ``n_total >= 2``인 경우에만 적용한다.
+    """
+    n_total = len(results)
+    if n_total == 0:
+        return "coder"
+
+    n_pass = sum(1 for r in results if r["pass"])
+    has_crash = any(r["status"] in ("RTE", "TLE", "MLE") for r in results)
+
+    # (a) 다수 통과 + 소수 실패 + 크래시 없음
+    if 0 < n_pass < n_total and not has_crash:
+        return "architect"
+
+    # (b) 전체 실패 + 컴파일 OK + 일관된 unique 출력 (>=2 samples)
+    all_ok = all(r["status"] == "OK" for r in results)
+    unique_outputs = len({r["actual"] for r in results}) == n_total
+    if n_pass == 0 and all_ok and unique_outputs and n_total >= 2:
+        return "architect"
+
+    # (c) 그 외 — 솔루션 버그 의심
+    return "coder"
+
+
+def _build_phase_a_feedback(results: list[dict[str, Any]], target: str) -> str:
+    n_total = len(results)
+    n_pass = sum(1 for r in results if r["pass"])
+    failures = n_total - n_pass
+    if target == "architect" and n_pass > 0:
+        return (
+            f"phase A: {n_pass}/{n_total} passed but {failures} mismatched "
+            f"(sample expected_output likely wrong)"
+        )
+    if target == "architect":
+        return (
+            f"phase A: all {n_total} failed but solution gave consistent unique "
+            f"outputs (samples likely wrong)"
+        )
+    return f"phase A failures: {failures}/{n_total}"
