@@ -5,13 +5,8 @@
 Usage::
 
     python main.py --algorithm "Two Sum" --language python  # 새 run
-    python main.py --resume <run_id>                         # crash 후 재개 (P8.2)
-    python main.py --replay <run_id>                         # LLM 0 호출 재현 (P8.4)
-
-Pipeline: build_graph(checkpointer) → invoke(thread_id=run_id) → stdout summary.
-
-P8: SqliteSaver로 노드 단위 영속화 (``outputs/<run_id>/checkpoint.db``).
-P10에서 outputs/<run_id>/problem.json 영속화 + 산출물 집계 추가.
+    python main.py --resume <run_id>                         # P8.2 crash 후 재개
+    python main.py --replay <run_id>                         # P8.4 LLM 0 호출 재현
 """
 
 from __future__ import annotations
@@ -44,47 +39,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         prog="ipe",
         description="Infinite Problem Engine — algorithmic problem generator",
     )
-    ap.add_argument(
-        "--algorithm",
-        help='target algorithm category (e.g., "Two Sum", "Dijkstra"); required for new runs',
-    )
-    ap.add_argument(
-        "--language",
-        choices=["python", "java"],
-        default="python",
-    )
-    ap.add_argument(
-        "--max-iter",
-        type=int,
-        default=DEFAULT_MAX_ITER,
-        help=f"global iteration safety net (default {DEFAULT_MAX_ITER})",
-    )
-    ap.add_argument(
-        "--max-cost-usd",
-        type=float,
-        default=DEFAULT_MAX_COST_USD,
-        help=f"USD cost guard (default {DEFAULT_MAX_COST_USD})",
-    )
+    ap.add_argument("--algorithm", help='target algorithm (required for new runs)')
+    ap.add_argument("--language", choices=["python", "java"], default="python")
+    ap.add_argument("--max-iter", type=int, default=DEFAULT_MAX_ITER)
+    ap.add_argument("--max-cost-usd", type=float, default=DEFAULT_MAX_COST_USD)
     ap.add_argument(
         "--sandbox",
-        choices=["auto", "docker", "sandboxexec", "rlimit"],
-        default="auto",
+        choices=["auto", "docker", "sandboxexec", "rlimit"], default="auto",
     )
-    ap.add_argument(
-        "--strict-sandbox",
-        action="store_true",
-        help="abort if isolation_self_test fails (P5+ implementation)",
-    )
-    ap.add_argument(
-        "--resume",
-        metavar="RUN_ID",
-        help="resume an aborted run from outputs/<RUN_ID>/checkpoint.db (P8.2)",
-    )
-    ap.add_argument(
-        "--replay",
-        metavar="RUN_ID",
-        help="re-run from outputs/<RUN_ID>/llm_traces without LLM calls (P8.4)",
-    )
+    ap.add_argument("--strict-sandbox", action="store_true")
+    ap.add_argument("--resume", metavar="RUN_ID", help="resume from checkpoint.db")
+    ap.add_argument("--replay", metavar="RUN_ID", help="replay from llm_traces")
     args = ap.parse_args(argv)
     if args.resume and args.replay:
         ap.error("--resume and --replay are mutually exclusive")
@@ -102,29 +67,23 @@ def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
         "iteration_count": 0,
         "max_iter": args.max_iter,
         "max_cost_usd": args.max_cost_usd,
-        "node_retry_budget": {
-            "architect": 2,
-            "coder": 4,
-            "auditor": 2,
-            "generator": 2,
-        },
+        "node_retry_budget": {"architect": 2, "coder": 4, "auditor": 2, "generator": 2},
         "iteration_history": [],
         "llm_calls": [],
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
-    setup_logging(level="INFO")  # P11: structured JSON logs to stdout
-    args = _parse_args(argv)
+def _setup_run(args: argparse.Namespace) -> tuple[str, Path, Path, Path]:
+    """run_id / run_dir / traces_dir / db_path 결정 + resume/replay 산출물 검증.
 
-    # run_id resolve — resume/replay는 인자값 사용, 그 외는 새로 생성
+    raises:
+        FileNotFoundError: resume/replay에 필요한 디렉토리/파일 부재.
+    """
     if args.resume or args.replay:
         run_id = args.resume or args.replay
         run_dir = OUTPUTS_ROOT / run_id
         if not run_dir.exists():
-            print(f"run_id directory not found: {run_dir}", file=sys.stderr)
-            return 2
+            raise FileNotFoundError(f"run_id directory not found: {run_dir}")
     else:
         run_id = uuid.uuid4().hex[:12]
         run_dir = OUTPUTS_ROOT / run_id
@@ -134,57 +93,53 @@ def main(argv: list[str] | None = None) -> int:
     db_path = run_dir / "checkpoint.db"
 
     if args.resume and not db_path.exists():
-        print(f"checkpoint not found: {db_path}", file=sys.stderr)
-        return 2
+        raise FileNotFoundError(f"checkpoint not found: {db_path}")
     if args.replay and not traces_dir.exists():
-        print(f"traces not found: {traces_dir}", file=sys.stderr)
+        raise FileNotFoundError(f"traces not found: {traces_dir}")
+    return run_id, run_dir, traces_dir, db_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    load_dotenv()
+    setup_logging(level="INFO")  # P11: structured JSON logs to stdout
+    args = _parse_args(argv)
+
+    try:
+        run_id, run_dir, traces_dir, db_path = _setup_run(args)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
         return 2
 
     runner = pick_runner(args.sandbox, verbose=True)
-
-    # tracker swap — replay 모드는 ReplayTracker로 LLM 호출 우회
-    tracker: LLMCallTracker
-    if args.replay:
-        tracker = ReplayTracker(run_id, traces_dir)
-    else:
-        tracker = LLMCallTracker(run_id, traces_dir)
+    tracker: LLMCallTracker = (
+        ReplayTracker(run_id, traces_dir) if args.replay
+        else LLMCallTracker(run_id, traces_dir)
+    )
 
     with SqliteSaver.from_conn_string(str(db_path)) as saver:
         graph = build_graph(
-            tracker=tracker,
-            runner=runner,
-            workdir_root=WORKDIR_ROOT,
-            checkpointer=saver,
+            tracker=tracker, runner=runner,
+            workdir_root=WORKDIR_ROOT, checkpointer=saver,
         )
         config: dict[str, Any] = {
             "configurable": {"thread_id": run_id},
             "recursion_limit": max(50, args.max_iter * 12),
         }
-
         if args.resume:
-            print(
-                f"=== IPE resume run_id={run_id} (sandbox tier={runner.tier}) ===",
-                file=sys.stderr,
-            )
+            print(f"=== IPE resume run_id={run_id} (sandbox={runner.tier}) ===",
+                  file=sys.stderr)
             final_state: dict[str, Any] = graph.invoke(None, config=config)
         else:
             algo = args.algorithm if not args.replay else "(replay)"
-            print(
-                f"=== IPE run_id={run_id} algo={algo!r} lang={args.language} "
-                f"(sandbox tier={runner.tier}) ===",
-                file=sys.stderr,
-            )
+            print(f"=== IPE run_id={run_id} algo={algo!r} lang={args.language} "
+                  f"(sandbox={runner.tier}) ===", file=sys.stderr)
             final_state = graph.invoke(_initial_state(run_id, args), config=config)
 
     final_status = final_state.get("final_status")
     print(f"\n=== final_status: {final_status} ===", file=sys.stderr)
-    print(
-        f"last_failed_node: {final_state.get('last_failed_node')}",
-        file=sys.stderr,
-    )
+    print(f"last_failed_node: {final_state.get('last_failed_node')}", file=sys.stderr)
 
-    # P10 — 산출물 영속화 (problem.json/md, solution, tests, generators, by-name symlink)
-    save_result(cast(ProblemState, final_state), run_dir)
+    save_result(cast(ProblemState, final_state), run_dir)  # P10
     print(f"saved outputs to {run_dir}", file=sys.stderr)
 
     summary = {
