@@ -28,6 +28,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      # Polish P-4 (B2): Java compile 분기 cover 위해 javac 설치
+      - name: Set up JDK 17 (B2 — Java compile coverage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify javac
+        run: javac -version
+
+      # Polish P-4 (A4): Docker는 ubuntu runner에 기본 설치, macOS는 skip
+      - name: Verify Docker (ubuntu only — A4)
+        if: matrix.os == 'ubuntu-latest'
+        run: docker --version
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
