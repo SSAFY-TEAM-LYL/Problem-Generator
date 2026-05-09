@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ipe._io_render import render_problem_md
 from ipe.state import LLMCallRecord, ProblemState
 
 OUTPUTS_ROOT = Path("outputs")
@@ -176,89 +177,6 @@ def _write_testcases(
     return manifest
 
 
-def _render_problem_md(state: ProblemState, manifest: list[dict[str, Any]]) -> str:
-    """사람용 markdown 렌더 — 문제 / 제약 / 샘플 / 솔루션 / 난이도 블록.
-
-    P10.2 — `problem.md` 단일 파일 출력. 코드는 fenced block, 표는 GFM.
-    """
-    title = state.get("problem_title") or state.get("target_algorithm") or "Untitled"
-    lines: list[str] = [f"# {title}", ""]
-
-    desc = state.get("problem_description")
-    if desc:
-        lines += ["## Description", "", str(desc), ""]
-
-    constraints = state.get("constraints")
-    if constraints:
-        lines += ["## Constraints", "", str(constraints), ""]
-
-    samples = state.get("sample_testcases") or []
-    if samples:
-        lines += ["## Sample Testcases", ""]
-        for i, tc in enumerate(samples, start=1):
-            inp = str(tc.get("input", "")).rstrip()
-            out = str(tc.get("expected_output", "")).rstrip()
-            lines += [
-                f"### Sample {i}",
-                "",
-                "Input:",
-                "```",
-                inp,
-                "```",
-                "",
-                "Output:",
-                "```",
-                out,
-                "```",
-                "",
-            ]
-
-    diff = _build_difficulty(state)
-    if diff:
-        lines += [
-            "## Difficulty",
-            "",
-            f"**Label:** {diff['label']}",
-            "",
-            f"**Reasoning:** {diff.get('reasoning') or ''}",
-            "",
-        ]
-        anchors = diff.get("calibration_anchors") or []
-        if anchors:
-            lines += [f"**Calibration anchors:** {', '.join(anchors)}", ""]
-
-    lang = state.get("target_language") or "python"
-    code = state.get("solution_code")
-    if code:
-        fence_lang = "java" if lang == "java" else "python"
-        lines += [
-            "## Golden Solution",
-            "",
-            f"```{fence_lang}",
-            str(code).rstrip(),
-            "```",
-            "",
-        ]
-
-    if manifest:
-        lines += [
-            "## Testcase Manifest",
-            "",
-            "| # | kind | category | generator | seed | exec (ms) |",
-            "|---|---|---|---|---|---|",
-        ]
-        for m in manifest:
-            lines.append(
-                f"| {m['index']:02d} | {m.get('kind') or '-'} | "
-                f"{m.get('category') or '-'} | {m.get('generator') or '-'} | "
-                f"{m.get('seed') if m.get('seed') is not None else '-'} | "
-                f"{m.get('exec_time_ms') if m.get('exec_time_ms') is not None else '-'} |"
-            )
-        lines.append("")
-
-    return "\n".join(lines)
-
-
 def _create_by_name_symlink(
     run_dir: Path,
     *,
@@ -330,9 +248,10 @@ def save_result(
         json.dumps(problem_doc, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # 3. problem.md
+    # 3. problem.md (P10 audit E1: 렌더는 _io_render 모듈로 분리)
     (run_dir / "problem.md").write_text(
-        _render_problem_md(state, manifest), encoding="utf-8"
+        render_problem_md(state, manifest=manifest, difficulty=diff),
+        encoding="utf-8",
     )
 
     # 4. by-name symlink (충돌 시 skip)
