@@ -69,7 +69,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
-    """argparse 인자에서 node_retry_budget을 빌드 (SPEC §5 default 2/4/2/2)."""
+    """argparse → ProblemState (SPEC §5 default budget 2/4/2/2)."""
     return {
         "run_id": run_id,
         "target_algorithm": args.algorithm,
@@ -78,25 +78,12 @@ def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
         "max_iter": args.max_iter,
         "max_cost_usd": args.max_cost_usd,
         "node_retry_budget": {
-            "architect": args.budget_architect,
-            "coder": args.budget_coder,
-            "auditor": args.budget_auditor,
-            "generator": args.budget_generator,
+            "architect": args.budget_architect, "coder": args.budget_coder,
+            "auditor": args.budget_auditor, "generator": args.budget_generator,
         },
         "iteration_history": [],
         "llm_calls": [],
     }
-
-
-def _apply_exec_workers(args: argparse.Namespace) -> None:
-    """``--exec-workers`` / ``--parallel-fanout`` 로 PHASE_C_WORKERS 런타임 override.
-
-    P6.3에서 ``ipe.nodes._executor_helpers.PHASE_C_WORKERS = 4`` 가 default.
-    """
-    workers = args.exec_workers or args.parallel_fanout
-    if workers and workers > 0:
-        from ipe.nodes import _executor_helpers
-        _executor_helpers.PHASE_C_WORKERS = int(workers)
 
 
 def _setup_run(args: argparse.Namespace) -> tuple[str, Path, Path, Path]:
@@ -129,7 +116,9 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     setup_logging(level="INFO")  # P11: structured JSON logs to stdout
     args = _parse_args(argv)
-    _apply_exec_workers(args)  # P12.1: runtime override of PHASE_C_WORKERS
+    if workers := (args.exec_workers or args.parallel_fanout):  # P12.1
+        from ipe.nodes import _executor_helpers
+        _executor_helpers.PHASE_C_WORKERS = int(workers)
 
     try:
         run_id, run_dir, traces_dir, db_path = _setup_run(args)
