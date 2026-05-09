@@ -2,7 +2,9 @@
 
 > 알고리즘 문제 자동 생성 파이프라인. **LangGraph + Claude**로 문제 설계 → 정해 작성 → 적대적 엣지케이스 → 시드 기반 stress test → 난이도 사후 평가까지 자동화.
 
-[![Status](https://img.shields.io/badge/status-WIP-yellow)](IMPLEMENTATION_ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-v0.1.0-brightgreen)](CHANGES.md)
+[![Tests](https://img.shields.io/badge/tests-191%20passed-brightgreen)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Sandbox](https://img.shields.io/badge/sandbox-Docker%2Fnsjail%2Fsandbox--exec-brightgreen)](PROJECT_SPEC.md#451-sandboxing--resource-limits)
 
@@ -96,7 +98,8 @@ ipe --replay <run_id>
 | **P9** Evaluator + Calibration | ✅ | PR #13 |
 | **P10** Output Persistence | ✅ | PR #15 |
 | **P11** Observability | ✅ | PR #17 |
-| **P12** Tests + CLI + CI | 🔄 진행 중 | (`feat/p12-polish`) |
+| **P12** Tests + CLI + CI | ✅ | PR #19 + audit #20 |
+| **🎉 v0.1.0 Release** | ✅ | tag `v0.1.0` (main `77fb596`) |
 
 상세 phase 정의·DoD: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md)
 

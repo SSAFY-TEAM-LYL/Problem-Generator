@@ -350,6 +350,21 @@ def _cost_so_far(state: ProblemState) -> float:
     return sum(c.get("cost_usd", 0.0) for c in state.get("llm_calls", []))
 
 
+# ────────────────────────────────────────────────────────────────────
+# Implementation note (P7 + P9 반영, 2026-05-09):
+#
+# 아래 ``route_after_executor`` 는 ARCH spec-level intent. 실제 ``ipe/graph.py`` 는:
+#  - P7: ``_decision`` 노드 + ``_route_after_decision`` 분기 함수 분리.
+#        executor → decision → conditional_edges → {nodes / END}.
+#        halt 노드 제거 — final_status는 ``_decision`` 안에서 직접 set.
+#  - P9: success 분기에 ``evaluator`` 노드 추가 (난이도 측정 후 END).
+#  - drift: 우선순위 cost > **success preserve** > max_iter > budget
+#           (CHANGES §5는 cost > budget > max_iter — 메시지 차이만 있는 minor).
+#
+# 자세한 코드는 ``ipe/graph.py`` 참조 (post-p12 backlog 항목 추적 중).
+# ────────────────────────────────────────────────────────────────────
+
+
 def route_after_executor(state: ProblemState) -> str:
     # 1) success
     if state.get("final_status") == "success":

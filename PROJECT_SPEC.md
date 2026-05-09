@@ -344,6 +344,19 @@ LLM이 생성한 코드를 **호스트에서 직접 실행하지 않음**. 3-tie
 * 글로벌은 안전망, 노드별이 정밀 제어. 둘 중 먼저 도달하는 쪽이 halt 트리거.
 * `--max-iter <N>` / `--budget-coder <N>` CLI 플래그로 override.
 
+7. **가드레일 우선순위** (동시 트리거 시 적용 순서, set-once semantics):
+
+| 순위 | 가드레일 | `final_status` |
+|---|---|---|
+| 1 | sandbox isolation 실패 + `--strict-sandbox` | (즉시 abort, exit 3) |
+| 2 | 누적 cost > `max_cost_usd` | `cost_exceeded` |
+| 3 | 어떤 노드의 retry budget이 0 미만 (정밀 제어) | `budget_exhausted` |
+| 4 | 글로벌 `iteration_count >= max_iter` (안전망) | `max_iterations` |
+| 5 | All Pass | `success` |
+
+**Implementation note**: 1순위는 `main.py`에서 `pick_runner` 직후 처리 (PR #24).
+2-5순위는 `ipe/graph.py:_decision`. 단, 실제 graph 코드는 `cost > success preserve > max_iter > budget` 순서 (CHANGES §5의 ranking과 minor drift — 동시 트리거 시 메시지만 다름, halt 동작은 동일). 추후 라운드에서 정합 검토.
+
 ---
 
 ## 6. 산출물 구조 (Polygon-Style)
