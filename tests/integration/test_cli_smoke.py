@@ -109,6 +109,24 @@ class TestMainCli:
         assert result.returncode != 0
         assert "mutually exclusive" in (result.stderr + result.stdout)
 
+    def test_main_strict_sandbox_aborts_on_isolation_fail(self) -> None:
+        """--strict-sandbox + rlimit (POSIX 한계로 isolation 일부 fail) → exit 3.
+
+        rlimit는 network/fs/memory 차단 안 됨 → strict 모드에서 즉시 abort.
+        SPEC §5 가드레일 1순위 (sandbox_isolation_pass=false → strict-abort) 검증.
+        """
+        proj = Path(__file__).resolve().parents[2]
+        result = _run(
+            [sys.executable, "main.py", "--algorithm", "Two Sum",
+             "--sandbox", "rlimit", "--strict-sandbox"],
+            cwd=proj,
+        )
+        assert result.returncode == 3, (
+            f"expected exit 3, got {result.returncode}; "
+            f"stderr={result.stderr!r}"
+        )
+        assert "sandbox isolation failed" in (result.stderr + result.stdout)
+
 
 @pytest.mark.parametrize("flag,expected_in_help", [
     ("--algorithm", "target algorithm"),
