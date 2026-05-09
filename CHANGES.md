@@ -402,3 +402,117 @@ CI 통과 안 되면 merge 차단 (P12 GitHub Actions 도입 후).
 - 가벼운 reference만으로도 phase 단위 navigate 가능
 
 향후 진짜 phase-격리 history가 꼭 필요하면 별도 라운드에서 검토.
+
+---
+
+## 13. Round 6 — Implementation 라운드 + Polish (2026-05-09 ~ 2026-05-10)
+
+> Round 5의 phase-branch 워크플로를 따라 P2~P12를 순차 구현. 각 phase 완료 후
+> audit fix 라운드를 끼워넣어 누적 spec drift 방지. 마지막에 polish 1+2 라운드로
+> 누적 backlog 11 항목 중 7개 완전 해소.
+
+### 13.1 Phase 구현 (P2 ~ P12, 11 phase)
+
+| Phase | Feature PR | Audit Fix PR | 핵심 산출물 |
+|---|---|---|---|
+| **P2** LLM Layer | `#1` | — | `ipe/llm.py`, `ipe/observability.py` (LLMCallTracker) |
+| **P3** Coder + Executor 최소회로 | `#2` | `#3` | `ipe/nodes/coder.py`, `ipe/nodes/executor.py` Phase A skeleton |
+| **P4** Architect + Phase A 3-way | `#4` | — | `ipe/nodes/architect.py`, REVIEW W3 3-way 휴리스틱 |
+| **P5** Auditor + Phase B | `#5` + `#6` | (RTE test fix) | `ipe/nodes/auditor.py`, syntactic validator |
+| **P6** Generator + Phase C | `#7` | `#8` | `ipe/nodes/generator.py`, ThreadPoolExecutor + 정해 50% gate |
+| **P7** Routing + Retry Discipline | `#9` | `#10` | `decision` 노드 + halt 가드 + `_build_history_section` (W4 oscillation) |
+| **P8** Checkpoint + Replay | `#11` | `#12` | SqliteSaver + `--resume` + `ReplayTracker` + `--replay` |
+| **P9** Evaluator + Calibration | `#13` | `#14` (docs) | `ipe/calibration/anchors.json` (8 anchors), `ipe/nodes/evaluator.py` |
+| **P10** Output Persistence | `#15` | `#16` | `ipe/io.py` + `ipe/_io_render.py` (audit 분리), `outputs/<run_id>/` Polygon |
+| **P11** Observability | `#17` | `#18` | `ipe/logging_config.py` JSON formatter + 4 표준 메트릭 |
+| **P12** Tests + CLI + CI | `#19` | `#20` | argparse 5 신규 플래그, `tests/e2e/`, `.github/workflows/ci.yml`, pre-commit |
+
+각 phase는 phase-branch (`feat/pX-*`) → sub-task별 commit → push → PR → `--no-ff` merge
+패턴 일관 적용. audit fix는 `chore/audit-fixes-post-pX` 별도 branch.
+
+### 13.2 Audit fix 라운드 (8회) — spec drift 방지
+
+각 phase 종료 후 audit script(ruff/mypy/pytest/coverage/budget) 실행 → 발견 항목을
+즉시 처리(critical) 또는 backlog 보존 (Low/Info). 처리된 ID:
+
+| ID | Phase | 처리 |
+|---|---|---|
+| **B3** (P3) | tracker=None 분기 | Option A — tracker required (P4 진입 시 처리) |
+| **A1** (P6) | executor.py 690 > budget 620 | `_executor_helpers.py` + `_executor_phases.py` 분리 |
+| **B1** (P7) | test_routing.py 422 > budget 400 | 단위 분리 (`test_routing_units.py`) |
+| **C1** (P8) | mock helpers 중복 ~420 lines | `tests/integration/_helpers.py` 통합 (-216 lines) |
+| **D3** (P9) | difficulty_* 디스크 미저장 | P10에서 자연 해소 (problem.json::difficulty) |
+| **E1** (P10) | io.py 348 > budget 280 | `_io_render.py` 분리 (-81 lines) |
+| **F1** (P11) | main.py 206 > budget 180 | `_setup_run` 헬퍼 추출 (-45 lines) |
+| **F2** (P11) | logging_config.py 93 > budget 80 | docstring 압축 (-30 lines) |
+| **G1** (P12) | main.py 188 > budget 180 | `_apply_exec_workers` inline (-11 lines) |
+
+backlog docs: `docs/backlog/2026-05-{08,09,10}_post-pX.md` (8 files).
+
+### 13.3 Polish 라운드 (Round 1+2) — 누적 backlog 해소
+
+**Polish 1차** (`chore/polish-round`, PR `#21`):
+- **P-1** D2 + E2: `tests/test_evaluator_unit.py` (11 cases) + `test_io.py::TestWrite*` (4 cases)
+- **P-2** C2 + F3: `tests/test_observability.py::TestReplayTracker*` (9 cases)
+- **P-3** A5 + C3: `tests/integration/test_cli_smoke.py` (10 cases — subprocess 기반)
+- **P-4** A4 + B2 + D1: CI yaml에 JDK 17 + Docker check 추가 (실측은 push 후)
+
+**Polish 2차** (`chore/polish-round-2-b3`, PR `#22`):
+- **B3**: `tests/test_architect_unit.py` (14 cases — `_validate_constraints_structured`
+  12 + `_route_back` 2) + `tests/test_auditor_unit.py` (9 cases — `_normalize_entry`
+  5 + `_route_back` 1 + `run` fallback 3)
+
+### 13.4 누적 backlog 결과
+
+| 분류 | 개수 | 항목 |
+|---|---|---|
+| ✅ Resolved | **7** | A5 (sandbox CLI) / B3 (architect+auditor coverage) / C2 (ReplayTracker 단위) / C3 (main.py coverage) / D2 (evaluator 단위) / E2 (io.py early return) / F3 (`_load_traces` except) |
+| 🟡 Partial | 3 | A4 (Docker), B2 (Java compile), D1 (sandboxexec) — CI yaml 적용, GitHub Actions push 후 자연 측정 |
+| 🔵 Carryover | 1 | F4 (LangSmith/OTel toggle) — 운영 환경 도입 시 |
+
+### 13.5 최종 통계 (Round 6 종료 시점)
+
+| 항목 | 값 |
+|---|---|
+| **완료 phase** | P0~P12 (13/13) |
+| **Merged PR** | `#1`~`#22` (22 — 12 feat + 10 chore/audit/polish) |
+| **모듈 수** | 27 source files + 28 test files |
+| ruff | 0 issues |
+| mypy `--strict` | 0 errors |
+| pytest | **190 passed** + 8 skipped (e2e 5 + Docker 3) |
+| **Coverage TOTAL** | **89%** (P12 87% → polish +2%p) |
+| 라인 budget 위반 | **0건** |
+| TODO/FIXME | 0건 |
+
+### 13.6 Coverage 추이 (12-phase 진행)
+
+| Phase | TOTAL | 변화 |
+|---|---|---|
+| P3 종료 | 72% | initial |
+| P5 BETA fix | 78% | +6%p |
+| P6 종료 | 79% | +1%p |
+| P7 종료 | 84% | +5%p (graph.invoke 통합) |
+| P8 종료 | 84% | — |
+| P9 종료 | 85% | +1%p (calibration/evaluator) |
+| P10 종료 | 87% | +2%p (io.py 99%) |
+| P11 종료 | 87% | — |
+| P12 종료 | 87% | — |
+| **Polish 2 라운드 종료** | **89%** | +2%p (architect/auditor/evaluator/io 단위 보강) |
+
+### 13.7 신규 100% coverage 모듈 (Polish 후)
+
+`__init__.py / _io_render.py / calibration / logging_config.py / runner.py /
+state.py + 4 빈 __init__` 외 polish로 추가:
+- `auditor.py` 100% (B3)
+- `evaluator.py` 100% (D2)
+- `io.py` 100% (E2)
+
+### 13.8 Round 6에서 의도적으로 안 한 것
+
+- **F4 (LangSmith/OTel toggle)**: ROADMAP에서 (옵션) 표기 — 운영 환경에서 도입.
+- **A4/B2/D1 실측 검증**: CI yaml은 준비됐으나 GitHub Actions push 후 ubuntu/macos
+  runner에서 자연 측정 — 별도 follow-up.
+- **Release tag (v0.1.0)**: CHANGES.md 갱신 후 별도 작업.
+- **Cross-platform e2e**: 비용이 큰 e2e 5 알고리즘은 manual / nightly trigger.
+
+---
