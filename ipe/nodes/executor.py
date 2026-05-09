@@ -29,6 +29,11 @@ DEFAULT_MEMORY_LIMIT_MB = 512
 COMPILE_TIME_LIMIT_MS = 60000   # Java javac은 느릴 수 있음
 COMPILE_MEMORY_LIMIT_MB = 1024
 
+# Phase C — generator script 실행 한도 (P6.2)
+GENERATOR_TIMEOUT_MS = 10_000
+GENERATOR_MEMORY_LIMIT_MB = 1024
+MAX_GENERATED_INPUT_BYTES = 5 * 1024 * 1024  # 5 MB
+
 
 def _normalize(s: str) -> str:
     """stdout 비교용 정규화 — 줄 끝 공백 / Windows 개행 / 양 끝 공백 제거."""
@@ -106,6 +111,43 @@ def _execute_solution(
         memory_limit_mb=memory_limit_mb,
     )
     return runner.run(spec)
+
+
+def _run_generator(
+    runner: SandboxedRunner,
+    gen_dir: Path,
+    gen_name: str,
+    seed: int,
+) -> tuple[bool, str, str]:
+    """generator script를 시드와 함께 실행하여 stdin 텍스트 생성 (P6.2).
+
+    Returns:
+        ``(success, stdin_text, error_message)``
+        - success=True 시 stdin_text는 생성된 입력
+        - success=False 시 error_message는 사유 (sandbox status, truncation 등)
+    """
+    spec = RunSpec(
+        cmd=["python3", f"{gen_name}.py", str(seed)],
+        cwd=str(gen_dir),
+        time_limit_ms=GENERATOR_TIMEOUT_MS,
+        memory_limit_mb=GENERATOR_MEMORY_LIMIT_MB,
+        max_stdout_bytes=MAX_GENERATED_INPUT_BYTES,
+    )
+    res = runner.run(spec)
+    if res.status != "OK":
+        err_excerpt = (res.stderr or res.stdout or "")[:300]
+        return (
+            False,
+            "",
+            f"generator '{gen_name}' (seed={seed}) {res.status}: {err_excerpt}",
+        )
+    if res.truncated_stdout:
+        return (
+            False,
+            "",
+            f"generator '{gen_name}' output exceeds {MAX_GENERATED_INPUT_BYTES} bytes",
+        )
+    return True, res.stdout, ""
 
 
 def _validate_input_against_constraints(
