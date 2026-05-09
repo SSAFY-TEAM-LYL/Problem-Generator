@@ -28,7 +28,7 @@ IPE는 외부 문제 소스에 의존하지 않고 고품질 알고리즘 문제
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 모듈별 코드 설계 + 운영 가드레일 |
 | [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) | 12-phase 구현 로드맵 (planner-grade) |
 | [`PYTHON_GUIDE.md`](PYTHON_GUIDE.md) | Python/LangGraph 문법·관용구 참고 |
-| [`CHANGES.md`](CHANGES.md) | 변경 이력 (Round 1~4) |
+| [`CHANGES.md`](CHANGES.md) | 변경 이력 (Round 1~6, P0~P12 구현 + polish) |
 | [`archive/`](archive/) | 외부 리뷰 등 archival 문서 |
 
 ---
