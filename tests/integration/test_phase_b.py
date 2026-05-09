@@ -88,10 +88,14 @@ def _problem_state_with_solution() -> ProblemState:
 # =============================================================================
 
 
-def test_phase_b_happy_path(
+def test_phase_b_pass_routes_to_generator_when_no_generators(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """8 valid adversarial → 모두 OK → final_status='success' + testcases 채움."""
+    """8 valid adversarial → Phase A+B 통과 → generators 부재 → 'generator' 라우팅 (P6).
+
+    Phase A+B happy path 검증 + Phase C는 generators가 없으면 라우팅 시그널만 set.
+    full happy path (Phase C 통과까지)는 ``test_phase_c.py``에서 별도로 다룬다.
+    """
     _patch_chat(
         monkeypatch, "ipe.nodes.auditor.get_chat", _adv_response(VALID_ADV_8)
     )
@@ -107,23 +111,17 @@ def test_phase_b_happy_path(
         state, runner=RlimitRunner(), workdir_root=tmp_path / "wd"
     )
 
-    assert state["final_status"] == "success"
-    assert state["last_failed_node"] is None
+    # Phase A+B 통과했지만 generators 부재 → generator 라우팅
+    assert state.get("final_status") is None
+    assert state["last_failed_node"] == "generator"
+    feedback = state.get("feedback_message") or ""
+    assert "no generators" in feedback
 
-    # testcases: 2 sample + 8 adversarial = 10
-    testcases = state.get("testcases") or []
-    assert len(testcases) == 10
-    sample_count = sum(1 for t in testcases if t.get("kind") == "sample")
-    adv_count = sum(1 for t in testcases if t.get("kind") == "adversarial")
-    assert sample_count == 2
-    assert adv_count == 8
-
-    # adversarial testcase에는 expected_output (oracle)이 채워져야 함
-    adv_tcs = [t for t in testcases if t.get("kind") == "adversarial"]
-    assert all("expected_output" in t for t in adv_tcs)
-    # "1 1\n" → "2" (1+1)
-    first_adv = next(t for t in adv_tcs if t["input"] == "1 1\n")
-    assert first_adv["expected_output"] == "2"
+    # Phase B의 adversarial 실행은 모두 OK 였어야 함 (results에 phase=adversarial 항목)
+    results = state.get("execution_results") or []
+    adv_results = [r for r in results if r.get("phase") == "adversarial"]
+    assert len(adv_results) == 8
+    assert all(r["pass"] for r in adv_results)
 
 
 # =============================================================================
