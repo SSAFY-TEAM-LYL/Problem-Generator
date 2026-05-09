@@ -32,6 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from ipe.nodes import architect, auditor, coder, executor, generator
@@ -151,12 +152,16 @@ def build_graph(
     tracker: LLMCallTracker,
     runner: SandboxedRunner,
     workdir_root: Path | None = None,
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Any:
     """3-Phase 검증 + conditional routing 그래프.
 
     노드 5개 (architect/coder/auditor/generator/executor) + decision 1개.
     의존성 (LLMCallTracker, SandboxedRunner)은 ``functools.partial``로 keyword-only
     bind. LangGraph는 노드를 ``(state) -> state``로 호출하므로 시그니처가 맞는다.
+
+    P8: ``checkpointer`` (예: ``SqliteSaver``)가 주어지면 노드 단위 영속화 +
+    ``--resume`` 가능. None이면 in-memory만.
     """
     g = StateGraph(ProblemState)
     g.add_node("architect", partial(architect.run, tracker=tracker))
@@ -190,4 +195,4 @@ def build_graph(
             END: END,
         },
     )
-    return g.compile()
+    return g.compile(checkpointer=checkpointer) if checkpointer else g.compile()

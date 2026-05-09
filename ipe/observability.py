@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage
 
 from ipe.state import LLMCallRecord
 
@@ -133,3 +133,67 @@ class LLMCallTracker:
         if not isinstance(resp, BaseMessage):
             raise TypeError(f"unexpected response type from chat.invoke: {type(resp).__name__}")
         return resp
+
+
+class ReplayTracker(LLMCallTracker):
+    """LLMCallTracker drop-in replacement — chat.invoke 우회 + cached trace 응답 (P8.3).
+
+    ``--replay <run_id>`` 모드에서 사용. seq 순서대로 ``traces_dir`` 의 JSON 파일을
+    읽어 ``AIMessage`` 로 wrap하여 반환. LLM 호출 0회 (비용 0) — 디버깅 + 재현용.
+
+    seq 매칭은 super-step 순서가 결정론적이라는 가정에 의존:
+    architect(seq=1) → coder(seq=2) → auditor(seq=3) → generator(seq=4) → ...
+    같은 입력으로 graph.invoke를 다시 돌리면 같은 순서로 호출 → 같은 trace 응답.
+    """
+
+    def __init__(self, run_id: str, traces_dir: Path) -> None:
+        super().__init__(run_id, traces_dir)
+        self._cache: dict[int, dict[str, Any]] = self._load_traces(traces_dir)
+
+    @staticmethod
+    def _load_traces(traces_dir: Path) -> dict[int, dict[str, Any]]:
+        """``traces_dir`` 안의 ``<seq:04d>_<node>.json`` 파일들을 seq → dict로 로드."""
+        cache: dict[int, dict[str, Any]] = {}
+        if not traces_dir.exists():
+            return cache
+        for p in sorted(traces_dir.glob("*.json")):
+            try:
+                seq = int(p.stem.split("_", 1)[0])
+            except ValueError:
+                continue
+            try:
+                cache[seq] = json.loads(p.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+        return cache
+
+    def invoke(
+        self,
+        chat: ChatAnthropic,
+        messages: list[Any],
+        *,
+        node: str,
+        state_calls: list[LLMCallRecord],
+    ) -> BaseMessage:
+        """chat.invoke를 우회 — cached trace의 response를 AIMessage로 반환."""
+        self.seq += 1
+        seq = self.seq
+        cached = self._cache.get(seq)
+        if cached is None:
+            raise RuntimeError(
+                f"replay miss: seq={seq} node={node} not found in {self.traces_dir}"
+            )
+
+        cached_node = str(cached.get("node", node))
+        record: LLMCallRecord = {
+            "seq": seq,
+            "node": cached_node,
+            "model": str(cached.get("model", "unknown")),
+            "input_tokens": int(cached.get("input_tokens", 0)),
+            "output_tokens": int(cached.get("output_tokens", 0)),
+            "cost_usd": float(cached.get("cost_usd", 0.0)),
+            "timestamp": str(cached.get("timestamp", "")),
+            "trace_path": f"{self.traces_dir.name}/{seq:04d}_{cached_node}.json",
+        }
+        state_calls.append(record)
+        return AIMessage(content=str(cached.get("response", "")))
