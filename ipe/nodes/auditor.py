@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from ipe.llm import AUDITOR_MODEL, get_chat, parse_json_array_field, parse_json_block
+from ipe.nodes._history import build_history_section
 from ipe.observability import LLMCallTracker
 from ipe.state import LLMCallRecord, ProblemState
 
@@ -118,6 +119,7 @@ def run(
     feedback = state.get("feedback_message")
     if feedback:
         user += FEEDBACK_SUFFIX.format(feedback=feedback)
+    user += build_history_section(state, current_node="auditor")
 
     messages: list[Any] = [
         {"role": "system", "content": SYSTEM_PROMPT},

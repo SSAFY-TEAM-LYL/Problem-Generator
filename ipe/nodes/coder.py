@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 from ipe.llm import CODER_MODEL, get_chat
+from ipe.nodes._history import build_history_section
 from ipe.observability import LLMCallTracker
 from ipe.state import LLMCallRecord, ProblemState
 
@@ -106,6 +107,7 @@ def run(
     feedback = state.get("feedback_message")
     if feedback:
         user += FEEDBACK_SUFFIX.format(feedback=feedback)
+    user += build_history_section(state, current_node="coder")
 
     messages: list[Any] = [
         {"role": "system", "content": SYSTEM_PROMPT},
