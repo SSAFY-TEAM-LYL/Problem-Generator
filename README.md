@@ -54,6 +54,9 @@ make install
 # 3. 환경 변수 셋업
 cp .env.example .env
 # .env를 열어 ANTHROPIC_API_KEY 입력
+
+# 4. (선택) pre-commit hooks — git commit 시 ruff 자동 실행
+pre-commit install
 ```
 
 ### 검증
@@ -79,21 +82,21 @@ ipe --replay <run_id>
 
 ## 현재 진행 상태
 
-| Phase | 상태 | 완료 commit |
+| Phase | 상태 | 완료 PR |
 |---|---|---|
-| **P0** Bootstrap | ✅ 완료 | `83e6bbf` |
-| **P1** Sandbox Foundation | 진행 예정 | — |
-| **P2** LLM Layer | 진행 예정 | — |
-| P3 Coder + Executor 최소회로 | — | — |
-| P4 Architect + Phase A 라우팅 | — | — |
-| P5 Auditor + Phase B | — | — |
-| P6 Generator + Phase C | — | — |
-| P7 Routing & Retry Discipline | — | — |
-| P8 Checkpointing & Replay | — | — |
-| P9 Evaluator + Calibration | — | — |
-| P10 Output Persistence | — | — |
-| P11 Observability | — | — |
-| P12 Tests + CLI + CI | — | — |
+| **P0** Bootstrap | ✅ | `83e6bbf` |
+| **P1** Sandbox Foundation | ✅ | `3f8d7bb` |
+| **P2** LLM Layer | ✅ | PR #1 |
+| **P3** Coder + Executor 최소회로 | ✅ | PR #2 |
+| **P4** Architect + Phase A 라우팅 | ✅ | PR #4 |
+| **P5** Auditor + Phase B | ✅ | PR #5 |
+| **P6** Generator + Phase C | ✅ | PR #7 |
+| **P7** Routing & Retry Discipline | ✅ | PR #9 |
+| **P8** Checkpointing & Replay | ✅ | PR #11 |
+| **P9** Evaluator + Calibration | ✅ | PR #13 |
+| **P10** Output Persistence | ✅ | PR #15 |
+| **P11** Observability | ✅ | PR #17 |
+| **P12** Tests + CLI + CI | 🔄 진행 중 | (`feat/p12-polish`) |
 
 상세 phase 정의·DoD: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md)
 
@@ -134,6 +137,43 @@ make clean       # build/cache 정리
 
 ---
 
+## Troubleshooting
+
+### `ANTHROPIC_API_KEY` 미설정
+```
+KeyError: 'ANTHROPIC_API_KEY'
+```
+→ `.env` 파일 확인 (`cp .env.example .env` 후 키 입력).
+
+### Sandbox tier 자동 선택 실패
+```
+RuntimeError: no usable sandbox tier
+```
+→ `make selftest-all` 로 각 tier 진단. T1(Docker)이 unavailable이면
+T2.5(macOS sandbox-exec) 또는 T3(rlimit)으로 fallback. `--sandbox rlimit` 강제 가능.
+
+### Resume / Replay 실패
+```
+checkpoint not found: outputs/<run_id>/checkpoint.db
+```
+→ `outputs/` 디렉토리에 `<run_id>` 존재 확인. P8 SqliteSaver 미통과 (예: 첫
+super-step 전 abort) 시 재개 불가 — 새 run으로 시작.
+
+### Cost guard 즉시 트리거
+```
+final_status: cost_exceeded
+```
+→ `--max-cost-usd` 너무 작거나 architect/coder가 large prompt를 사용 중.
+default `5.0` USD에서 시작, 필요 시 증감.
+
+### `mypy --strict` 실패
+- 새 노드 추가 시 모든 함수 시그니처에 type annotation 필수.
+- LangGraph node는 `(state) -> ProblemState` 형태로 반환 타입 명시.
+
+상세 운영 가이드: [`ARCHITECTURE.md` §7-10](ARCHITECTURE.md)
+
+---
+
 ## 라이선스
 
-(미정 — P12에서 결정)
+(미정 — P12 결정 보류)
