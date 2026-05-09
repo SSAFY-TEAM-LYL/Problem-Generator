@@ -166,19 +166,27 @@ def test_phase_b_validator_violation_routes_to_auditor(
 # =============================================================================
 
 
+
 def test_phase_b_execution_failure_routes_to_coder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """솔루션이 valid input에서 RTE → execution failure 우세 → coder."""
+    """sample은 통과 (Phase A) + adversarial 일부에서 RTE → Phase B coder 라우팅.
+
+    solution은 ``a > 999``일 때만 raise — sample (1+2, 10+20)은 모두 a≤10이라 통과,
+    adversarial의 큰 값들 (1e9, 999999999 등) 일부만 RTE 유발.
+    """
     _patch_chat(
         monkeypatch, "ipe.nodes.auditor.get_chat", _adv_response(VALID_ADV_8)
     )
 
     tracker = _make_tracker(tmp_path)
     state = _problem_state_with_solution()
-    # 솔루션을 ZeroDivisionError 일으키도록 변형
+    # Phase A는 통과하지만 adversarial의 큰 a값에서만 RTE 발생
     state["solution_code"] = (
-        "a, b = map(int, input().split())\nprint(a // 0)\n"
+        "a, b = map(int, input().split())\n"
+        "if a > 999:\n"
+        "    raise RuntimeError('big a')\n"
+        "print(a + b)\n"
     )
 
     state = auditor.run(state, tracker=tracker)
