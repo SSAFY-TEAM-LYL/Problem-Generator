@@ -110,7 +110,7 @@ def _execute_solution(
 
 def _validate_input_against_constraints(
     input_text: str,
-    constraints_structured: dict[str, Any] | None,
+    constraints_structured: Any,
 ) -> str | None:
     """input이 ``constraints_structured``에 부합하는지 syntactic 검증.
 
@@ -260,15 +260,18 @@ def run(
         })
 
     if failures == 0:
-        # P3 단계 — Phase A 통과 = success (Phase B/C는 P5/P6에서 추가)
-        return {
-            **state,
-            "iteration_count": next_iter,
-            "execution_results": results,
-            "final_status": "success",
-            "last_failed_node": None,
-            "feedback_message": None,
-        }
+        # Phase A 통과 → Phase B 진입 (P5.3)
+        return _run_phase_b(
+            state=state,
+            results=results,
+            samples=samples,
+            run_dir=run_dir,
+            runner=runner,
+            language=language,
+            time_limit=time_limit,
+            memory_limit=memory_limit,
+            next_iter=next_iter,
+        )
 
     # P4 — Phase A 3-way 휴리스틱 라우팅 (REVIEW W3)
     target = _decide_phase_a_route(results)
@@ -279,6 +282,125 @@ def run(
         "execution_results": results,
         "last_failed_node": target,
         "feedback_message": feedback_msg,
+    }
+
+
+def _run_phase_b(
+    *,
+    state: ProblemState,
+    results: list[dict[str, Any]],
+    samples: list[dict[str, Any]],
+    run_dir: Path,
+    runner: SandboxedRunner,
+    language: str,
+    time_limit: int,
+    memory_limit: int,
+    next_iter: int,
+) -> ProblemState:
+    """Phase B — adversarial inputs 검증 (P5.3).
+
+    각 adversarial input에 대해:
+    1. ``_validate_input_against_constraints``로 syntactic 검증
+       위반 시 → auditor 책임 (validator failure로 카운트, results 미추가)
+    2. validator 통과한 input은 솔루션 실행
+       OK → ``testcases``에 ``{kind: "adversarial", expected_output: <actual>, ...}`` 추가
+       RTE/TLE/MLE → coder 책임 (execution failure로 카운트)
+
+    Phase B 라우팅:
+    - adversarial 부재 → auditor (산출물 누락)
+    - validator 실패가 우세 → auditor
+    - execution 실패가 우세 → coder
+    - 모두 통과 → ``final_status="success"`` (P6에서 Phase C 추가 시 변경)
+    """
+    adversarial = state.get("adversarial_inputs") or []
+    if not adversarial:
+        return {
+            **state,
+            "iteration_count": next_iter,
+            "execution_results": results,
+            "last_failed_node": "auditor",
+            "feedback_message": "no adversarial_inputs (auditor must generate)",
+        }
+
+    cs = state.get("constraints_structured")
+    validator_fail_count = 0
+    execution_fail_count = 0
+    oracle_added: list[dict[str, Any]] = []
+
+    for idx, tc in enumerate(adversarial):
+        inp = str(tc.get("input", ""))
+        err = _validate_input_against_constraints(inp, cs)
+        if err is not None:
+            validator_fail_count += 1
+            # validator 실패는 실행 안 했으므로 results에 추가 안 함 — 별도 카운트만
+            continue
+
+        out = _execute_solution(
+            runner,
+            run_dir,
+            language,
+            inp,
+            time_limit_ms=time_limit,
+            memory_limit_mb=memory_limit,
+        )
+        actual = _normalize(out.stdout)
+        passed = out.status == "OK"
+        results.append({
+            "phase": "adversarial",
+            "index": idx,
+            "pass": passed,
+            "status": out.status,
+            "execution_time_ms": out.elapsed_ms,
+            "input": inp,
+            "actual": actual,
+            "stderr": out.stderr,
+        })
+        if passed:
+            oracle_added.append({
+                "kind": "adversarial",
+                "input": inp,
+                "expected_output": actual,
+                "category": str(tc.get("category", "ADVERSARIAL")),
+                "reason": str(tc.get("reason", "")),
+                "execution_time_ms": out.elapsed_ms,
+            })
+        else:
+            execution_fail_count += 1
+
+    # 라우팅
+    if validator_fail_count > 0 or execution_fail_count > 0:
+        if validator_fail_count > execution_fail_count:
+            target = "auditor"
+            msg = (
+                f"phase B: {validator_fail_count} adversarial inputs violate "
+                f"constraints (auditor must regenerate)"
+            )
+        else:
+            target = "coder"
+            msg = (
+                f"phase B: solution failed on {execution_fail_count} "
+                f"adversarial cases (RTE/TLE/MLE)"
+            )
+        return {
+            **state,
+            "iteration_count": next_iter,
+            "execution_results": results,
+            "last_failed_node": target,
+            "feedback_message": msg,
+        }
+
+    # 모두 통과 — testcases 누적 후 success (P6에서 Phase C 추가)
+    sample_with_kind = [{**s, "kind": "sample"} for s in samples]
+    all_testcases = sample_with_kind + oracle_added
+
+    return {
+        **state,
+        "iteration_count": next_iter,
+        "execution_results": results,
+        "testcases": all_testcases,
+        "final_status": "success",
+        "last_failed_node": None,
+        "feedback_message": None,
     }
 
 
