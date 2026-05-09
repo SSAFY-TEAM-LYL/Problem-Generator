@@ -50,6 +50,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--strict-sandbox", action="store_true")
     ap.add_argument("--resume", metavar="RUN_ID", help="resume from checkpoint.db")
     ap.add_argument("--replay", metavar="RUN_ID", help="replay from llm_traces")
+    # P12.1: per-node retry budget overrides (SPEC §5 default = 2/4/2/2)
+    ap.add_argument("--budget-architect", type=int, default=2)
+    ap.add_argument("--budget-coder", type=int, default=4)
+    ap.add_argument("--budget-auditor", type=int, default=2)
+    ap.add_argument("--budget-generator", type=int, default=2)
+    # P12.1: Phase C parallelism (P6.3 PHASE_C_WORKERS default 4 — runtime override)
+    ap.add_argument("--exec-workers", type=int, default=None,
+                    help="ThreadPoolExecutor workers for Phase C (default 4)")
+    ap.add_argument("--parallel-fanout", type=int, default=None,
+                    help="alias for --exec-workers (alternative naming)")
     args = ap.parse_args(argv)
     if args.resume and args.replay:
         ap.error("--resume and --replay are mutually exclusive")
@@ -59,7 +69,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
-    """SPEC §5 default node_retry_budget으로 새 ProblemState 빌드."""
+    """argparse 인자에서 node_retry_budget을 빌드 (SPEC §5 default 2/4/2/2)."""
     return {
         "run_id": run_id,
         "target_algorithm": args.algorithm,
@@ -67,10 +77,26 @@ def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
         "iteration_count": 0,
         "max_iter": args.max_iter,
         "max_cost_usd": args.max_cost_usd,
-        "node_retry_budget": {"architect": 2, "coder": 4, "auditor": 2, "generator": 2},
+        "node_retry_budget": {
+            "architect": args.budget_architect,
+            "coder": args.budget_coder,
+            "auditor": args.budget_auditor,
+            "generator": args.budget_generator,
+        },
         "iteration_history": [],
         "llm_calls": [],
     }
+
+
+def _apply_exec_workers(args: argparse.Namespace) -> None:
+    """``--exec-workers`` / ``--parallel-fanout`` 로 PHASE_C_WORKERS 런타임 override.
+
+    P6.3에서 ``ipe.nodes._executor_helpers.PHASE_C_WORKERS = 4`` 가 default.
+    """
+    workers = args.exec_workers or args.parallel_fanout
+    if workers and workers > 0:
+        from ipe.nodes import _executor_helpers
+        _executor_helpers.PHASE_C_WORKERS = int(workers)
 
 
 def _setup_run(args: argparse.Namespace) -> tuple[str, Path, Path, Path]:
@@ -103,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     setup_logging(level="INFO")  # P11: structured JSON logs to stdout
     args = _parse_args(argv)
+    _apply_exec_workers(args)  # P12.1: runtime override of PHASE_C_WORKERS
 
     try:
         run_id, run_dir, traces_dir, db_path = _setup_run(args)
