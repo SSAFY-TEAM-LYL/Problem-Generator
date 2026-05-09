@@ -83,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     runner = pick_runner(args.sandbox, verbose=True)
     tracker = LLMCallTracker(run_id, traces_dir)
 
+    # SPEC §5 default node_retry_budget
     initial_state: ProblemState = {
         "run_id": run_id,
         "target_algorithm": args.algorithm,
@@ -90,6 +91,14 @@ def main(argv: list[str] | None = None) -> int:
         "iteration_count": 0,
         "max_iter": args.max_iter,
         "max_cost_usd": args.max_cost_usd,
+        "node_retry_budget": {
+            "architect": 2,
+            "coder": 4,
+            "auditor": 2,
+            "generator": 2,
+        },
+        "iteration_history": [],
+        "llm_calls": [],
     }
 
     print(
