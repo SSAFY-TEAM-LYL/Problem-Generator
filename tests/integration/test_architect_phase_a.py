@@ -20,7 +20,6 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.messages import BaseMessage
 
-from ipe.graph import build_graph
 from ipe.nodes import architect, coder, executor
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.rlimit_runner import RlimitRunner
@@ -80,27 +79,29 @@ VALID_CODER = "```python\na, b = map(int, input().split())\nprint(a + b)\n```"
 # =============================================================================
 
 
-def test_phase_a_pass_routes_to_auditor_in_linear_graph(
+def test_phase_a_pass_routes_to_auditor_via_nodes(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """architect → coder → executor (linear graph, no auditor) → Phase A 통과 →
-    adversarial 부재로 ``last_failed_node='auditor'``. P5.3 신규 라우팅.
+    """architect → coder → executor (노드 직접 호출, no graph) → Phase A 통과 →
+    adversarial 부재로 ``last_failed_node='auditor'``. P5.3 라우팅 시그널 검증.
 
-    P7에서 graph에 auditor 노드 + conditional routing이 추가되면 본 테스트는
-    실제 사이클 success까지 가도록 갱신된다.
+    P7에서 graph에 conditional routing이 추가되면서, 본 테스트는 graph.invoke
+    대신 노드를 순차 호출해 라우팅 시그널만 검증한다 (graph cycle은
+    ``test_routing.py``에서 별도 검증, P7.4).
     """
     _patch_chat(monkeypatch, "ipe.nodes.architect.get_chat", _arch_response(VALID_SAMPLES))
     _patch_chat(monkeypatch, "ipe.nodes.coder.get_chat", VALID_CODER)
 
     tracker = _make_tracker(tmp_path)
-    runner = RlimitRunner()
-    graph = build_graph(tracker=tracker, runner=runner, workdir_root=tmp_path / "wd")
-
     state: ProblemState = {
         "target_algorithm": "A+B",
         "target_language": "python",
     }
-    final = graph.invoke(state)
+    state = architect.run(state, tracker=tracker)
+    state = coder.run(state, tracker=tracker)
+    final = executor.run(
+        state, runner=RlimitRunner(), workdir_root=tmp_path / "wd"
+    )
 
     # Phase A 통과 + adversarial 부재 → auditor 라우팅
     assert final.get("final_status") is None

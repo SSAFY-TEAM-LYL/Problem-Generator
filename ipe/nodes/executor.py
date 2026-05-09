@@ -54,6 +54,11 @@ def run(
     next_iter = state.get("iteration_count", 0) + 1
 
     if not code:
+        # Coder가 IMPOSSIBLE 선언 시 last_failed_node를 이미 set (예: "architect").
+        # 그 라우팅 시그널을 덮어쓰지 않고 보존 — graph의 decision 노드가 처리.
+        existing = state.get("last_failed_node")
+        if existing and existing != "coder":
+            return {**state, "iteration_count": next_iter}
         return {
             **state,
             "iteration_count": next_iter,
