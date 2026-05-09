@@ -1,12 +1,16 @@
-"""Routing + halt 가드 통합 테스트 (P7.4).
+"""Routing 통합 테스트 — graph.invoke full cycle (P7.4).
 
 스펙: ARCHITECTURE.md §3.4, IMPLEMENTATION_ROADMAP §1 P7.4
-범위:
+범위: graph.invoke를 통한 의도적 실패 사이클 — Definition of Done 4종.
 
-A) ``_decision`` / ``_route_after_decision`` 단위 검증 (graph 우회)
-B) ``build_history_section`` 단위 검증 (oscillation 경고)
-C) graph.invoke 통합 — happy path / coder budget exhausted /
-   max_iter / cost_exceeded
+단위 테스트 (``_decision``, ``_route_after_decision``, ``build_history_section``)
+는 ``tests/test_routing_units.py``로 분리 (P7 audit B1, budget ≤400 준수).
+
+시나리오:
+1. happy path full cycle → ``final_status='success'`` + sample/adv/generated testcases
+2. coder budget exhausted (BAD_CODER + budget=2) → ``budget_exhausted``
+3. max_iter=1 + 잘못된 코드 → ``max_iterations``
+4. max_cost_usd=0.01 + 10k tokens → ``cost_exceeded``
 """
 
 from __future__ import annotations
@@ -18,10 +22,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.messages import BaseMessage
-from langgraph.graph import END
 
-from ipe.graph import _decision, _route_after_decision, build_graph
-from ipe.nodes._history import build_history_section
+from ipe.graph import build_graph
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.rlimit_runner import RlimitRunner
 from ipe.state import ProblemState
@@ -140,171 +142,6 @@ def _default_budget() -> dict[str, int]:
     return {"architect": 2, "coder": 4, "auditor": 2, "generator": 2}
 
 
-# =============================================================================
-# A) _decision / _route_after_decision 단위
-# =============================================================================
-
-
-class TestDecision:
-    def test_cost_exceeded_short_circuits(self) -> None:
-        """누적 cost > max_cost_usd → cost_exceeded (가장 높은 우선순위)."""
-        state: ProblemState = {
-            "max_cost_usd": 0.01,
-            "llm_calls": [
-                {"cost_usd": 0.005, "node": "architect", "seq": 0,
-                 "input_tokens": 0, "output_tokens": 0, "model": "x", "timestamp": ""},
-                {"cost_usd": 0.02, "node": "coder", "seq": 1,
-                 "input_tokens": 0, "output_tokens": 0, "model": "x", "timestamp": ""},
-            ],
-            "iteration_count": 0,
-            "max_iter": 5,
-            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
-            "last_failed_node": "coder",
-        }
-        result = _decision(state)
-        assert result["final_status"] == "cost_exceeded"
-        assert "cost guard" in (result.get("feedback_message") or "")
-
-    def test_success_preserved(self) -> None:
-        """executor가 set한 final_status='success'는 보존."""
-        state: ProblemState = {
-            "final_status": "success",
-            "max_cost_usd": 100.0,
-            "llm_calls": [],
-            "iteration_count": 1,
-            "max_iter": 5,
-        }
-        result = _decision(state)
-        assert result["final_status"] == "success"
-
-    def test_max_iter_halt(self) -> None:
-        """iteration_count >= max_iter → max_iterations."""
-        state: ProblemState = {
-            "iteration_count": 5,
-            "max_iter": 5,
-            "max_cost_usd": 100.0,
-            "llm_calls": [],
-            "last_failed_node": "coder",
-            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
-        }
-        result = _decision(state)
-        assert result["final_status"] == "max_iterations"
-
-    def test_budget_exhausted(self) -> None:
-        """node_retry_budget[failed] <= 0 → budget_exhausted."""
-        budget = _default_budget()
-        budget["coder"] = 0
-        state: ProblemState = {
-            "iteration_count": 1,
-            "max_iter": 5,
-            "max_cost_usd": 100.0,
-            "llm_calls": [],
-            "last_failed_node": "coder",
-            "node_retry_budget": budget,  # type: ignore[typeddict-item]
-        }
-        result = _decision(state)
-        assert result["final_status"] == "budget_exhausted"
-        assert "coder" in (result.get("feedback_message") or "")
-
-    def test_retry_decrements_budget_and_appends_history(self) -> None:
-        """정상 retry — budget 차감 + iteration_history 추가."""
-        budget = _default_budget()
-        state: ProblemState = {
-            "iteration_count": 1,
-            "max_iter": 5,
-            "max_cost_usd": 100.0,
-            "llm_calls": [],
-            "last_failed_node": "coder",
-            "feedback_message": "compile error: foo",
-            "node_retry_budget": budget,  # type: ignore[typeddict-item]
-            "iteration_history": [],
-        }
-        result = _decision(state)
-
-        assert result.get("final_status") is None  # halt 아님
-        assert result["node_retry_budget"]["coder"] == 3  # 4 → 3
-        history = result.get("iteration_history") or []
-        assert len(history) == 1
-        assert history[0]["node"] == "coder"
-        assert history[0]["error_signature"]  # SHA-1 12자
-        assert history[0]["feedback"] == "compile error: foo"
-
-
-class TestRouteAfterDecision:
-    def test_final_status_routes_to_end(self) -> None:
-        for status in ("success", "max_iterations", "budget_exhausted", "cost_exceeded"):
-            state: ProblemState = {"final_status": status}  # type: ignore[typeddict-item]
-            assert _route_after_decision(state) == END
-
-    @pytest.mark.parametrize(
-        "node", ["architect", "coder", "auditor", "generator"]
-    )
-    def test_failed_node_routes_to_node(self, node: str) -> None:
-        state: ProblemState = {"last_failed_node": node}
-        assert _route_after_decision(state) == node
-
-    def test_no_failure_no_status_routes_to_end(self) -> None:
-        """이상 상태 — 안전하게 END."""
-        assert _route_after_decision({}) == END
-
-
-# =============================================================================
-# B) build_history_section 단위 — oscillation 경고
-# =============================================================================
-
-
-class TestBuildHistorySection:
-    def test_empty_returns_blank(self) -> None:
-        assert build_history_section({}, current_node="coder") == ""
-
-    def test_renders_recent_entries(self) -> None:
-        state: ProblemState = {
-            "iteration_history": [
-                {
-                    "iter_index": 1, "node": "coder", "action": "retry",
-                    "error_signature": "abc123", "feedback": "compile error",
-                },
-            ],
-        }
-        section = build_history_section(state, current_node="coder")
-        assert "Previous Attempts" in section
-        assert "[iter 1]" in section
-        assert "abc123" in section
-        assert "compile error" in section
-
-    def test_oscillation_warning_on_repeated_signature(self) -> None:
-        """같은 (current_node, error_signature) 2회 → 강한 경고."""
-        state: ProblemState = {
-            "iteration_history": [
-                {"iter_index": 1, "node": "coder", "action": "retry",
-                 "error_signature": "sigX", "feedback": "fail"},
-                {"iter_index": 2, "node": "coder", "action": "retry",
-                 "error_signature": "sigX", "feedback": "fail"},
-            ],
-        }
-        section = build_history_section(state, current_node="coder")
-        assert "DIFFERENT STRATEGY REQUIRED" in section
-        assert "sigX" in section
-
-    def test_no_warning_when_signature_belongs_to_other_node(self) -> None:
-        """auditor의 반복 시그니처는 coder의 prompt에 경고 안 띄움."""
-        state: ProblemState = {
-            "iteration_history": [
-                {"iter_index": 1, "node": "auditor", "action": "retry",
-                 "error_signature": "sigA", "feedback": "f1"},
-                {"iter_index": 2, "node": "auditor", "action": "retry",
-                 "error_signature": "sigA", "feedback": "f1"},
-            ],
-        }
-        section = build_history_section(state, current_node="coder")
-        assert "DIFFERENT STRATEGY REQUIRED" not in section
-
-
-# =============================================================================
-# C) graph.invoke 통합 — full cycle
-# =============================================================================
-
-
 def _build_initial(
     *,
     max_iter: int = 5,
@@ -338,6 +175,11 @@ def _wire_all_chats(
            in_tok=in_tok, out_tok=out_tok)
     _patch(monkeypatch, "ipe.nodes.generator.get_chat", GEN_RESPONSE,
            in_tok=in_tok, out_tok=out_tok)
+
+
+# =============================================================================
+# graph.invoke 통합 — full cycle
+# =============================================================================
 
 
 def test_happy_path_full_cycle_success(
