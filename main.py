@@ -127,6 +127,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     runner = pick_runner(args.sandbox, verbose=True)
+    if args.strict_sandbox:
+        failed = [k for k, ok in runner.isolation_self_test().items() if not ok]
+        if failed:
+            print(f"sandbox isolation failed: {failed}", file=sys.stderr)
+            return 3
     tracker: LLMCallTracker = (
         ReplayTracker(run_id, traces_dir) if args.replay
         else LLMCallTracker(run_id, traces_dir)
@@ -152,11 +157,9 @@ def main(argv: list[str] | None = None) -> int:
             final_state = graph.invoke(_initial_state(run_id, args), config=config)
 
     final_status = final_state.get("final_status")
-    print(f"\n=== final_status: {final_status} ===", file=sys.stderr)
-    print(f"last_failed_node: {final_state.get('last_failed_node')}", file=sys.stderr)
+    print(f"\n=== final_status={final_status} ===", file=sys.stderr)
 
-    save_result(cast(ProblemState, final_state), run_dir)  # P10
-    print(f"saved outputs to {run_dir}", file=sys.stderr)
+    save_result(cast(ProblemState, final_state), run_dir)  # P10 — outputs/<run_id>/
 
     summary = {
         "run_id": run_id,
