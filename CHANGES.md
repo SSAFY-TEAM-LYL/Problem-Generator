@@ -511,8 +511,64 @@ state.py + 4 빈 __init__` 외 polish로 추가:
 
 - **F4 (LangSmith/OTel toggle)**: ROADMAP에서 (옵션) 표기 — 운영 환경에서 도입.
 - **A4/B2/D1 실측 검증**: CI yaml은 준비됐으나 GitHub Actions push 후 ubuntu/macos
-  runner에서 자연 측정 — 별도 follow-up.
-- **Release tag (v0.1.0)**: CHANGES.md 갱신 후 별도 작업.
+  runner에서 자연 측정 — 별도 follow-up (§13.10에서 처리).
 - **Cross-platform e2e**: 비용이 큰 e2e 5 알고리즘은 manual / nightly trigger.
+
+### 13.9 심층 검증 + Critical Drift Fix (PR #24, 2026-05-10)
+
+> Polish 라운드 후 사용자 요청으로 SPEC ↔ 구현 정합성 심층 검증 (8 axis).
+> Critical 1건 발견 → 즉시 처리.
+
+**검증 결과**:
+- ✅ ProblemState 28 필드 완벽 일치
+- ✅ 노드 책임 5개 vs SPEC §4 모두 매핑
+- ✅ 3-Phase 검증 vs SPEC §4.5 매핑
+- ✅ 산출물 schema vs SPEC §6 (10 필드 + 디렉토리 5종)
+- 🔴 **Critical**: `--strict-sandbox` argparse 정의되었으나 main() 본문에서 미사용
+- 🟡 Mid: SPEC §5 가드레일 순서 vs graph._decision drift (메시지 차이만)
+- 🟢 Minor: graph.py 205 > budget 200 (P9 evaluator 추가)
+
+**처리** (PR #24, `chore/fix-strict-sandbox`):
+- main.py: `pick_runner` 직후 strict-sandbox 분기 추가 (5줄)
+  - `args.strict_sandbox=True` 시 `runner.isolation_self_test()` 호출
+  - 결과 dict에 false 항목 있으면 stderr 보고 + exit 3
+- main.py 본문 -2줄 압축 (saved outputs print 제거 + last_failed 통합)
+  → main.py **180 lines = budget** 정확히 만족
+- `tests/integration/test_cli_smoke.py`: `test_main_strict_sandbox_aborts_on_isolation_fail` (rlimit + strict → exit 3)
+
+**SPEC §5 1순위 가드레일 활성화** — 운영 환경 안전성 향상.
+
+### 13.10 v0.1.0 Release + CI 결과 (2026-05-10)
+
+**Release** (`tag v0.1.0`, main HEAD `77fb596`):
+- 12-phase Roadmap (P0~P12) all-green
+- Polish 1+2 라운드 + critical drift fix 완료
+- 24 PRs merged (PR #1~#24)
+
+**CI 결과** (GitHub Actions ubuntu+macos matrix, run `25608621298`):
+
+| OS | Tests | Coverage | 시간 |
+|---|---|---|---|
+| ubuntu-latest | 187 passed / 7 skipped / 5 deselected (e2e) | 87% | 1m 15s |
+| macos-latest | 191 passed / 3 skipped / 5 deselected (e2e) | **89%** | 54s |
+
+**Partial 항목 자연 측정**:
+- ✅ **A4** (Docker): ubuntu 32% → **59%** (+27%p, Docker daemon 활성)
+- 🟡 **B2** (Java javac): 미해소 — JDK 17 설치됐으나 javac 분기 trigger하는 통합 테스트 부재
+- 🟡 **D1** (sandboxexec): macOS 75% 유지, ubuntu 30% (binary 없음 — 환경 의존)
+- 🟡 `sandbox/__main__.py` 0%: subprocess.run으로 측정 안 됨 (pytest-cov 한계)
+
+### 13.11 Round 7 — 문서 정리 (2026-05-10)
+
+> Round 6 종료 후 문서 stale 점검 결과 8개 갱신.
+
+**갱신**:
+- README.md: Phase 표 P12 ✅ + 🎉 v0.1.0 Release row 추가, badge 갱신 (status v0.1.0 / tests 191 / coverage 89%)
+- CHANGES.md §13.9-13.11 신규 (본 섹션)
+- ARCHITECTURE.md §3.4: `route_after_executor` 의사코드를 실제 `_decision` + `_route_after_decision` 분리 구조로 갱신 (P7 변경 반영)
+- PROJECT_SPEC.md §5: 가드레일 우선순위 명시 (CHANGES §5와 동기화)
+- IMPLEMENTATION_ROADMAP.md §1: 각 phase에 ✅/PR 링크 컬럼 추가
+- IMPLEMENTATION_ROADMAP.md §2: graph.py budget 200 → 210 (P9 evaluator 등록 반영)
+- docs/backlog/2026-05-10_post-p12.md: CI 결과 반영 (A4 ubuntu 부분 해소)
 
 ---

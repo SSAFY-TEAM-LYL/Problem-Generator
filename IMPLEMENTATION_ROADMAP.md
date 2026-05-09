@@ -15,21 +15,23 @@
 
 ## 0. 한눈에 보는 12-Phase 표
 
-| # | Phase 이름 | 핵심 산출물 | 예상 (일) | 의존 |
-|---|---|---|---|---|
-| **P0** | Bootstrap | pyproject, deps, state.py, Makefile | 0.5 | — |
-| **P1** | Sandbox Foundation | runner ABC + 4 tier 구현 + selector | 2.0 | P0 |
-| **P2** | LLM Layer | get_chat, JSON 파서, LLMCallTracker | 1.0 | P0 |
-| **P3** | Coder + Executor 최소회로 | coder.py + executor.py (compile + Phase A skeleton) | 1.5 | P1, P2 |
-| **P4** | Architect + Phase A 라우팅 | architect.py + Phase A 3-way 휴리스틱 | 1.5 | P3 |
-| **P5** | Auditor + Phase B | auditor.py + syntactic validator + oracle baseline | 1.5 | P4 |
-| **P6** | Generator + Phase C | generator.py + 시드 stress + 병렬 case + 정해 50% 게이트 | 2.0 | P5 |
-| **P7** | Routing & Retry Discipline | route_after_executor + budget + iteration_history + cost guard | 1.5 | P6 |
-| **P8** | Checkpointing & Replay | SqliteSaver + --resume + ReplayTracker + --replay | 1.5 | P7 |
-| **P9** | Evaluator + Calibration | anchors.json + evaluator.py | 1.0 | P8 |
-| **P10** | Output Persistence | io.py + manifest + by-name symlink + problem.md | 1.0 | P9 |
-| **P11** | Observability | structured logging + 메트릭 + (옵션) LangSmith/OTel | 1.0 | P10 |
-| **P12** | Tests + CLI + CI | unit/integration/sandbox/e2e + main.py + GitHub Actions | 2.0 | P11 |
+| # | Phase 이름 | 핵심 산출물 | 예상 (일) | 의존 | Status |
+|---|---|---|---|---|---|
+| **P0** | Bootstrap | pyproject, deps, state.py, Makefile | 0.5 | — | ✅ `83e6bbf` |
+| **P1** | Sandbox Foundation | runner ABC + 4 tier 구현 + selector | 2.0 | P0 | ✅ `3f8d7bb` |
+| **P2** | LLM Layer | get_chat, JSON 파서, LLMCallTracker | 1.0 | P0 | ✅ PR #1 |
+| **P3** | Coder + Executor 최소회로 | coder.py + executor.py (compile + Phase A skeleton) | 1.5 | P1, P2 | ✅ PR #2 + audit #3 |
+| **P4** | Architect + Phase A 라우팅 | architect.py + Phase A 3-way 휴리스틱 | 1.5 | P3 | ✅ PR #4 |
+| **P5** | Auditor + Phase B | auditor.py + syntactic validator + oracle baseline | 1.5 | P4 | ✅ PR #5 + #6 |
+| **P6** | Generator + Phase C | generator.py + 시드 stress + 병렬 case + 정해 50% 게이트 | 2.0 | P5 | ✅ PR #7 + audit #8 |
+| **P7** | Routing & Retry Discipline | route_after_executor + budget + iteration_history + cost guard | 1.5 | P6 | ✅ PR #9 + audit #10 |
+| **P8** | Checkpointing & Replay | SqliteSaver + --resume + ReplayTracker + --replay | 1.5 | P7 | ✅ PR #11 + audit #12 |
+| **P9** | Evaluator + Calibration | anchors.json + evaluator.py | 1.0 | P8 | ✅ PR #13 + audit #14 |
+| **P10** | Output Persistence | io.py + manifest + by-name symlink + problem.md | 1.0 | P9 | ✅ PR #15 + audit #16 |
+| **P11** | Observability | structured logging + 메트릭 + (옵션) LangSmith/OTel | 1.0 | P10 | ✅ PR #17 + audit #18 |
+| **P12** | Tests + CLI + CI | unit/integration/sandbox/e2e + main.py + GitHub Actions | 2.0 | P11 | ✅ PR #19 + audit #20 |
+| Polish 1+2 | 누적 backlog 정리 | 단위 테스트 + CI 강화 + critical drift fix | — | — | ✅ PR #21, #22, #24 |
+| **🎉 v0.1.0** | Release | 12-phase + polish all-green, CI matrix 통과 | — | — | tag `v0.1.0` (`77fb596`) |
 | | **TOTAL** | | **17.5일** | |
 
 > **단일 개발자 풀타임 기준 ~3.5주.** 2인 페어로는 ~2주. 환경 이슈로 +20% 버퍼 권장.
@@ -497,7 +499,7 @@
 | `ipe/__init__.py` | 패키지 마커 | 0 | — | — | P0 | — |
 | `ipe/state.py` | TypedDict 정의 | ≤140 | (선언만) | `typing` | P0 | P7 |
 | `ipe/llm.py` | Claude wrapper + JSON 파서 | ≤220 | `get_chat`, `parse_json_block`, `parse_json_array_field` | `langchain_anthropic`, `re` | P2 | — |
-| `ipe/graph.py` | LangGraph 빌더 + 라우터 | ≤200 | `build_graph`, `route_after_executor`, `_halt`, `_budget_remaining`, `_cost_so_far` | `langgraph`, `ipe.nodes`, `ipe.state` | P4 | P7, P8, P9 |
+| `ipe/graph.py` | LangGraph 빌더 + 라우터 | ≤210 | `build_graph`, `_decision`, `_route_after_decision`, `_error_signature` (P7+P9 분리: `_halt` 노드 제거 → `_decision` 통합) | `langgraph`, `ipe.nodes`, `ipe.state` | P4 | P7, P8, P9 |
 | `ipe/io.py` | save_result + manifest + symlink | ≤280 | `save_result`, `_slug`, `_render_problem_md` | `json`, `pathlib`, `datetime` | P10 | — |
 | `ipe/observability.py` | LLMCallTracker + PRICING + 메트릭 | ≤260 | `LLMCallTracker.invoke`, `ReplayTracker.invoke`, `_cost_usd` | `langchain_anthropic`, `logging` | P2 | P8, P11 |
 | `ipe/logging_config.py` | logging dictConfig | ≤80 | `setup_logging` | `logging` | P11 | — |
