@@ -80,10 +80,15 @@ VALID_CODER = "```python\na, b = map(int, input().split())\nprint(a + b)\n```"
 # =============================================================================
 
 
-def test_happy_path_full_cycle(
+def test_phase_a_pass_routes_to_auditor_in_linear_graph(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """architect → coder → executor 1 cycle → final_status='success'."""
+    """architect → coder → executor (linear graph, no auditor) → Phase A 통과 →
+    adversarial 부재로 ``last_failed_node='auditor'``. P5.3 신규 라우팅.
+
+    P7에서 graph에 auditor 노드 + conditional routing이 추가되면 본 테스트는
+    실제 사이클 success까지 가도록 갱신된다.
+    """
     _patch_chat(monkeypatch, "ipe.nodes.architect.get_chat", _arch_response(VALID_SAMPLES))
     _patch_chat(monkeypatch, "ipe.nodes.coder.get_chat", VALID_CODER)
 
@@ -97,11 +102,14 @@ def test_happy_path_full_cycle(
     }
     final = graph.invoke(state)
 
-    assert final["final_status"] == "success"
-    assert final["last_failed_node"] is None
+    # Phase A 통과 + adversarial 부재 → auditor 라우팅
+    assert final.get("final_status") is None
+    assert final["last_failed_node"] == "auditor"
     assert final["problem_title"] == "A+B"
     assert len(final["execution_results"]) == 3
     assert all(r["pass"] for r in final["execution_results"])
+    feedback = final.get("feedback_message") or ""
+    assert "no adversarial_inputs" in feedback
 
 
 # =============================================================================

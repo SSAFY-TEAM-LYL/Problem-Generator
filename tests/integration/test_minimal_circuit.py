@@ -46,10 +46,15 @@ def _patch_coder_chat(monkeypatch: pytest.MonkeyPatch, content: str) -> None:
     )
 
 
-def test_happy_path_a_plus_b(
+def test_phase_a_pass_routes_to_auditor_when_no_adversarial(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """A+B 정해 → Phase A 통과 → final_status == 'success'."""
+    """A+B 정해 → Phase A 통과 → adversarial 부재 → auditor 라우팅 (P5.3).
+
+    P5에서 Phase B가 추가됨에 따라 Phase A 통과만으로는 success 아님 —
+    adversarial_inputs가 채워져야 success. happy path 검증은 Phase B
+    통합 테스트(``test_phase_b.py``)에서 별도로 다룬다.
+    """
     fake = "```python\na, b = map(int, input().split())\nprint(a + b)\n```"
     _patch_coder_chat(monkeypatch, fake)
     tracker = _make_tracker(tmp_path)
@@ -69,23 +74,20 @@ def test_happy_path_a_plus_b(
     state = coder.run(state, tracker=tracker)
     assert "solution_code" in state
     assert "a + b" in state["solution_code"]
-    assert state.get("last_failed_node") is None
 
-    # 2) Executor (Phase A)
+    # 2) Executor (Phase A 통과 → adversarial 부재 → auditor)
     state = executor.run(
         state, runner=RlimitRunner(), workdir_root=tmp_path / "wd"
     )
 
-    # 3) 검증
-    assert state["final_status"] == "success"
-    assert state["last_failed_node"] is None
+    # 3) 검증 — Phase A는 통과 + auditor로 라우팅
+    assert state.get("final_status") is None
+    assert state["last_failed_node"] == "auditor"
+    feedback = state.get("feedback_message") or ""
+    assert "no adversarial_inputs" in feedback
     results = state["execution_results"]
     assert len(results) == 2
     assert all(r["pass"] for r in results)
-    assert results[0]["expected"] == "3"
-    assert results[0]["actual"] == "3"
-    assert results[1]["expected"] == "30"
-    assert results[1]["actual"] == "30"
 
 
 def test_impossible_routes_to_architect(
