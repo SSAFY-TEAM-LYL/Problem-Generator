@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,27 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage
 
 from ipe.state import LLMCallRecord
+
+_metric_logger = logging.getLogger("ipe.observability")
+
+
+def emit_metric(name: str, value: float | int, /, **labels: Any) -> None:
+    """표준 메트릭 emitter (P11.2) — JsonFormatter가 JSON 라인으로 stdout emit.
+
+    형식: ``logger.info("metric", extra={"metric": name, "value": value, **labels})``
+
+    표준 메트릭 키:
+    - ``ipe.node.latency_ms`` — LLM 호출 wall time (ms)
+    - ``ipe.node.tokens_in`` / ``ipe.node.tokens_out`` — token 수
+    - ``ipe.node.cost_usd`` — USD 비용
+    - ``ipe.phase.exec_status`` — executor phase 결과 (예약, P12)
+
+    labels 예: ``node="architect"``, ``model="claude-opus-4-7"``, ``seq=1``.
+    """
+    _metric_logger.info(
+        "metric",
+        extra={"metric": name, "value": value, **labels},
+    )
 
 # ============================================================================
 # 모델별 단가 (USD per 1M tokens) — 2026-05 기준
@@ -82,18 +105,31 @@ class LLMCallTracker:
         node: str,
         state_calls: list[LLMCallRecord],
     ) -> BaseMessage:
-        """``chat.invoke``를 wrap — 응답 반환 + 토큰/비용 계산 + trace 저장."""
+        """``chat.invoke``를 wrap — 응답 반환 + 토큰/비용 계산 + trace 저장.
+
+        P11.2: ``ipe.node.latency_ms / tokens_in / tokens_out / cost_usd`` 4 메트릭을
+        ``ipe.observability`` logger로 emit (JsonFormatter가 stdout 라인으로 직렬화).
+        """
         self.seq += 1
         seq = self.seq
         ts = datetime.now(UTC).isoformat()
 
+        start = time.perf_counter()
         resp = chat.invoke(messages)
+        latency_ms = int((time.perf_counter() - start) * 1000)
 
         usage = getattr(resp, "usage_metadata", None) or {}
         in_tok = int(usage.get("input_tokens", 0))
         out_tok = int(usage.get("output_tokens", 0))
         model = str(getattr(chat, "model", "unknown"))
         cost = _cost_usd(model, in_tok, out_tok)
+
+        # P11.2 메트릭 emit
+        labels = {"node": node, "model": model, "seq": seq}
+        emit_metric("ipe.node.latency_ms", latency_ms, **labels)
+        emit_metric("ipe.node.tokens_in", in_tok, **labels)
+        emit_metric("ipe.node.tokens_out", out_tok, **labels)
+        emit_metric("ipe.node.cost_usd", cost, **labels)
 
         # raw trace 저장
         trace_path = self.traces_dir / f"{seq:04d}_{node}.json"
