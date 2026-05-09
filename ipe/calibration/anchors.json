@@ -1,0 +1,90 @@
+[
+  {
+    "id": "bj_1000_bronze5",
+    "label": "Bronze V",
+    "summary": "A+B — 두 정수를 읽어 합 출력 (입출력 + 정수 덧셈)",
+    "factors": {
+      "algorithm": "implementation",
+      "n_max": 1,
+      "complexity": "O(1)",
+      "data_structures": []
+    }
+  },
+  {
+    "id": "bj_2557_bronze5",
+    "label": "Bronze V",
+    "summary": "Hello World 출력",
+    "factors": {
+      "algorithm": "implementation",
+      "n_max": 1,
+      "complexity": "O(1)",
+      "data_structures": []
+    }
+  },
+  {
+    "id": "bj_2750_silver5",
+    "label": "Silver V",
+    "summary": "수 정렬 — N개 정수를 오름차순 정렬 (N ≤ 1000)",
+    "factors": {
+      "algorithm": "sorting",
+      "n_max": 1000,
+      "complexity": "O(N^2) or O(N log N)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_2751_silver5",
+    "label": "Silver V",
+    "summary": "수 정렬 2 — 효율적 정렬 알고리즘 필요 (N ≤ 1,000,000)",
+    "factors": {
+      "algorithm": "sorting",
+      "n_max": 1000000,
+      "complexity": "O(N log N)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_1753_gold5",
+    "label": "Gold V",
+    "summary": "최단경로 — 단일 출발점 다익스트라 (V ≤ 20000, E ≤ 300000, 양수 가중치)",
+    "factors": {
+      "algorithm": "dijkstra",
+      "n_max": 20000,
+      "complexity": "O((V+E) log V)",
+      "data_structures": ["priority_queue", "adjacency_list"]
+    }
+  },
+  {
+    "id": "bj_11657_gold4",
+    "label": "Gold IV",
+    "summary": "타임머신 — 벨만-포드 (음수 가중치 + 음수 사이클 검출, V ≤ 500, E ≤ 6000)",
+    "factors": {
+      "algorithm": "bellman_ford",
+      "n_max": 500,
+      "complexity": "O(VE)",
+      "data_structures": ["edge_list"]
+    }
+  },
+  {
+    "id": "bj_2887_gold2",
+    "label": "Gold II",
+    "summary": "행성 터널 — 최소 신장 트리 + 좌표 분리 트릭 (N ≤ 100,000)",
+    "factors": {
+      "algorithm": "mst_kruskal",
+      "n_max": 100000,
+      "complexity": "O(N log N)",
+      "data_structures": ["union_find", "sorted_edges"]
+    }
+  },
+  {
+    "id": "bj_1761_platinum5",
+    "label": "Platinum V",
+    "summary": "정점들의 거리 — LCA + 가중치 트리 거리 쿼리 (N ≤ 40000, M ≤ 10000)",
+    "factors": {
+      "algorithm": "lca_sparse_table",
+      "n_max": 40000,
+      "complexity": "O((N+M) log N)",
+      "data_structures": ["sparse_table", "tree", "dfs_order"]
+    }
+  }
+]
