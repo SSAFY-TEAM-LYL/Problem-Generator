@@ -134,7 +134,10 @@ def run(
     resp = tracker.invoke(chat, messages, node="evaluator", state_calls=calls)
     text = str(resp.content)
 
-    parsed = parse_json_block(text)
+    try:
+        parsed = parse_json_block(text)
+    except ValueError:
+        parsed = None
     if not isinstance(parsed, dict):
         # 측정 실패 — final_status는 success 유지, difficulty_* 미설정
         return {**state, "llm_calls": calls}
