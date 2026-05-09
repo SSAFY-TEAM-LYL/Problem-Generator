@@ -35,7 +35,7 @@ from typing import Any, cast
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
-from ipe.nodes import architect, auditor, coder, executor, generator
+from ipe.nodes import architect, auditor, coder, evaluator, executor, generator
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.runner import SandboxedRunner
 from ipe.state import IterationRecord, NodeRetryBudget, ProblemState
@@ -135,10 +135,13 @@ def _decision(state: ProblemState) -> ProblemState:
 def _route_after_decision(state: ProblemState) -> str:
     """conditional_edges 분기 — next node name or END.
 
-    - final_status set → END (success / max_iterations / budget_exhausted / cost_exceeded)
+    - final_status="success" → ``evaluator`` (P9.3, 난이도 측정 후 END)
+    - final_status ∈ {max_iterations, budget_exhausted, cost_exceeded} → END
     - last_failed_node ∈ {architect, coder, auditor, generator} → 그 노드 재실행
     - 그 외(이상 상태) → END (안전 종료)
     """
+    if state.get("final_status") == "success":
+        return "evaluator"
     if state.get("final_status"):
         return END
     failed = state.get("last_failed_node")
@@ -173,6 +176,7 @@ def build_graph(
         partial(executor.run, runner=runner, workdir_root=workdir_root),
     )
     g.add_node("decision", _decision)
+    g.add_node("evaluator", partial(evaluator.run, tracker=tracker))
 
     # 직선 entry — first iteration: architect → coder → executor → decision
     g.add_edge(START, "architect")
@@ -182,6 +186,8 @@ def build_graph(
     g.add_edge("auditor", "executor")
     g.add_edge("generator", "executor")
     g.add_edge("executor", "decision")
+    # P9: success → evaluator → END (난이도 측정)
+    g.add_edge("evaluator", END)
 
     # decision의 conditional 분기
     g.add_conditional_edges(
@@ -192,6 +198,7 @@ def build_graph(
             "coder": "coder",
             "auditor": "auditor",
             "generator": "generator",
+            "evaluator": "evaluator",
             END: END,
         },
     )

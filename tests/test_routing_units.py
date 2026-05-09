@@ -120,8 +120,14 @@ class TestDecision:
 
 
 class TestRouteAfterDecision:
-    def test_final_status_routes_to_end(self) -> None:
-        for status in ("success", "max_iterations", "budget_exhausted", "cost_exceeded"):
+    def test_success_routes_to_evaluator(self) -> None:
+        """final_status='success'는 evaluator로 라우팅 (P9.3)."""
+        state: ProblemState = {"final_status": "success"}
+        assert _route_after_decision(state) == "evaluator"
+
+    def test_halt_status_routes_to_end(self) -> None:
+        """max_iterations / budget_exhausted / cost_exceeded → END (evaluator 우회)."""
+        for status in ("max_iterations", "budget_exhausted", "cost_exceeded"):
             state: ProblemState = {"final_status": status}  # type: ignore[typeddict-item]
             assert _route_after_decision(state) == END
 

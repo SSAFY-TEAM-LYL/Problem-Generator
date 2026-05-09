@@ -128,6 +128,22 @@ VALID_ADV: list[dict[str, Any]] = [
     {"input": "500 500\n", "category": "UNIFORM", "reason": "midrange"},
 ]
 
+# Evaluator mock — Bronze V (A+B에 가장 가까운 anchor)
+EVAL_RESPONSE = """```json
+{
+  "difficulty_label": "Bronze V",
+  "difficulty_reasoning": "Closest to bj_1000_bronze5 — both A+B style with O(1) implementation.",
+  "difficulty_factors": {
+    "algorithm": "implementation",
+    "n_max": 1,
+    "complexity": "O(1)",
+    "data_structures": []
+  },
+  "difficulty_calibration_anchors": ["bj_1000_bronze5"]
+}
+```"""
+
+
 # Generator mock: _BLOCK_RE 형식 3개 (NAME/CATEGORY/DESCRIPTION + ```python fence```)
 GEN_RESPONSE = """NAME: gen_small
 CATEGORY: RANDOM_SMALL
@@ -199,9 +215,11 @@ def wire_all_chats_normal(
                adv_response(VALID_ADV), in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.generator.get_chat", GEN_RESPONSE,
                in_tok=in_tok, out_tok=out_tok)
+    patch_chat(monkeypatch, "ipe.nodes.evaluator.get_chat", EVAL_RESPONSE,
+               in_tok=in_tok, out_tok=out_tok)
 
 
 def wire_all_chats_forbid_invoke(monkeypatch: pytest.MonkeyPatch) -> None:
     """모든 노드의 chat.invoke를 금지 — ReplayTracker가 우회해야 PASS."""
-    for node in ("architect", "coder", "auditor", "generator"):
+    for node in ("architect", "coder", "auditor", "generator", "evaluator"):
         patch_forbid(monkeypatch, f"ipe.nodes.{node}.get_chat")
