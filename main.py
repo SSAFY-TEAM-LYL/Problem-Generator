@@ -28,6 +28,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from ipe.graph import build_graph
 from ipe.io import save_result
+from ipe.logging_config import setup_logging
 from ipe.observability import LLMCallTracker, ReplayTracker
 from ipe.sandbox.selector import pick_runner
 from ipe.state import ProblemState
@@ -114,6 +115,7 @@ def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
 
 def main(argv: list[str] | None = None) -> int:
     load_dotenv()
+    setup_logging(level="INFO")  # P11: structured JSON logs to stdout
     args = _parse_args(argv)
 
     # run_id resolve — resume/replay는 인자값 사용, 그 외는 새로 생성
