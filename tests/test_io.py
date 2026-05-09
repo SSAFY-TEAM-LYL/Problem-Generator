@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from ipe._io_render import render_problem_md
 from ipe.io import (
     _build_difficulty,
     _build_testcase_manifest,
-    _render_problem_md,
     _slug,
     _summarize_llm_calls,
 )
@@ -168,7 +168,7 @@ def test_render_problem_md_minimal() -> None:
             {"input": "1 2\n", "expected_output": "3"},
         ],
     }
-    md = _render_problem_md(state, manifest=[])
+    md = render_problem_md(state, manifest=[], difficulty=_build_difficulty(state))
     assert md.startswith("# Two Sum")
     assert "## Description" in md
     assert "Given two integers" in md
@@ -190,7 +190,7 @@ def test_render_problem_md_with_difficulty() -> None:
             {"id": "bj_1000_bronze5", "label": "Bronze V"},
         ],
     }
-    md = _render_problem_md(state, manifest=[])
+    md = render_problem_md(state, manifest=[], difficulty=_build_difficulty(state))
     assert "## Difficulty" in md
     assert "Bronze V" in md
     assert "bj_1000_bronze5" in md
@@ -205,7 +205,7 @@ def test_render_problem_md_manifest_table() -> None:
         {"index": 2, "kind": "generated", "category": "MAX_STRESS",
          "generator": "gen_big", "seed": 7, "exec_time_ms": 250},
     ]
-    md = _render_problem_md(state, manifest=manifest)
+    md = render_problem_md(state, manifest=manifest, difficulty=None)
     assert "## Testcase Manifest" in md
     assert "| # | kind |" in md
     assert "gen_big" in md
