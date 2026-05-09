@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from ipe.observability import (
     PRICING,
     LLMCallTracker,
+    ReplayTracker,
     _cost_usd,
     _serialize_messages,
 )
@@ -165,3 +166,145 @@ class TestLLMCallTracker:
         tracker = LLMCallTracker("run", tmp_path / "traces")
         with pytest.raises(TypeError, match="unexpected response type"):
             tracker.invoke(chat, [], node="x", state_calls=[])
+
+
+# =============================================================================
+# ReplayTracker (P-2 / C2 / F3) — _load_traces edge cases + invoke
+# =============================================================================
+
+
+def _write_trace(
+    traces_dir: Path,
+    *,
+    seq: int,
+    node: str,
+    response: str = "cached response",
+    in_tok: int = 100,
+    out_tok: int = 50,
+    cost_usd: float = 0.005,
+) -> None:
+    """LLMCallTracker schema의 trace 파일을 직접 작성 (테스트 fixture)."""
+    traces_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "seq": seq,
+        "node": node,
+        "model": "claude-opus-4-7",
+        "messages": [{"role": "user", "content": "x"}],
+        "response": response,
+        "input_tokens": in_tok,
+        "output_tokens": out_tok,
+        "cost_usd": cost_usd,
+        "timestamp": "2026-05-09T12:00:00+00:00",
+    }
+    (traces_dir / f"{seq:04d}_{node}.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+
+class TestReplayTrackerLoadTraces:
+    def test_empty_dir_returns_empty_cache(self, tmp_path: Path) -> None:
+        traces = tmp_path / "traces"
+        traces.mkdir()
+        tracker = ReplayTracker("run", traces)
+        assert tracker._cache == {}
+
+    def test_missing_dir_returns_empty_cache(self, tmp_path: Path) -> None:
+        """LLMCallTracker.__init__ 가 mkdir(exist_ok=True) 하므로 dir 자동 생성되어
+        cache는 빈 dict."""
+        missing = tmp_path / "no_such"
+        tracker = ReplayTracker("run", missing)
+        assert tracker._cache == {}
+        # subclass __init__이 mkdir하므로 dir이 생성되었어야
+        assert missing.exists()
+
+    def test_loads_valid_traces(self, tmp_path: Path) -> None:
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="architect")
+        _write_trace(traces, seq=2, node="coder", response="def f(): pass")
+
+        tracker = ReplayTracker("run", traces)
+        assert set(tracker._cache.keys()) == {1, 2}
+        assert tracker._cache[1]["node"] == "architect"
+        assert tracker._cache[2]["response"] == "def f(): pass"
+
+    def test_skips_non_int_prefix(self, tmp_path: Path) -> None:
+        """파일명 prefix가 int가 아니면 ValueError 분기 — skip."""
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="ok")
+        traces.mkdir(exist_ok=True)
+        # 잘못된 파일명 (non-int prefix) — _load_traces가 skip
+        (traces / "abc_node.json").write_text("{}", encoding="utf-8")
+
+        tracker = ReplayTracker("run", traces)
+        # 정상 파일만 로드
+        assert tracker._cache == {1: tracker._cache[1]}
+        assert "abc" not in str(tracker._cache.keys())
+
+    def test_skips_malformed_json(self, tmp_path: Path) -> None:
+        """JSON 파싱 실패 시 JSONDecodeError 분기 — skip."""
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="good")
+        traces.mkdir(exist_ok=True)
+        (traces / "0002_bad.json").write_text("{ not valid json", encoding="utf-8")
+
+        tracker = ReplayTracker("run", traces)
+        assert set(tracker._cache.keys()) == {1}
+        assert 2 not in tracker._cache
+
+
+class TestReplayTrackerInvoke:
+    def test_returns_cached_aimessage(self, tmp_path: Path) -> None:
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="architect", response="cached!")
+
+        tracker = ReplayTracker("run", traces)
+        chat = MagicMock()  # invoke가 호출되면 안 됨 (replay)
+        chat.invoke.side_effect = AssertionError("must not be called")
+        state_calls: list[LLMCallRecord] = []
+
+        resp = tracker.invoke(chat, [], node="architect", state_calls=state_calls)
+
+        # AIMessage로 wrap 반환
+        assert isinstance(resp, AIMessage)
+        assert resp.content == "cached!"
+        # chat.invoke는 호출 안 됨 (replay 핵심)
+        chat.invoke.assert_not_called()
+
+    def test_preserves_cached_cost_and_tokens(self, tmp_path: Path) -> None:
+        """cache의 cost_usd / tokens가 state_calls record에 보존."""
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="coder", in_tok=200, out_tok=80, cost_usd=0.0123)
+
+        tracker = ReplayTracker("run", traces)
+        state_calls: list[LLMCallRecord] = []
+        tracker.invoke(MagicMock(), [], node="coder", state_calls=state_calls)
+
+        assert len(state_calls) == 1
+        rec = state_calls[0]
+        assert rec["seq"] == 1
+        assert rec["node"] == "coder"
+        assert rec["input_tokens"] == 200
+        assert rec["output_tokens"] == 80
+        assert rec["cost_usd"] == pytest.approx(0.0123)
+
+    def test_cache_miss_raises_runtime_error(self, tmp_path: Path) -> None:
+        """seq가 cache에 없으면 즉시 RuntimeError."""
+        traces = tmp_path / "traces"
+        traces.mkdir()  # 빈 디렉토리
+
+        tracker = ReplayTracker("run", traces)
+        with pytest.raises(RuntimeError, match="replay miss"):
+            tracker.invoke(MagicMock(), [], node="architect", state_calls=[])
+
+    def test_seq_increments_across_calls(self, tmp_path: Path) -> None:
+        traces = tmp_path / "traces"
+        _write_trace(traces, seq=1, node="a")
+        _write_trace(traces, seq=2, node="b")
+
+        tracker = ReplayTracker("run", traces)
+        calls: list[LLMCallRecord] = []
+        tracker.invoke(MagicMock(), [], node="a", state_calls=calls)
+        tracker.invoke(MagicMock(), [], node="b", state_calls=calls)
+
+        assert [c["seq"] for c in calls] == [1, 2]
+        assert [c["node"] for c in calls] == ["a", "b"]

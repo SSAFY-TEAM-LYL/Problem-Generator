@@ -17,6 +17,8 @@ from ipe.io import (
     _build_testcase_manifest,
     _slug,
     _summarize_llm_calls,
+    _write_generators,
+    _write_testcases,
 )
 from ipe.state import ProblemState
 
@@ -210,3 +212,55 @@ def test_render_problem_md_manifest_table() -> None:
     assert "| # | kind |" in md
     assert "gen_big" in md
     assert "MAX_STRESS" in md
+
+
+# =============================================================================
+# E2 — _write_generators / _write_testcases early return on empty list
+# =============================================================================
+
+
+from pathlib import Path  # noqa: E402
+
+
+class TestWriteGenerators:
+    def test_empty_list_no_dir_created(self, tmp_path: Path) -> None:
+        """generators=[] → 즉시 return, generators/ 디렉토리 생성 안 함."""
+        _write_generators(tmp_path, [])
+        assert not (tmp_path / "generators").exists()
+
+    def test_writes_each_generator_script(self, tmp_path: Path) -> None:
+        gens = [
+            {"name": "gen_a", "code": "print('a')\n"},
+            {"name": "gen_b", "code": "print('b')\n"},
+        ]
+        _write_generators(tmp_path, gens)
+        gen_dir = tmp_path / "generators"
+        assert gen_dir.is_dir()
+        assert (gen_dir / "gen_a.py").read_text() == "print('a')\n"
+        assert (gen_dir / "gen_b.py").read_text() == "print('b')\n"
+
+
+class TestWriteTestcases:
+    def test_empty_list_no_dir_created(self, tmp_path: Path) -> None:
+        """testcases=[] → 즉시 [] 반환, tests/ 디렉토리 생성 안 함."""
+        result = _write_testcases(tmp_path, [])
+        assert result == []
+        assert not (tmp_path / "tests").exists()
+
+    def test_writes_in_out_and_manifest(self, tmp_path: Path) -> None:
+        cases = [
+            {"input": "1\n", "expected_output": "1\n", "kind": "sample"},
+            {"input": "2\n", "expected_output": "4\n", "kind": "adversarial",
+             "category": "MIN", "execution_time_ms": 5},
+        ]
+        manifest = _write_testcases(tmp_path, cases)
+        tests_dir = tmp_path / "tests"
+        assert tests_dir.is_dir()
+        assert (tests_dir / "01.in").read_text() == "1\n"
+        assert (tests_dir / "01.out").read_text() == "1\n"
+        assert (tests_dir / "02.in").read_text() == "2\n"
+        # manifest.json 존재 + 반환값과 일치
+        assert (tests_dir / "manifest.json").exists()
+        assert len(manifest) == 2
+        assert manifest[0]["index"] == 1
+        assert manifest[1]["category"] == "MIN"
