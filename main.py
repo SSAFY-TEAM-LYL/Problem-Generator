@@ -21,12 +21,13 @@ import json
 import sys
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from ipe.graph import build_graph
+from ipe.io import save_result
 from ipe.observability import LLMCallTracker, ReplayTracker
 from ipe.sandbox.selector import pick_runner
 from ipe.state import ProblemState
@@ -180,7 +181,10 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
 
-    # P10에서 io.save_result로 대체. 현재는 stdout JSON summary만.
+    # P10 — 산출물 영속화 (problem.json/md, solution, tests, generators, by-name symlink)
+    save_result(cast(ProblemState, final_state), run_dir)
+    print(f"saved outputs to {run_dir}", file=sys.stderr)
+
     summary = {
         "run_id": run_id,
         "final_status": final_status,
