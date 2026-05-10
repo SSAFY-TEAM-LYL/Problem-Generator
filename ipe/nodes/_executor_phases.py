@@ -33,6 +33,12 @@ from ipe.state import ProblemState
 _MAX_FAILURE_DETAILS = 3
 # 각 fail case의 stderr/input excerpt 길이 cap.
 _EXCERPT_CHARS = 200
+# R11 (Sprint 1.5): Coder가 받는 feedback의 input_bytes가 이 임계값 이상이면
+# 명시적 buffered-IO 경고를 prompt에 삽입. 근거: e2e Run 3 Two Sum이 1.97MB
+# stress input에서 RTE — Coder가 input size를 "input_bytes=1977874" 숫자로
+# 보고도 IO 최적화 자발적 떠올리지 못함. 1MB는 typical 알고리즘 문제에서
+# default IO로 처리 가능한 경계점.
+_HIGH_VOLUME_INPUT_BYTES = 1_000_000
 
 
 def _excerpt(s: str | None, *, limit: int = _EXCERPT_CHARS) -> str:
@@ -77,6 +83,22 @@ def _build_failure_feedback(
     lines = [header]
     shown = failures[:_MAX_FAILURE_DETAILS]
     if role == "coder":
+        # R11: high-volume input 감지 시 buffered-IO 사용 명시 경고. Coder가
+        # input_bytes 숫자만 보고는 "이 정도면 IO 최적화 필요"를 자발적으로
+        # 떠올리지 못함 (e2e Run 3 검증). 임계값 초과 case 1개라도 있으면
+        # 명시적 가이드를 prompt 상단에 주입한다.
+        max_input_bytes = max(
+            (int(f.get("input_bytes") or 0) for f in failures), default=0
+        )
+        if max_input_bytes >= _HIGH_VOLUME_INPUT_BYTES:
+            mb = max_input_bytes / 1_000_000
+            lines.append(
+                f"\n⚠️  HIGH-VOLUME INPUT detected (max {mb:.2f} MB). "
+                "Default line-by-line IO will TLE/RTE — switch to buffered IO:"
+            )
+            lines.append("  - Python: `data = sys.stdin.buffer.read().split()`")
+            lines.append("  - Java:   BufferedReader + StreamTokenizer")
+            lines.append("  - Output: collect into list, then sys.stdout.write")
         lines.append(f"\nFailing cases (first {len(shown)}):")
         for i, f in enumerate(shown, 1):
             phase = f.get("phase", "?")

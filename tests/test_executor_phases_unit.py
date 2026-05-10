@@ -111,6 +111,54 @@ class TestBuildFailureFeedbackCoder:
         )
         assert "input: '1 2 3'" in msg
 
+    def test_coder_high_volume_warning_inserted(self) -> None:
+        """R11: input_bytes >= 1MB 시 buffered-IO 경고 자동 삽입."""
+        failures = [
+            {"phase": "stress", "status": "RTE", "execution_time_ms": 22,
+             "stderr": "", "input_bytes": 1_500_000,
+             "generator": "gen_max", "seed": 1},
+        ]
+        msg = _build_failure_feedback(
+            header="phase C: solution failed on 1 stress cases",
+            failures=failures,
+            role="coder",
+        )
+        assert "HIGH-VOLUME INPUT detected" in msg
+        assert "1.50 MB" in msg
+        assert "sys.stdin.buffer.read()" in msg
+        assert "BufferedReader" in msg
+
+    def test_coder_no_high_volume_warning_below_threshold(self) -> None:
+        """input_bytes < 1MB는 경고 미삽입 (false positive 방지)."""
+        failures = [
+            {"phase": "stress", "status": "RTE", "execution_time_ms": 5,
+             "stderr": "", "input_bytes": 500_000,
+             "generator": "gen_small", "seed": 1},
+        ]
+        msg = _build_failure_feedback(
+            header="phase C: solution failed on 1 stress cases",
+            failures=failures,
+            role="coder",
+        )
+        assert "HIGH-VOLUME INPUT" not in msg
+        assert "input_bytes=500000" in msg
+
+    def test_coder_high_volume_warning_uses_max_across_failures(self) -> None:
+        """여러 fail case 중 max input_bytes 기준으로 판정."""
+        failures = [
+            {"phase": "stress", "status": "RTE", "execution_time_ms": 5,
+             "input_bytes": 100_000},  # 작음
+            {"phase": "stress", "status": "RTE", "execution_time_ms": 22,
+             "input_bytes": 2_000_000},  # 큼
+        ]
+        msg = _build_failure_feedback(
+            header="phase C: solution failed on 2 stress cases",
+            failures=failures,
+            role="coder",
+        )
+        assert "HIGH-VOLUME INPUT detected" in msg
+        assert "2.00 MB" in msg
+
 
 class TestBuildFailureFeedbackAuditor:
     def test_auditor_shows_violated_input_with_reason(self) -> None:
