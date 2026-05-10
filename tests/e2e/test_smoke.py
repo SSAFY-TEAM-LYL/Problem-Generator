@@ -63,7 +63,7 @@ def _initial_state(algorithm: str) -> ProblemState:
         "target_algorithm": algorithm,
         "target_language": "python",
         "iteration_count": 0,
-        "max_iter": 8,                # e2e는 retry 여유
+        "max_iter": 10,               # e2e baseline (Run 5: 8→10, R11 + 첫 success 확인)
         "max_cost_usd": 5.0,          # 케이스당 cap
         "node_retry_budget": {
             "architect": 2, "coder": 4, "auditor": 2, "generator": 2,
