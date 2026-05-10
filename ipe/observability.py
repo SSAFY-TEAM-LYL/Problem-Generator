@@ -45,6 +45,17 @@ def emit_metric(name: str, value: float | int, /, **labels: Any) -> None:
 # ============================================================================
 # 모델별 단가 (USD per 1M tokens) — 2026-05 기준
 # 모델 추가 시: ARCH §3.3.0 매핑 표와 동기화 필요.
+#
+# 주의 (R6 — 2026-05-10 v0.2.0 Sprint 1):
+#   - **List price 기준** — Anthropic 공개 가격표 그대로.
+#   - **Tier 할인 / 월 사용량 할인 미반영** — 본 측정값은 운영 계정의 실제
+#     청구액보다 클 수 있음 (e2e Run 1+2 누적: 우리 $4.84 vs Anthropic $1.98,
+#     ≈ 2.4× 과대 측정).
+#   - **Prompt caching 미반영** — `cache_creation_input_tokens` /
+#     `cache_read_input_tokens`가 LangChain ChatAnthropic의 `usage_metadata`
+#     로 노출되면 보정 필요. 현재는 input/output만 사용.
+#   - 따라서 ``cost_usd``는 **upper bound** (cost guard용으로는 안전 — 실제
+#     보다 빨리 trigger됨). 정확한 청구액은 Anthropic console 참조.
 # ============================================================================
 
 PRICING: dict[str, dict[str, float]] = {

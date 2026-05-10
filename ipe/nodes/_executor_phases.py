@@ -7,6 +7,8 @@
 함수:
 - ``_run_phase_b``: adversarial inputs → syntactic validator + 솔루션 실행
 - ``_run_phase_c``: (generator × seed) 병렬 stress + 정해 성능 게이트(P6.4)
+- ``_build_failure_feedback``: fail case 첫 N개의 detail을 prompt-friendly
+  텍스트로 빌드 (R1 — Coder/Auditor가 abstract count만 받지 않도록)
 """
 
 from __future__ import annotations
@@ -25,6 +27,96 @@ from ipe.nodes._executor_helpers import (
 )
 from ipe.sandbox.runner import SandboxedRunner
 from ipe.state import ProblemState
+
+# R1: feedback에 포함할 fail case 최대 개수 (token 비용 cap).
+# 너무 많으면 Coder context 낭비 / 너무 적으면 진단 정보 부족 — 3이 균형점.
+_MAX_FAILURE_DETAILS = 3
+# 각 fail case의 stderr/input excerpt 길이 cap.
+_EXCERPT_CHARS = 200
+
+
+def _excerpt(s: str | None, *, limit: int = _EXCERPT_CHARS) -> str:
+    """문자열을 limit 길이로 잘라 prompt-friendly form으로 반환.
+
+    None/빈 문자열 → ``""``. 잘림 시 ``...`` 접미사.
+    """
+    if not s:
+        return ""
+    s = s.replace("\r\n", "\n")
+    if len(s) <= limit:
+        return s
+    return s[:limit] + "..."
+
+
+def _build_failure_feedback(
+    *,
+    header: str,
+    failures: list[dict[str, Any]],
+    role: str,
+) -> str:
+    """fail case 첫 N개의 구체 정보를 prompt-friendly 텍스트로 빌드.
+
+    R1 fix — Coder/Auditor가 ``"phase X: N cases failed"``만 받던 abstract
+    feedback 구조를 보강. 각 case의 status / stderr / input excerpt를 노출해
+    LLM이 "어디서 어떻게 실패했는가"를 직접 볼 수 있게 한다.
+
+    args:
+        header: 한 줄 요약 ("phase C: solution failed on 4 stress cases ...")
+        failures: ``execution_results`` 항목들 (phase B/C 둘 다 동일 schema)
+        role: ``"coder"`` / ``"auditor"`` / ``"generator"`` — 어떤 노드가
+            이 feedback을 받게 될지 (Coder는 stderr 위주, Auditor는 violated
+            input 위주로 가이드)
+
+    returns:
+        header + 각 fail case detail (최대 ``_MAX_FAILURE_DETAILS``개)을
+        포함하는 multi-line 문자열.
+    """
+    if not failures:
+        return header
+
+    lines = [header]
+    shown = failures[:_MAX_FAILURE_DETAILS]
+    if role == "coder":
+        lines.append(f"\nFailing cases (first {len(shown)}):")
+        for i, f in enumerate(shown, 1):
+            phase = f.get("phase", "?")
+            status = f.get("status", "?")
+            elapsed = f.get("execution_time_ms", 0)
+            stderr = _excerpt(f.get("stderr"))
+            inp = _excerpt(f.get("input") or f.get("stdin_text"))
+            inp_bytes = f.get("input_bytes")
+            gen = f.get("generator")
+            seed = f.get("seed")
+            ident_parts = [f"phase={phase}", f"status={status}", f"elapsed_ms={elapsed}"]
+            if gen is not None:
+                ident_parts.append(f"generator={gen}")
+            if seed is not None:
+                ident_parts.append(f"seed={seed}")
+            if inp_bytes is not None:
+                ident_parts.append(f"input_bytes={inp_bytes}")
+            lines.append(f"  {i}. " + " ".join(ident_parts))
+            if stderr:
+                lines.append(f"     stderr: {stderr!r}")
+            if inp:
+                lines.append(f"     input: {inp!r}")
+    elif role == "auditor":
+        lines.append(f"\nViolating adversarial inputs (first {len(shown)}):")
+        for i, f in enumerate(shown, 1):
+            inp = _excerpt(f.get("input"))
+            reason = f.get("validator_error") or "constraint violated"
+            lines.append(f"  {i}. reason={reason!r}")
+            if inp:
+                lines.append(f"     input: {inp!r}")
+    else:  # generator
+        lines.append(f"\nFailing generator scripts (first {len(shown)}):")
+        for i, f in enumerate(shown, 1):
+            gen = f.get("generator", "?")
+            seed = f.get("seed", "?")
+            err = _excerpt(f.get("stderr"))
+            lines.append(f"  {i}. generator={gen} seed={seed}")
+            if err:
+                lines.append(f"     error: {err!r}")
+    return "\n".join(lines)
 
 
 def _run_phase_b(
@@ -65,16 +157,22 @@ def _run_phase_b(
         }
 
     cs = state.get("constraints_structured")
-    validator_fail_count = 0
-    execution_fail_count = 0
+    validator_failures: list[dict[str, Any]] = []
+    execution_failures: list[dict[str, Any]] = []
     oracle_added: list[dict[str, Any]] = []
 
     for idx, tc in enumerate(adversarial):
         inp = str(tc.get("input", ""))
         err = _validate_input_against_constraints(inp, cs)
         if err is not None:
-            validator_fail_count += 1
-            # validator 실패는 실행 안 했으므로 results에 추가 안 함 — 별도 카운트만
+            # validator 실패는 실행 안 했으므로 results에 추가 안 함 — fail
+            # 메타데이터만 별도 보존하여 R1 detailed feedback에 활용.
+            validator_failures.append({
+                "phase": "adversarial",
+                "index": idx,
+                "input": inp,
+                "validator_error": err,
+            })
             continue
 
         out = _execute_solution(
@@ -87,7 +185,7 @@ def _run_phase_b(
         )
         actual = _normalize(out.stdout)
         passed = out.status == "OK"
-        results.append({
+        rec = {
             "phase": "adversarial",
             "index": idx,
             "pass": passed,
@@ -96,7 +194,8 @@ def _run_phase_b(
             "input": inp,
             "actual": actual,
             "stderr": out.stderr,
-        })
+        }
+        results.append(rec)
         if passed:
             oracle_added.append({
                 "kind": "adversarial",
@@ -107,21 +206,29 @@ def _run_phase_b(
                 "execution_time_ms": out.elapsed_ms,
             })
         else:
-            execution_fail_count += 1
+            execution_failures.append(rec)
 
-    # 라우팅
+    # 라우팅 — R1: header + 첫 N case의 detail을 함께 포함
+    validator_fail_count = len(validator_failures)
+    execution_fail_count = len(execution_failures)
     if validator_fail_count > 0 or execution_fail_count > 0:
         if validator_fail_count > execution_fail_count:
             target = "auditor"
-            msg = (
+            header = (
                 f"phase B: {validator_fail_count} adversarial inputs violate "
                 f"constraints (auditor must regenerate)"
             )
+            msg = _build_failure_feedback(
+                header=header, failures=validator_failures, role="auditor",
+            )
         else:
             target = "coder"
-            msg = (
+            header = (
                 f"phase B: solution failed on {execution_fail_count} "
                 f"adversarial cases (RTE/TLE/MLE)"
+            )
+            msg = _build_failure_feedback(
+                header=header, failures=execution_failures, role="coder",
             )
         return {
             **state,
@@ -240,15 +347,14 @@ def _run_phase_c(
         for fut in as_completed(futures):
             completed.append(fut.result())
 
-    # 결과 수집 + 분류
-    generator_fail_count = 0
-    solution_fail_count = 0
+    # 결과 수집 + 분류 — R1: fail 항목을 detail까지 보존
+    generator_failures: list[dict[str, Any]] = []
+    solution_failures: list[dict[str, Any]] = []
     stress_oracle: list[dict[str, Any]] = []
 
     for cr in completed:
         if cr["kind"] == "gen_fail":
-            generator_fail_count += 1
-            results.append({
+            rec = {
                 "phase": "stress",
                 "generator": cr["generator"],
                 "seed": cr["seed"],
@@ -256,13 +362,15 @@ def _run_phase_c(
                 "status": "GENERATOR_FAIL",
                 "execution_time_ms": 0,
                 "stderr": cr["error"],
-            })
+            }
+            results.append(rec)
+            generator_failures.append(rec)
         else:
             out = cr["out"]
             actual = cr["actual"]
             stdin_text = cr["stdin_text"]
             passed = out.status == "OK"
-            results.append({
+            rec = {
                 "phase": "stress",
                 "generator": cr["generator"],
                 "seed": cr["seed"],
@@ -272,7 +380,11 @@ def _run_phase_c(
                 "input_bytes": len(stdin_text),
                 "output_bytes": len(actual),
                 "stderr": out.stderr,
-            })
+                # R1: Coder가 첫 N개 fail의 input을 직접 볼 수 있도록 보존.
+                # token 비용 cap은 _build_failure_feedback에서 _excerpt가 처리.
+                "stdin_text": stdin_text,
+            }
+            results.append(rec)
             if passed:
                 stress_oracle.append({
                     "kind": "generated",
@@ -283,21 +395,29 @@ def _run_phase_c(
                     "execution_time_ms": out.elapsed_ms,
                 })
             else:
-                solution_fail_count += 1
+                solution_failures.append(rec)
 
-    # 라우팅
+    # 라우팅 — R1: header + 첫 N case의 detail을 함께 포함
+    generator_fail_count = len(generator_failures)
+    solution_fail_count = len(solution_failures)
     if generator_fail_count > 0 or solution_fail_count > 0:
         if generator_fail_count > solution_fail_count:
             target = "generator"
-            msg = (
+            header = (
                 f"phase C: {generator_fail_count} generator scripts failed "
                 f"(generator must regenerate)"
             )
+            msg = _build_failure_feedback(
+                header=header, failures=generator_failures, role="generator",
+            )
         else:
             target = "coder"
-            msg = (
+            header = (
                 f"phase C: solution failed on {solution_fail_count} stress "
                 f"cases (RTE/TLE/MLE)"
+            )
+            msg = _build_failure_feedback(
+                header=header, failures=solution_failures, role="coder",
             )
         return {
             **state,
