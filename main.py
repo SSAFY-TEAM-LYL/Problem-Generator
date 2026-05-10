@@ -51,10 +51,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--strict-sandbox", action="store_true")
     ap.add_argument("--resume", metavar="RUN_ID", help="resume from checkpoint.db")
     ap.add_argument("--replay", metavar="RUN_ID", help="replay from llm_traces")
-    # P12.1: per-node retry budget overrides (SPEC §5 default = 2/4/2/2)
+    # SPEC §5 default 2/4/4/2 — auditor R4 v0.2.0 Sprint 1 2→4 (분산 흡수)
     ap.add_argument("--budget-architect", type=int, default=2)
     ap.add_argument("--budget-coder", type=int, default=4)
-    ap.add_argument("--budget-auditor", type=int, default=2)
+    ap.add_argument("--budget-auditor", type=int, default=4)
     ap.add_argument("--budget-generator", type=int, default=2)
     # P12.1: Phase C parallelism (P6.3 PHASE_C_WORKERS default 4 — runtime override)
     ap.add_argument("--exec-workers", type=int, default=None,
