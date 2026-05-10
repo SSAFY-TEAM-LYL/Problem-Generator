@@ -21,6 +21,7 @@ from typing import Any, cast
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from ipe._tracing import setup_tracing
 from ipe.graph import build_graph
 from ipe.io import save_result
 from ipe.logging_config import setup_logging
@@ -114,7 +115,8 @@ def _setup_run(args: argparse.Namespace) -> tuple[str, Path, Path, Path]:
 
 def main(argv: list[str] | None = None) -> int:
     load_dotenv()
-    setup_logging(level="INFO")  # P11: structured JSON logs to stdout
+    setup_logging(level="INFO")  # P11: structured JSON logs
+    setup_tracing()  # P11.3 / F4: LangSmith / OTel toggle (env-driven)
     args = _parse_args(argv)
     if workers := (args.exec_workers or args.parallel_fanout):  # P12.1
         from ipe.nodes import _executor_helpers
@@ -127,11 +129,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     runner = pick_runner(args.sandbox, verbose=True)
-    if args.strict_sandbox:
-        failed = [k for k, ok in runner.isolation_self_test().items() if not ok]
-        if failed:
-            print(f"sandbox isolation failed: {failed}", file=sys.stderr)
-            return 3
+    if args.strict_sandbox and (failed := [k for k, v in runner.isolation_self_test().items() if not v]):  # noqa: E501
+        print(f"sandbox isolation failed: {failed}", file=sys.stderr)
+        return 3
     tracker: LLMCallTracker = (
         ReplayTracker(run_id, traces_dir) if args.replay
         else LLMCallTracker(run_id, traces_dir)
