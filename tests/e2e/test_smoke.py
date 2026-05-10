@@ -28,6 +28,7 @@ import os
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from ipe.graph import build_graph
@@ -35,6 +36,9 @@ from ipe.io import save_result
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.rlimit_runner import RlimitRunner
 from ipe.state import ProblemState
+
+# pytestmark 평가 전에 .env 로드 (main.py처럼 dotenv 자동 적용)
+load_dotenv()
 
 pytestmark = [
     pytest.mark.e2e,
