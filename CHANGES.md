@@ -571,4 +571,45 @@ state.py + 4 빈 __init__` 외 polish로 추가:
 - IMPLEMENTATION_ROADMAP.md §2: graph.py budget 200 → 210 (P9 evaluator 등록 반영)
 - docs/backlog/2026-05-10_post-p12.md: CI 결과 반영 (A4 ubuntu 부분 해소)
 
+### 13.12 Round 8 — Polish Round 3 + v0.1.1 Patch (2026-05-10)
+
+> v0.1.0 release 후 잔존 backlog 마지막 3항목 (B2 / subprocess coverage / F4)을
+> 일괄 처리. Coverage 89% → 93% (+4%p).
+
+**Polish Round 3** (`chore/polish-round-3`, PR #26):
+
+| ID | Commit | 내용 |
+|---|---|---|
+| **B2** Java 통합 테스트 | `d94b012` | `tests/integration/test_executor_java.py` 3 cases — javac compile / 컴파일 에러 / RTE → coder 라우팅. `_executor_helpers.py` 76% → **88%** |
+| **sandbox/__main__.py** | `be7b8c2` | `tests/test_sandbox_main.py` 6 cases — `main()` 직접 호출 (sys.argv monkeypatch + capsys + mock runner). subprocess 우회로 0% → **96%** |
+| **F4** LangSmith / OTel toggle | `79228a4` | `ipe/_tracing.py` 신규 (`setup_tracing()` + `_setup_otel()`) + `tests/test_tracing.py` 10 cases. `IPE_LANGSMITH=1` → `LANGSMITH_TRACING=true` set, `IPE_OTEL_ENDPOINT` → opentelemetry SDK 활성 (optional dep) |
+
+**main.py 변경**:
+- import `setup_tracing` + `main()` 본문에 호출 (setup_logging 직후)
+- strict_sandbox 분기 walrus + `noqa: E501` 압축 (5줄 → 4줄)
+- 180 lines = budget 정확히 만족
+
+**Coverage 변화 (12-phase 진행 + polish 3 라운드)**:
+
+| 시점 | TOTAL | 변화 |
+|---|---|---|
+| P12 종료 | 87% | initial production-ready |
+| Polish 1+2 | 89% | +2%p (architect / auditor / io / observability) |
+| **Polish 3 / v0.1.1** | **93%** | **+4%p** (executor_helpers / sandbox/__main__ / _tracing) |
+
+**누적 backlog 결과 (12-phase + polish 3 라운드)**:
+
+| 분류 | 개수 | 항목 |
+|---|---|---|
+| ✅ Resolved | **10** | A4(ubuntu) / A5 / B2 / B3 / C2 / C3 / D2 / E2 / F3 / F4 + sandbox_main coverage |
+| 🟡 환경 의존 | 1 | D1 (sandboxexec — macOS-only, 75% 안정) |
+| ❌ Carryover | **0** | (모든 미해소 항목 처리 완료) |
+
+**Release tag** `v0.1.1` (main HEAD 다음 commit):
+- 28 source files + 31 test files
+- **210 tests passed** + 8 skipped
+- ruff 0 / mypy --strict 0
+- 라인 budget 위반 0건
+- 의도적 carryover 0건 (D1만 환경 의존)
+
 ---
