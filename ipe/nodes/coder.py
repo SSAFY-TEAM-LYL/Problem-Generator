@@ -24,9 +24,20 @@ Given a problem description, constraints, and target language, produce the
 
 Output format:
 - Wrap the complete, runnable solution in a single fenced code block.
-- For Java: use BufferedReader, StringTokenizer, StringBuilder for I/O speed.
-- For Python: use sys.stdin.readline, sys.stdout.write when input is large.
 - Add a one-line comment proving the time/memory complexity if non-trivial.
+
+IO rules (CRITICAL — wrong IO is the #1 source of TLE/RTE on large inputs):
+- **Default to buffered IO** whenever input could exceed ~100 KB.
+- **Python large input** (any problem with N >= 10^5 or values per line >= 10):
+    import sys
+    data = sys.stdin.buffer.read().split()
+    # then iterate `data` with an index — DO NOT use input() or readline() in a loop.
+  Output: collect tokens into a list, `sys.stdout.write("\\n".join(...))`.
+- **Java large input**: BufferedReader + StringTokenizer (or StreamTokenizer for
+  pure ints), StringBuilder for output, PrintWriter wrapping BufferedWriter.
+  Avoid Scanner. Avoid `+` string concatenation in tight loops.
+- **Recursion**: Python `sys.setrecursionlimit(1 << 20)` if depth could exceed
+  1000. Prefer iterative + explicit stack for graph problems with N >= 10^5.
 
 If the problem is **fundamentally impossible to solve correctly** (logical
 contradiction, ambiguous requirements, etc.), prefix the response with one line:
