@@ -84,6 +84,10 @@ class ProblemState(TypedDict, total=False):
 
     # Coder output
     solution_code: str
+    # R13 (Sprint 3): Coder가 매 cycle 응답 시작 시 출력하는 1-line "LESSON"
+    # 누적. W4 oscillation prompt-only 강제의 진화 — 추상 "다른 전략" 대신
+    # 구체 "왜 fail / 어떤 strategy" 학습이 history에 쌓여 다음 cycle에 노출.
+    lessons_learned: list[str]
 
     # Auditor output
     adversarial_inputs: list[dict[str, Any]]

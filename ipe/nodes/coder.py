@@ -23,7 +23,13 @@ Given a problem description, constraints, and target language, produce the
 **fastest correct solution** that fits within the time/memory limits.
 
 Output format:
-- Wrap the complete, runnable solution in a single fenced code block.
+- **First line MUST be:** ``LESSON: <one short sentence>`` (R13 Reflexion)
+  - If previous attempts failed: state what specifically went wrong AND what
+    you will do differently this time (e.g. "Last attempt used `input()` so
+    it TLE'd at N=200000; switching to `sys.stdin.buffer.read().split()`.")
+  - If this is the first attempt: ``LESSON: First attempt — no prior learning.``
+  - Keep it concrete and actionable, not generic ("try harder" is useless).
+- Then wrap the complete, runnable solution in a single fenced code block.
 - Add a one-line comment proving the time/memory complexity if non-trivial.
 
 IO rules (CRITICAL — wrong IO is the #1 source of TLE/RTE on large inputs):
@@ -73,14 +79,22 @@ FEEDBACK_SUFFIX = """
 _FENCE_RE = re.compile(r"```(?:[a-zA-Z0-9_+\-]*)\n(.*?)```", re.DOTALL)
 # IMPOSSIBLE: <reason> — 줄 시작 (모드 MULTILINE)
 _IMPOSSIBLE_RE = re.compile(r"^\s*IMPOSSIBLE\s*:\s*(.+)$", re.MULTILINE)
+# R13: LESSON: <one-line> — 첫 fenced block 전 영역에서 검색
+_LESSON_RE = re.compile(r"^\s*LESSON\s*:\s*(.+)$", re.MULTILINE)
+# lessons_learned 리스트 cap — 누적이 너무 커지면 token 비용 부담 + 오래된
+# lesson은 가치 ↓. 최근 5개만 prompt에 노출.
+_MAX_LESSONS = 5
 
 
-def _parse_response(text: str) -> tuple[str, str | None]:
-    """LLM 응답에서 ``(code, impossible_reason)`` 추출.
+def _parse_response(text: str) -> tuple[str, str | None, str | None]:
+    """LLM 응답에서 ``(code, impossible_reason, lesson)`` 추출.
 
     가장 긴 펜스를 솔루션으로 선택 — 모델이 짧은 설명 펜스를 먼저 출력하고
     뒤에 진짜 솔루션을 출력하는 패턴 회피.
-    펜스 시작 전 영역에서 ``IMPOSSIBLE: <reason>``을 검색.
+    펜스 시작 전 영역에서 ``IMPOSSIBLE: <reason>`` + ``LESSON: <one-line>`` 검색.
+
+    R13 (Sprint 3): LESSON은 optional. 없으면 ``None`` (LLM이 형식 어김 — 본
+    cycle에서는 lesson 누적 안 하고 다음 cycle에 다시 요구).
     """
     matches = list(_FENCE_RE.finditer(text))
     if not matches:
@@ -92,8 +106,10 @@ def _parse_response(text: str) -> tuple[str, str | None]:
     head = text[: fence.start()]
     impossible_match = _IMPOSSIBLE_RE.search(head)
     impossible = impossible_match.group(1).strip() if impossible_match else None
+    lesson_match = _LESSON_RE.search(head)
+    lesson = lesson_match.group(1).strip() if lesson_match else None
 
-    return code, impossible
+    return code, impossible, lesson
 
 
 def run(
@@ -130,12 +146,18 @@ def run(
     resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
     content = str(resp.content)
 
-    code, impossible = _parse_response(content)
+    code, impossible, lesson = _parse_response(content)
+
+    # R13: lesson 누적 (있을 때만). 기존 list 복사 후 append — 불변성 유지.
+    lessons: list[str] = list(state.get("lessons_learned") or [])
+    if lesson:
+        lessons.append(lesson)
 
     if impossible:
         return {
             **state,
             "llm_calls": calls,
+            "lessons_learned": lessons,
             "feedback_message": f"Coder declared IMPOSSIBLE: {impossible}",
             "last_failed_node": "architect",
         }
@@ -143,6 +165,7 @@ def run(
     return {
         **state,
         "llm_calls": calls,
+        "lessons_learned": lessons,
         "solution_code": code,
         "feedback_message": None,
         "last_failed_node": None,
