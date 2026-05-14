@@ -88,6 +88,11 @@ class ProblemState(TypedDict, total=False):
     # 누적. W4 oscillation prompt-only 강제의 진화 — 추상 "다른 전략" 대신
     # 구체 "왜 fail / 어떤 strategy" 학습이 history에 쌓여 다음 cycle에 노출.
     lessons_learned: list[str]
+    # R15 (Sprint 3): Coder가 동시 작성하는 brute solution (O(N²) 등 naive).
+    # Phase C에서 small N stress (input_bytes ≤ 1KB) 케이스에 대해 golden과
+    # cross-check — 알고리즘 도메인 특화 deterministic 검증 신호. LLM 비결정성
+    # 과 무관하게 정확성 ↑. brute가 없으면 (LLM 형식 어김) cross-check 생략.
+    brute_solution_code: str
 
     # Auditor output
     adversarial_inputs: list[dict[str, Any]]

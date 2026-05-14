@@ -20,10 +20,12 @@ from typing import Any
 from ipe.nodes._executor_helpers import (
     ORACLE_SPEED_RATIO,
     PHASE_C_WORKERS,
+    _compile,
     _execute_solution,
     _normalize,
     _run_generator,
     _validate_input_against_constraints,
+    _write_source,
 )
 from ipe.sandbox.runner import SandboxedRunner
 from ipe.state import ProblemState
@@ -39,6 +41,11 @@ _EXCERPT_CHARS = 200
 # 보고도 IO 최적화 자발적 떠올리지 못함. 1MB는 typical 알고리즘 문제에서
 # default IO로 처리 가능한 경계점.
 _HIGH_VOLUME_INPUT_BYTES = 1_000_000
+# R15 (Sprint 3): Brute oracle cross-check 한도.
+# - MAX_BYTES: stress case input 크기 cap — brute는 small N 안에서만 유효
+# - MAX_CASES: 첫 N개 case만 cross-check (cost cap; brute는 O(N²) 등 느림)
+_R15_CROSS_CHECK_MAX_BYTES = 1024
+_R15_CROSS_CHECK_MAX_CASES = 2
 
 
 def _excerpt(s: str | None, *, limit: int = _EXCERPT_CHARS) -> str:
@@ -465,7 +472,35 @@ def _run_phase_c(
                 ),
             }
 
-    # 모두 통과 + 정해 성능 OK → success
+    # R15 (Sprint 3): Brute oracle cross-check — small N stress 케이스를 brute
+    # solution으로 재실행하여 golden 출력과 비교. 알고리즘 도메인 특화 결정적
+    # 검증 신호 — LLM 비결정성과 무관. brute 부재 시 skip (안전 fallback).
+    brute_code = state.get("brute_solution_code")
+    if brute_code and stress_oracle:
+        small_cases = [
+            o for o in stress_oracle
+            if len(str(o.get("input", ""))) <= _R15_CROSS_CHECK_MAX_BYTES
+        ][:_R15_CROSS_CHECK_MAX_CASES]
+        if small_cases:
+            mismatch = _run_brute_cross_check(
+                small_cases=small_cases,
+                brute_code=brute_code,
+                run_dir=run_dir,
+                runner=runner,
+                language=language,
+                time_limit=time_limit,
+                memory_limit=memory_limit,
+            )
+            if mismatch is not None:
+                return {
+                    **state,
+                    "iteration_count": next_iter,
+                    "execution_results": results,
+                    "last_failed_node": "coder",
+                    "feedback_message": mismatch,
+                }
+
+    # 모두 통과 + 정해 성능 OK + cross-check OK → success
     sample_with_kind = [{**s, "kind": "sample"} for s in samples]
     all_testcases = sample_with_kind + adversarial_oracle + stress_oracle
 
@@ -478,3 +513,64 @@ def _run_phase_c(
         "last_failed_node": None,
         "feedback_message": None,
     }
+
+
+def _run_brute_cross_check(
+    *,
+    small_cases: list[dict[str, Any]],
+    brute_code: str,
+    run_dir: Path,
+    runner: SandboxedRunner,
+    language: str,
+    time_limit: int,
+    memory_limit: int,
+) -> str | None:
+    """small N stress case에 대해 brute 실행 + golden 출력과 비교.
+
+    R15 — golden과 brute 출력이 다르면 feedback 문자열 반환 (Coder가 정정
+    시도 가능). brute 자체가 실행 fail (RTE/TLE)이면 그 case skip — brute는
+    small N에서만 유효하다는 전제 (LLM이 형식 어김 시 안전).
+
+    별도 brute_dir = run_dir / "brute" 에 brute 코드 작성 + compile + 실행.
+    기존 ``_write_source`` / ``_compile`` / ``_execute_solution`` 재사용.
+
+    Returns:
+        None → cross-check 통과 (또는 brute 실행 불가로 skip)
+        str  → 불일치 발견 — Coder feedback 메시지
+    """
+    brute_dir = run_dir / "brute"
+    brute_dir.mkdir(parents=True, exist_ok=True)
+    _write_source(brute_dir, language, brute_code)
+    compile_ok, compile_err = _compile(runner, brute_dir, language)
+    if not compile_ok:
+        # brute compile fail — cross-check skip (LLM 형식 어김 또는 syntax err).
+        # Coder에게 알리되 golden 자체는 통과 처리.
+        return (
+            f"brute cross-check skipped — brute compile failed: "
+            f"{_excerpt(compile_err)!r}. Rewrite the BRUTE solution to be "
+            "syntactically valid for the target language."
+        )
+
+    for case in small_cases:
+        inp = str(case.get("input", ""))
+        golden_out = str(case.get("expected_output", ""))
+        brute_res = _execute_solution(
+            runner, brute_dir, language, inp,
+            time_limit_ms=time_limit, memory_limit_mb=memory_limit,
+        )
+        if brute_res.status != "OK":
+            # brute 자체 실행 fail (TLE/RTE/MLE) — small N에서 brute가 fail이면
+            # brute가 small N도 못 풀 정도로 잘못 — skip with note.
+            continue
+        brute_actual = _normalize(brute_res.stdout)
+        if brute_actual != golden_out:
+            inp_excerpt = _excerpt(inp)
+            return (
+                f"cross-check FAIL — golden vs brute disagree on small N input.\n"
+                f"  input: {inp_excerpt!r}\n"
+                f"  golden output: {_excerpt(golden_out)!r}\n"
+                f"  brute output:  {_excerpt(brute_actual)!r}\n"
+                "One of them is wrong. The BRUTE is naive — verify GOLDEN "
+                "matches the brute's output on small N before optimizing."
+            )
+    return None
