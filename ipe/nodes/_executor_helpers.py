@@ -37,7 +37,11 @@ MAX_INPUT_BYTES = 200  # adversarial input 길이 상한 (SPEC §4.3)
 DEFAULT_TIME_LIMIT_MS = 5000
 DEFAULT_MEMORY_LIMIT_MB = 512
 COMPILE_TIME_LIMIT_MS = 60000   # Java javac은 느릴 수 있음
-COMPILE_MEMORY_LIMIT_MB = 1024
+# javac은 JVM 위에서 동작 — 시작만으로도 1-2GB virtual memory 잡음.
+# Linux RLIMIT_AS 1024MB는 borderline (OOM 빈번, CI ubuntu fail 재현).
+# 4096MB로 ↑ — javac 안정 + 일반 알고리즘 컴파일에 충분. macOS Darwin은
+# RLIMIT_AS 무시라 영향 0.
+COMPILE_MEMORY_LIMIT_MB = 4096
 
 # Phase C — generator script 실행 한도 (P6.2)
 GENERATOR_TIMEOUT_MS = 10_000
