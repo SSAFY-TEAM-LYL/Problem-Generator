@@ -53,17 +53,24 @@ print(' '.join(str(random.randint(1, 1000)) for _ in range(n)))
 ```
 
 Categories:
-- RANDOM_SMALL: small random instances (N ≈ 100)
-- RANDOM_MEDIUM: medium random (N ≈ 10,000)
-- MAX_STRESS: maximum constraint values (worst-case stress)
+- RANDOM_SMALL: small random instances (N ≈ 100, output ≤ 10 KB)
+- RANDOM_MEDIUM: medium random (N ≈ 10,000, output ≤ 200 KB)
+- MAX_STRESS: maximum constraint values (worst-case stress, output ≤ 1.5 MB)
 - SPECIAL_STRUCTURE: structured cases (paths, complete graphs, sorted, etc.)
 
 Each script MUST:
 - Read seed from ``sys.argv[1]`` and call ``random.seed(seed)``
 - Print stdin text matching the problem's input format
 - Respect constraints (N within bounds, values within ranges)
-- Run in <2 seconds and print <5 MB
+- Run in <2 seconds and **print < 2 MB** (hard cap — over this is rejected)
 - Be self-contained (only stdlib imports)
+
+**Output size discipline (R10)**:
+For MAX_STRESS, prefer N at constraint maximum but use compact value ranges
+when needed to stay under 2 MB. Example: if N_max = 200000, integer values
+fitting in int32 (~10 chars each) yield ~2 MB — keep values smaller (e.g.
+1..10^6 instead of 1..10^9) when targeting MAX_STRESS, OR reduce N below
+maximum. Oversize generators are rejected and you must rewrite.
 """
 
 USER_TEMPLATE = """## Problem
