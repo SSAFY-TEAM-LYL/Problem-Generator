@@ -22,15 +22,29 @@ SYSTEM_PROMPT = """You are The Coder — a master competitive programmer.
 Given a problem description, constraints, and target language, produce the
 **fastest correct solution** that fits within the time/memory limits.
 
-Output format:
+Output format (R15 Brute Cross-check — produce TWO solutions):
 - **First line MUST be:** ``LESSON: <one short sentence>`` (R13 Reflexion)
   - If previous attempts failed: state what specifically went wrong AND what
     you will do differently this time (e.g. "Last attempt used `input()` so
     it TLE'd at N=200000; switching to `sys.stdin.buffer.read().split()`.")
   - If this is the first attempt: ``LESSON: First attempt — no prior learning.``
   - Keep it concrete and actionable, not generic ("try harder" is useless).
-- Then wrap the complete, runnable solution in a single fenced code block.
-- Add a one-line comment proving the time/memory complexity if non-trivial.
+
+- **GOLDEN solution** (first fenced code block, longest) — fast, correct,
+  fits within constraints. Add one-line complexity comment if non-trivial.
+
+- **BRUTE solution** (second fenced code block) — naive, definitely-correct
+  reference implementation for small N (≤ 30). Used for cross-check, NEVER
+  for actual submission. Examples:
+  - Two Sum (golden: hash O(N)) → brute: O(N²) double loop
+  - Dijkstra (golden: heap O((V+E)logV)) → brute: O(V²) array-scan
+  - LIS (golden: binary search O(N logN)) → brute: O(N²) DP
+  - Segment Tree (golden: O(logN) per op) → brute: O(N) per op linear scan
+  The brute solution MUST:
+  - Read same input format, write same output format
+  - Be obviously correct (simple, no optimizations)
+  - Handle small N only (will TLE on large N — that's expected)
+  - Be a complete runnable program in the target language
 
 IO rules (CRITICAL — wrong IO is the #1 source of TLE/RTE on large inputs):
 - **Default to buffered IO** whenever input could exceed ~100 KB.
@@ -86,30 +100,43 @@ _LESSON_RE = re.compile(r"^\s*LESSON\s*:\s*(.+)$", re.MULTILINE)
 _MAX_LESSONS = 5
 
 
-def _parse_response(text: str) -> tuple[str, str | None, str | None]:
-    """LLM 응답에서 ``(code, impossible_reason, lesson)`` 추출.
+def _parse_response(
+    text: str,
+) -> tuple[str, str | None, str | None, str | None]:
+    """LLM 응답에서 ``(code, brute, impossible_reason, lesson)`` 추출.
 
-    가장 긴 펜스를 솔루션으로 선택 — 모델이 짧은 설명 펜스를 먼저 출력하고
-    뒤에 진짜 솔루션을 출력하는 패턴 회피.
+    가장 긴 펜스 = golden solution. 두 번째 펜스 (있을 때) = brute solution
+    (R15 cross-check 용). 펜스 1개만 있으면 brute=None — LLM 형식 어김 또는
+    이전 phase 출력. brute 부재 시 cross-check 생략 (안전 fallback).
+
     펜스 시작 전 영역에서 ``IMPOSSIBLE: <reason>`` + ``LESSON: <one-line>`` 검색.
 
-    R13 (Sprint 3): LESSON은 optional. 없으면 ``None`` (LLM이 형식 어김 — 본
-    cycle에서는 lesson 누적 안 하고 다음 cycle에 다시 요구).
+    R13: LESSON은 optional (없으면 None — 다음 cycle 재요구).
+    R15: brute는 optional (없으면 None — cross-check skip).
     """
     matches = list(_FENCE_RE.finditer(text))
     if not matches:
         raise ValueError("Coder response has no fenced code block")
 
-    fence = max(matches, key=lambda m: len(m.group(1)))
-    code = fence.group(1)
+    # golden = 가장 긴 펜스 (LLM이 설명 펜스 먼저 출력하는 패턴 회피)
+    fence_sorted = sorted(matches, key=lambda m: -len(m.group(1)))
+    golden_fence = fence_sorted[0]
+    code = golden_fence.group(1)
 
-    head = text[: fence.start()]
+    # brute = 두 번째 펜스 (있을 때만). golden 펜스 자체는 제외.
+    brute: str | None = None
+    if len(fence_sorted) >= 2:
+        brute = fence_sorted[1].group(1)
+
+    # IMPOSSIBLE / LESSON은 가장 앞 펜스 시작 전 영역에서 검색
+    earliest_fence = min(matches, key=lambda m: m.start())
+    head = text[: earliest_fence.start()]
     impossible_match = _IMPOSSIBLE_RE.search(head)
     impossible = impossible_match.group(1).strip() if impossible_match else None
     lesson_match = _LESSON_RE.search(head)
     lesson = lesson_match.group(1).strip() if lesson_match else None
 
-    return code, impossible, lesson
+    return code, brute, impossible, lesson
 
 
 def run(
@@ -146,7 +173,7 @@ def run(
     resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
     content = str(resp.content)
 
-    code, impossible, lesson = _parse_response(content)
+    code, brute, impossible, lesson = _parse_response(content)
 
     # R13: lesson 누적 (있을 때만). 기존 list 복사 후 append — 불변성 유지.
     lessons: list[str] = list(state.get("lessons_learned") or [])
@@ -162,7 +189,7 @@ def run(
             "last_failed_node": "architect",
         }
 
-    return {
+    result: ProblemState = {
         **state,
         "llm_calls": calls,
         "lessons_learned": lessons,
@@ -170,3 +197,8 @@ def run(
         "feedback_message": None,
         "last_failed_node": None,
     }
+    # R15: brute가 있으면 state에 저장. 없으면 기존 brute_solution_code 보존
+    # (이전 cycle에서 작성한 게 있다면 그대로 — Phase C cross-check 사용).
+    if brute is not None:
+        result["brute_solution_code"] = brute
+    return result

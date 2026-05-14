@@ -27,7 +27,7 @@ class TestParseResponseLesson:
             "data = sys.stdin.buffer.read().split()\n"
             "```\n"
         )
-        code, impossible, lesson = _parse_response(text)
+        code, _brute, impossible, lesson = _parse_response(text)
         assert "sys.stdin.buffer.read" in code
         assert impossible is None
         assert lesson is not None
@@ -36,7 +36,7 @@ class TestParseResponseLesson:
 
     def test_lesson_none_when_missing(self) -> None:
         text = "```python\nprint('hello')\n```\n"
-        code, impossible, lesson = _parse_response(text)
+        code, _brute, impossible, lesson = _parse_response(text)
         assert code.strip() == "print('hello')"
         assert impossible is None
         assert lesson is None
@@ -49,7 +49,7 @@ class TestParseResponseLesson:
             "pass\n"
             "```\n"
         )
-        code, impossible, lesson = _parse_response(text)
+        code, _brute, impossible, lesson = _parse_response(text)
         assert impossible == "contradictory constraints"
         assert lesson == "First attempt — no prior learning."
 
@@ -62,18 +62,18 @@ class TestParseResponseLesson:
             "from heapq import heappush\n"
             "```\n"
         )
-        _, _, lesson = _parse_response(text)
+        _, _, _, lesson = _parse_response(text)
         assert lesson == "Use heapq for Dijkstra."
 
     def test_lesson_with_extra_whitespace(self) -> None:
         text = "  LESSON:   Trim spaces correctly.   \n```python\npass\n```"
-        _, _, lesson = _parse_response(text)
+        _, _, _, lesson = _parse_response(text)
         assert lesson == "Trim spaces correctly."
 
     def test_lesson_inside_code_block_not_extracted(self) -> None:
         """펜스 안의 LESSON: 주석은 head 영역 밖이므로 무시 — head 빈 경우."""
         text = "```python\n# LESSON: comment\nprint(1)\n```"
-        _, _, lesson = _parse_response(text)
+        _, _, _, lesson = _parse_response(text)
         assert lesson is None  # head는 빈 문자열
 
 
@@ -127,3 +127,49 @@ class TestBuildHistoryLessons:
         state: ProblemState = {"lessons_learned": ["Use buffered IO."]}
         out = build_history_section(state, current_node="coder")
         assert out == ""
+
+
+class TestParseResponseBrute:
+    """R15: ``_parse_response``가 두 번째 펜스를 brute로 추출."""
+
+    def test_brute_extracted_when_two_fences(self) -> None:
+        text = (
+            "LESSON: First attempt.\n"
+            "GOLDEN:\n"
+            "```python\n"
+            "import sys\n"
+            "from collections import defaultdict\n"
+            "data = sys.stdin.buffer.read().split()\n"
+            "# fast hash-based golden solution with many lines for length\n"
+            "```\n"
+            "\n"
+            "BRUTE:\n"
+            "```python\n"
+            "n = int(input())\n"
+            "```\n"
+        )
+        code, brute, _, _ = _parse_response(text)
+        # golden = 가장 긴 펜스
+        assert "sys.stdin.buffer.read" in code
+        assert "defaultdict" in code
+        # brute = 두 번째 펜스 (더 짧음)
+        assert brute is not None
+        assert brute.strip() == "n = int(input())"
+
+    def test_brute_none_when_single_fence(self) -> None:
+        text = "```python\nprint(1)\n```"
+        _, brute, _, _ = _parse_response(text)
+        assert brute is None
+
+    def test_brute_none_for_legacy_response(self) -> None:
+        """기존 R13 응답 (단일 fence)은 brute=None 안전 처리."""
+        text = (
+            "LESSON: legacy single-fence response.\n"
+            "```python\n"
+            "solution = 1\n"
+            "```\n"
+        )
+        code, brute, _, lesson = _parse_response(text)
+        assert code.strip() == "solution = 1"
+        assert brute is None
+        assert lesson == "legacy single-fence response."
