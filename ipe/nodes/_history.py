@@ -23,6 +23,9 @@ from ipe.state import ProblemState
 DEFAULT_MAX_ENTRIES = 5
 FEEDBACK_EXCERPT_CHARS = 200
 OSCILLATION_THRESHOLD = 2  # 같은 (node, error_signature) 2회 이상 → 강한 경고
+# R13 (Sprint 3): Coder가 누적한 lessons 중 최근 N개만 prompt에 노출.
+# 오래된 lesson은 가치 ↓ + token 비용 ↑ 트레이드오프 — 5가 균형점.
+_MAX_LESSONS_IN_PROMPT = 5
 
 
 def build_history_section(
@@ -79,5 +82,17 @@ def build_history_section(
             "Do NOT repeat the same approach; switch to a fundamentally "
             "different strategy."
         )
+
+    # R13 Sprint 3: Coder가 직접 추출한 lessons를 history에 추가 노출.
+    # current_node가 coder일 때만 — 다른 노드는 이 학습이 무관.
+    # 최근 _MAX_LESSONS_IN_PROMPT개만 노출 (오래된 lesson은 가치 ↓).
+    if current_node == "coder":
+        lessons = state.get("lessons_learned") or []
+        if lessons:
+            lines.append("")
+            lines.append("## Learned Lessons (cumulative, most recent)")
+            lines.append("")
+            for ls in lessons[-_MAX_LESSONS_IN_PROMPT:]:
+                lines.append(f"- {ls}")
 
     return "\n".join(lines) + "\n"
