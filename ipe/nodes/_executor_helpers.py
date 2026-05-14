@@ -42,7 +42,10 @@ COMPILE_MEMORY_LIMIT_MB = 1024
 # Phase C — generator script 실행 한도 (P6.2)
 GENERATOR_TIMEOUT_MS = 10_000
 GENERATOR_MEMORY_LIMIT_MB = 1024
-MAX_GENERATED_INPUT_BYTES = 5 * 1024 * 1024  # 5 MB
+# R10 (v0.2.0 Sprint 2): 5MB → 2MB. e2e Run 3에서 1.97MB stress가 RTE 유발 —
+# 정상 알고리즘 stress (N=200000 + 적정 value range)는 1.6MB 내, outlier만
+# 차단. truncated_stdout 시 generator로 라우팅 (재작성 강제).
+MAX_GENERATED_INPUT_BYTES = 2 * 1024 * 1024  # 2 MB
 PHASE_C_WORKERS = 4              # ThreadPoolExecutor 동시 실행 수
 ORACLE_SPEED_RATIO = 0.5         # 정해 성능 게이트: max-stress ≤ time_limit × 0.5 (P6.4)
 
