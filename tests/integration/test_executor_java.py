@@ -60,7 +60,10 @@ def _state_with_java_solution(code: str) -> ProblemState:
                 {"name": "b", "min": 1, "max": 10**9, "type": "int"},
             ],
             "time_limit_ms": 5000,  # javac + JVM 기동 여유
-            "memory_limit_mb": 512,
+            # Linux ``RLIMIT_AS`` (virtual memory)는 JVM 시작 시 1-2GB 잡음 —
+            # 512MB는 즉시 OOM/RTE 유발 (CI ubuntu fail 재현). macOS Darwin은
+            # RLIMIT_AS 무시라 local 통과. test 한정으로 2048MB 명시.
+            "memory_limit_mb": 2048,
         },
         "sample_testcases": [
             {"input": "1 2\n", "expected_output": "3"},
