@@ -66,7 +66,7 @@ def _initial_state(algorithm: str) -> ProblemState:
         "max_iter": 10,               # e2e baseline (Run 5: 8→10, R11 + 첫 success 확인)
         "max_cost_usd": 8.0,           # Run 10: R14 fanout=3 (3x token cost) 감안 5→8
         "node_retry_budget": {
-            "architect": 2, "coder": 4, "auditor": 2, "generator": 2,
+            "architect": 4, "coder": 4, "auditor": 2, "generator": 2,
         },
         "iteration_history": [],
         "llm_calls": [],
