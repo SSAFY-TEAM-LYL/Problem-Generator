@@ -50,7 +50,11 @@ GENERATOR_MEMORY_LIMIT_MB = 1024
 # 정상 알고리즘 stress (N=200000 + 적정 value range)는 1.6MB 내, outlier만
 # 차단. truncated_stdout 시 generator로 라우팅 (재작성 강제).
 MAX_GENERATED_INPUT_BYTES = 2 * 1024 * 1024  # 2 MB
-PHASE_C_WORKERS = 4              # ThreadPoolExecutor 동시 실행 수
+# R-sandbox (Sprint 3+): 4 → 1 직렬화. subprocess.Popen + preexec_fn
+# (setrlimit) 병렬 호출 시 race condition으로 SIGXCPU (rc=-24) 발생
+# (Step 1 측정: 5-10% RTE rate, 50 trials × 4 workers). lock fix 무효 확인 후
+# 직렬화로 race 0 보장. 후속 ulimit wrapper 도입 시 4 복귀 검토.
+PHASE_C_WORKERS = 1              # ThreadPoolExecutor 동시 실행 수
 ORACLE_SPEED_RATIO = 0.5         # 정해 성능 게이트: max-stress ≤ time_limit × 0.5 (P6.4)
 
 
