@@ -71,6 +71,33 @@ when needed to stay under 2 MB. Example: if N_max = 200000, integer values
 fitting in int32 (~10 chars each) yield ~2 MB — keep values smaller (e.g.
 1..10^6 instead of 1..10^9) when targeting MAX_STRESS, OR reduce N below
 maximum. Oversize generators are rejected and you must rewrite.
+
+**Multi-section input size budgeting (R3 — CRITICAL for problems with
+multiple input dimensions like Segment Tree / Range Query / Online algorithms)**:
+
+Many problems have TWO independent size dimensions in input:
+- Array size N AND query count M (Segment Tree, Range Sum, RMQ, ...)
+- Vertex count V AND edge count E (sparse graphs)
+- String length L AND query count Q (string algorithms)
+
+For these problems, the **TOTAL output size = sum of all dimensions**.
+Calculate output size budget BEFORE choosing dimensions:
+
+  total_bytes ≈ N * avg_value_chars        # array
+              + M * avg_query_chars        # queries (e.g. "U 100000 -999999999" ≈ 20 chars)
+              + ...
+
+Example (Segment Tree, N + M dual input):
+- N=200000 integers (10 chars each) ≈ 2 MB ← already exceeds 2MB cap alone
+- M=200000 queries ("U p v" or "Q l r", 15-20 chars each) ≈ 3-4 MB
+- TOTAL ≈ 5-6 MB → REJECTED
+
+For dual-dimension problems with N_max + M_max stress:
+- Either reduce both dimensions (e.g. N = M = 50000 instead of 200000)
+- OR use compact value ranges (e.g. values 1..1000 instead of 1..10^9)
+- OR fix one dimension to max and reduce the other (N=200000 with M=10000)
+
+**Always estimate total output bytes before writing the generator code.**
 """
 
 USER_TEMPLATE = """## Problem
