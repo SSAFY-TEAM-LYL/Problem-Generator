@@ -677,3 +677,88 @@ v0.1.1 release 후 실제 LLM e2e 측정에서 0/5 success. RCA → Sprint 1~3 R
 - 4개 신규 문서 (RCA × 2 + playbook + sandbox RCA)
 
 ---
+
+## 15. Round 10 — Sprint 4 + v0.2.0 Release (2026-05-15)
+
+Sprint 1~3 + R-sandbox 후 3/5 도달. Sprint 4 (R14 / R3 / R-bfs) 누적으로
+**2회 연속 4/5 success** — PROJECT_SPEC DoD (5/5 중 4+) 충족. v0.2.0 release.
+
+### 15.1 Sprint 4 PR 시퀀스
+
+| Sprint 4 step | PR | 변경 | success rate |
+|---|---|---|---|
+| R14 PR 1 (Coder fanout opt-in 구조) | #40 | state + CLI + coder.run N candidate | — |
+| R14 PR 2 (Executor best 선택) | #41 | Phase A 전 candidate sample 검증 + best 채택 | **4/5 (Run 10)** ⭐ |
+| Run 10 baseline | #43 | e2e coder_fanout=3 + max_cost_usd 8 | (baseline 갱신) |
+| TECH_STACK 제출용 | #44 | TECH_STACK.md 348 lines | (docs) |
+| R3 Generator N+M | #45 | Generator system prompt multi-section 가이드 | **4/5 (Run 11)** ⭐ (Segment Tree 회복) |
+| R-bfs architect budget 4 | #46 | main.py + e2e architect 2→4 | **4/5 (Run 12)** ⭐ (BFS 회복) |
+| docs/dev/ 재구성 + 일관성 | #47 | 4 dev 문서 → docs/dev/, README badge v0.2.0-rc | (docs) |
+
+### 15.2 Run 9~12 e2e 결과 매트릭스
+
+| Case | Run 9 | Run 10 | Run 11 | Run 12 |
+|---|---|---|---|---|
+| Two Sum | ✅ | ✅ | ✅ | ✅ |
+| BFS | ❌ | ✅ ⭐ | ❌ | ✅ ⭐ |
+| Dijkstra | ✅ | ✅ | ✅ | ✅ |
+| Segment Tree | ❌ | ❌ | ✅ ⭐ | ❌ |
+| LIS | ✅ | ✅ | ✅ | ✅ |
+| **Total** | 3/5 | **4/5** | **4/5** | **4/5** |
+| 소요 | 10:25 | 18:33 | 12:25 | 12:53 |
+
+### 15.3 안정성 분석
+
+**stable success** (3 cases, Run 9~12 모두 success):
+- Two Sum, Dijkstra, LIS
+
+**variance cases** (2 cases):
+- **BFS**: fail/success/fail/success — Phase A "다수 통과 + 소수 mismatch → architect" oscillation. R-bfs (architect 2→4)로 budget 흡수했지만 매 run 변동.
+- **Segment Tree**: fail/fail/success/fail — Generator OLE (R10 cap 2MB 초과) variance. R3 prompt-only 가이드 효과 비결정적.
+
+### 15.4 핵심 통찰 — Prompt-side fix 한계
+
+Sprint 1~4의 모든 R 시리즈는 **prompt-side fix** (LLM 가이드 강화). 따라서:
+- LLM이 매 run마다 다른 응답 (temperature 효과) → variance ±1
+- **5/5 일관성은 prompt-side에서 불가** — 결정적 메커니즘 필요
+- 다음 fix는 sandbox 외부 validator / oscillation breaker 같은 결정적 차단
+
+### 15.5 부수 작업 (Sprint 4 동반)
+
+- 제출용 문서: REQUIREMENTS.md (PR #42), TECH_STACK.md (PR #44)
+- docs/dev/ 디렉토리 분리 (PR #47) — 에이전트 구현 SSOT 4 파일 → `docs/dev/`
+- e2e Run 12 사이 CI hotfix (PR #46 CI rerun via empty commit `c9da20d` — GitHub Actions queue stuck)
+
+### 15.6 v0.2.0 Release 결정 + Backlog (Round 10 후)
+
+**Release 기준**: 4/5 안정 도달 → DoD 충족 → v0.2.0 tag.
+- Run 11, 12 두 번 연속 4/5 — DoD 충족 확정
+- v0.2.0 release tag
+
+**잔존 backlog (v0.2.1+)**:
+
+| ID | 항목 | 우선순위 |
+|---|---|---|
+| **R-gen-cap** | Generator hard cap validator (sandbox 외부 사전 검증) | P0 — Segment Tree 100% 차단 |
+| **R-osc-break** | Phase A oscillation breaker (architect signature 2회+ 시 coder 강제) | P0 — BFS 결정적 차단 |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R12 hang resilience | ChatAnthropic timeout + retry | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+### 15.7 통계 (Round 10 종료 시점)
+
+- main HEAD: `3cc02bd`
+- **247 tests passed** + 3 skipped (Sprint 4 +7 tests: temperatures linspace × 5 + fanout 통합 × 2)
+- e2e **4/5 success** (2회 연속, Run 11/12)
+- ruff 0 / mypy --strict 0
+- 8 PR 머지 (Sprint 4 PR #40 ~ #47)
+- 본 라운드 신규 문서 2개 (REQUIREMENTS.md / TECH_STACK.md) + docs/dev/ 재구성
+- 누적 (v0.1.0 → v0.2.0): 47 PR / 19 신규 commit (현 round) / 4 신규 docs
+
+**Release tag** `v0.2.0` (Round 10 종료 commit):
+- 28 source files + 32 test files
+- **247 tests passed** + 3 skipped + 3 slow (sandbox stdin race 측정)
+- e2e DoD 충족 (4/5 안정)
+- 코드 변경 0 (release 자체는 tag-only)
+
+---

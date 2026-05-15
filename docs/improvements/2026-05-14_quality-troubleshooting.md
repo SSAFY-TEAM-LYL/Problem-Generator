@@ -275,7 +275,7 @@ jq -s 'group_by(.node) | map({node: .[0].node, avg_cost: (map(.cost_usd) | add /
 
 **리스크**: 3 솔루션이 모두 같은 oversight 가지면 효과 0 — 다양성 확보를 위해 temperature spread 필수.
 
-### 4.4 측정 비교 표 (실측 갱신)
+### 4.4 측정 비교 표 (실측 갱신 — Run 9~12 누적)
 
 | Sprint | 적용 | 기대 | **실측 (n=1)** | 비고 |
 |---|---|---|---|---|
@@ -283,12 +283,19 @@ jq -s 'group_by(.node) | map({node: .[0].node, avg_cost: (map(.cost_usd) | add /
 | Sprint 3 R13 | + R13 (Reflexion) | 1.5-2/5 | **0/5** (Run 7) | trace로 형식 작동 확인, sandbox race로 효과 측정 불가 |
 | Sprint 3 R15 | + R15 (Brute oracle) | 2-3/5 | **0/5** (Run 8) | trace로 형식 작동 확인, sandbox race로 효과 측정 불가 |
 | **R-sandbox** ⭐ | + PHASE_C_WORKERS=1 | — (인프라 fix) | **3/5** (Run 9) | **첫 multi-success — 진짜 lever** |
-| Sprint 3 R14 (예정) | + R14 (Best-of-N) | 3-4/5 | TBD | R14 도입 후 측정 — 4/5+ 기대 |
+| **Sprint 4 R14** ⭐ | + R14 (Best-of-N fanout=3) | 3-4/5 | **4/5** (Run 10) | **DoD 첫 충족 — BFS 회복** |
+| **Sprint 4 R3** ⭐ | + R3 (Generator N+M 가이드) | 4/5 stable | **4/5** (Run 11) | **Segment Tree 첫 회복**, BFS 재regression |
+| **Sprint 4 R-bfs** ⭐ | + R-bfs (architect 4) | 4-5/5 | **4/5** (Run 12) | **BFS 재회복**, Segment Tree variance 재발 |
 
-**핵심 깨달음 (Run 9 후)**:
-- R13/R15가 0/5로 측정된 이유는 LLM-side 효과 미달이 아닌 **sandbox race로 Phase C 도달 자체가 자주 실패**해서.
-- R-sandbox fix 후 같은 R13/R15가 (별도 측정 없이도) Run 9에서 3/5 달성 — R 시리즈는 이제 효과 발휘.
-- 다음 R14는 LLM 다양성 lever — R-sandbox 위에서 진짜 효과 확인 가능.
+**핵심 깨달음 (Run 9~12 후)**:
+- R13/R15가 0/5로 측정된 이유는 LLM-side 효과 미달이 아닌 **sandbox race로 Phase C 도달 자체가 자주 실패**해서 (Run 7~8). R-sandbox fix 후 진짜 효과 발휘.
+- Sprint 4 (R14 + R3 + R-bfs) 누적으로 **2회 연속 4/5 DoD 충족** (Run 11, 12).
+- **stable success 3 cases**: Two Sum / Dijkstra / LIS (4회 연속).
+- **variance 2 cases**: BFS / Segment Tree — case-by-case 매 run 변동. prompt-side fix 한계 도달.
+
+**5/5 도전 차단 요인** (prompt-side에서 불가):
+- LLM이 매 run에 다른 응답 생성 (temperature 효과)
+- 결정적 메커니즘 필요 — v0.2.1+ Generator hard cap validator / Phase A oscillation breaker
 
 각 step 후 본 표에 실측 채워 비교.
 

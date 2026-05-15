@@ -358,3 +358,71 @@ R-sandbox fix 적용 (PR #38, main `73024e1`) — production-ready 검증됨.
 - 4/5 안정 도달 → DoD 충족 → v0.2.0 tag
 - 3/5 안정 (n=3 평균) + 운영 도구 갖춤 → v0.2.0 with known limitations
 - DoD 미달 + sandbox v2/R14 진입 → v0.2.0-rc
+
+---
+
+## 부록 D — Run 10~12 실측 + Sprint 4 (R14 / R3 / R-bfs) 효과 확정
+
+> commit `3cc02bd` (R-bfs architect budget 4 + docs restructure 완료) 시점.
+> 본 부록은 Sprint 4의 3개 fix (R14 fanout=3, R3 N+M 가이드, R-bfs architect 4)
+> 누적 효과를 e2e 3회 실측으로 확정한다.
+
+### D.1 결과 매트릭스 (Run 9~12)
+
+| Case | Run 9 (R-sandbox) | Run 10 (R14) | Run 11 (R3) | Run 12 (R-bfs) |
+|---|---|---|---|---|
+| Two Sum | success | success | success | success |
+| BFS | budget_exh | **success** ⭐ | budget_exh | **success** ⭐ |
+| Dijkstra | success | success | success | success |
+| Segment Tree | budget_exh | budget_exh | **success** ⭐ | budget_exh |
+| LIS | success | success | success | success |
+| **Total** | **3/5** | **4/5** | **4/5** | **4/5** |
+| 소요 | 10:25 | 18:33 | 12:25 | 12:53 |
+
+### D.2 각 fix 효과 확정
+
+| Fix | PR | 효과 |
+|---|---|---|
+| **R14 Best-of-N fanout=3** | #40 #41 | Run 9 → Run 10에서 BFS 회복 (budget_exh → success). LLM 다양성으로 oscillation 깸 |
+| **R3 Generator N+M 가이드** | #45 | Run 10 → Run 11에서 Segment Tree 회복 (budget_exh → success). N+M dual-dimension 합산 cap 가이드 효과 |
+| **R-bfs architect budget 4** | #46 | Run 11 → Run 12에서 BFS 재회복 (budget_exh → success). R4 auditor와 같은 분산 흡수 패턴 |
+
+### D.3 진단 — 잔존 variance
+
+**stable success** (3 cases, 100%):
+- Two Sum / Dijkstra / LIS — 4회 연속 (Run 9~12) success
+
+**variance case** (2 cases):
+- **BFS**: Run 9 fail → Run 10 success → Run 11 fail → Run 12 success
+  - Architect ↔ Coder oscillation (Phase A 3-way "다수 통과 + 소수 mismatch → architect")
+  - R-bfs (architect 2→4)로 budget 흡수했지만 매 run 결과 변동
+- **Segment Tree**: Run 9 fail → Run 10 fail → Run 11 success → Run 12 fail
+  - Generator OLE (R10 cap 2MB 초과) variance
+  - R3 prompt-only 가이드는 LLM 응답 매번 달라 100% 보장 어려움
+
+### D.4 근본 한계 — LLM-side prompt fix의 분산
+
+Sprint 1~4의 R 시리즈 (R1/R10/R11/R13/R15/R14/R3/R-bfs)는 모두 **prompt-side fix**:
+- LLM이 가이드를 보고 따르는지 여부가 매 run마다 다름 (temperature 효과)
+- BFS architect storytelling / Segment Tree Generator dimension 선택 = 매 run variance
+- 따라서 **5/5 일관성은 prompt-side에서 도달 불가** — 다음 fix는 결정적 메커니즘 필요
+
+### D.5 향후 결정적 fix 후보 (v0.2.1+)
+
+| 후보 | 개념 | 효과 |
+|---|---|---|
+| **Generator hard cap validator** | sandbox 외부에서 generator 출력 size 사전 검증 → cap 초과 시 즉시 generator로 라우팅 (LLM 응답 기다리지 않고) | Segment Tree 100% 회피 보장 |
+| **Phase A oscillation breaker** | 같은 architect signature 2회+ 발견 시 coder 강제 라우팅 (architect 무한 retry 방지) | BFS oscillation 결정적 차단 |
+| **R5 brute oracle 활용 확대** | golden ≠ brute 일치 검증을 Phase B 전에도 (sample 검증과 함께) | architect ↔ coder 라우팅 결정 정확도 ↑ |
+| **R12 hang resilience** | ChatAnthropic timeout + retry | 운영 안정성 (현재 R6에서 한 번 hang 발생) |
+
+### D.6 v0.2.0 Release 결정
+
+**기준**: 4/5 안정 도달 → DoD 충족 → v0.2.0 tag
+
+**Run 11, 12 두 번 연속 4/5 success** — DoD 충족 확정. v0.2.0 release 가능.
+
+**알려진 한계 (v0.2.0)**:
+- 5 case 중 평균 4 success (variance ±1)
+- BFS / Segment Tree는 case-by-case variance — v0.2.1에서 결정적 fix 검토
+- 자세한 한계: REQUIREMENTS.md §5.3
