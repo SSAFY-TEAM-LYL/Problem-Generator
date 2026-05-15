@@ -95,6 +95,38 @@ def run(
     time_limit = int(cs.get("time_limit_ms", DEFAULT_TIME_LIMIT_MS))
     memory_limit = int(cs.get("memory_limit_mb", DEFAULT_MEMORY_LIMIT_MB))
 
+    # R14 PR 2: candidate_solutions가 다수면 sample 검증으로 best 선택.
+    # Coder가 fanout=N으로 N candidates를 만들면 첫 번째를 임시 채택했지만,
+    # 본 단계에서 실제 sample 실행으로 fail count 최소를 가린다. 동률 시 첫
+    # 번째 (가장 낮은 temperature — 보수적) 우선. best 후 run_dir 재작성 +
+    # 재컴파일하여 Phase A 진입.
+    candidates = state.get("candidate_solutions") or []
+    selected_brute: str | None = None
+    if len(candidates) > 1:
+        code, selected_brute = _pick_best_candidate(
+            candidates=candidates,
+            samples=samples,
+            runner=runner,
+            workdir=workdir,
+            language=language,
+            time_limit=time_limit,
+            memory_limit=memory_limit,
+        )
+        _write_source(run_dir, language, code)
+        recompile_ok, recompile_err = _compile(runner, run_dir, language)
+        if not recompile_ok:
+            return {
+                **state,
+                "iteration_count": next_iter,
+                "last_failed_node": "coder",
+                "feedback_message": f"compile error (best candidate):\n{recompile_err}",
+            }
+        # state 자체를 best로 갱신 — 이후 Phase B/C가 state.solution_code /
+        # state.brute_solution_code를 읽을 때 best 값 사용 (R15 cross-check 포함).
+        state = {**state, "solution_code": code}
+        if selected_brute is not None:
+            state["brute_solution_code"] = selected_brute
+
     # Phase A — 각 sample exact match
     results: list[dict[str, Any]] = []
     failures = 0
@@ -200,3 +232,49 @@ def _build_phase_a_feedback(results: list[dict[str, Any]], target: str) -> str:
             f"outputs (samples likely wrong)"
         )
     return f"phase A failures: {failures}/{n_total}"
+
+
+def _pick_best_candidate(
+    *,
+    candidates: list[dict[str, Any]],
+    samples: list[dict[str, Any]],
+    runner: SandboxedRunner,
+    workdir: Path,
+    language: str,
+    time_limit: int,
+    memory_limit: int,
+) -> tuple[str, str | None]:
+    """R14 PR 2: N candidate를 각 sample에서 실행 → fail count 최소 channel 반환.
+
+    각 candidate를 별도 ``workdir/cand_<i>/``에 작성 + compile + sample 실행.
+    fail count 최소 candidate의 ``(code, brute)`` 반환. compile fail이거나
+    sample 다수 fail이면 fail_count를 sample 수로 (=최악) 처리하여 다른 candidate
+    우선. 동률 시 가장 앞 (낮은 temperature — 보수적) 우선.
+    """
+    best_idx = 0
+    best_fails: int = len(samples) + 1  # 초기값을 worst+1로 (compile fail 안전판)
+    for i, cand in enumerate(candidates):
+        cand_dir = workdir / f"cand_{i}"
+        cand_dir.mkdir(parents=True, exist_ok=True)
+        _write_source(cand_dir, language, str(cand.get("code", "")))
+        ok, _ = _compile(runner, cand_dir, language)
+        if not ok:
+            continue  # compile fail은 best 후보 아님
+        fails = 0
+        for tc in samples:
+            stdin_text = str(tc.get("input", ""))
+            expected = _normalize(str(tc.get("expected_output", "")))
+            out = _execute_solution(
+                runner, cand_dir, language, stdin_text,
+                time_limit_ms=time_limit, memory_limit_mb=memory_limit,
+            )
+            if out.status != "OK" or _normalize(out.stdout) != expected:
+                fails += 1
+        if fails < best_fails:
+            best_fails = fails
+            best_idx = i
+    best = candidates[best_idx]
+    code = str(best.get("code", ""))
+    brute_raw = best.get("brute")
+    brute = str(brute_raw) if isinstance(brute_raw, str) else None
+    return code, brute
