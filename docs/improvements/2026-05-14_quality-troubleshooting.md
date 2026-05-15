@@ -275,14 +275,20 @@ jq -s 'group_by(.node) | map({node: .[0].node, avg_cost: (map(.cost_usd) | add /
 
 **리스크**: 3 솔루션이 모두 같은 oversight 가지면 효과 0 — 다양성 확보를 위해 temperature spread 필수.
 
-### 4.4 측정 비교 표
+### 4.4 측정 비교 표 (실측 갱신)
 
-| Sprint | 적용 | n=3 평균 success | 누적 비용 |
-|---|---|---|---|
-| baseline (현재) | R1+R4+R6+R10+R11+max_iter=10 | 1/5 | $2.50/run |
-| Sprint 3 step 1 | + R13 | 1.5-2/5 | $2.75 |
-| Sprint 3 step 2 | + R15 | 2-3/5 | $3.30 |
-| Sprint 3 step 3 | + R14 | 3-4/5 | $5-6 |
+| Sprint | 적용 | 기대 | **실측 (n=1)** | 비고 |
+|---|---|---|---|---|
+| baseline | R1+R4+R6+R10+R11+max_iter=10 | 1/5 | **1/5** (Run 5/6-retry) | LIS/BFS 단발 |
+| Sprint 3 R13 | + R13 (Reflexion) | 1.5-2/5 | **0/5** (Run 7) | trace로 형식 작동 확인, sandbox race로 효과 측정 불가 |
+| Sprint 3 R15 | + R15 (Brute oracle) | 2-3/5 | **0/5** (Run 8) | trace로 형식 작동 확인, sandbox race로 효과 측정 불가 |
+| **R-sandbox** ⭐ | + PHASE_C_WORKERS=1 | — (인프라 fix) | **3/5** (Run 9) | **첫 multi-success — 진짜 lever** |
+| Sprint 3 R14 (예정) | + R14 (Best-of-N) | 3-4/5 | TBD | R14 도입 후 측정 — 4/5+ 기대 |
+
+**핵심 깨달음 (Run 9 후)**:
+- R13/R15가 0/5로 측정된 이유는 LLM-side 효과 미달이 아닌 **sandbox race로 Phase C 도달 자체가 자주 실패**해서.
+- R-sandbox fix 후 같은 R13/R15가 (별도 측정 없이도) Run 9에서 3/5 달성 — R 시리즈는 이제 효과 발휘.
+- 다음 R14는 LLM 다양성 lever — R-sandbox 위에서 진짜 효과 확인 가능.
 
 각 step 후 본 표에 실측 채워 비교.
 
