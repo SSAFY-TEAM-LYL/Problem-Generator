@@ -170,10 +170,28 @@ def run(
 
     # 불변성 유지 — state["llm_calls"]를 mutate하지 않고 복사 후 변경분만 반환 (B2 fix)
     calls: list[LLMCallRecord] = list(state.get("llm_calls") or [])
-    resp = tracker.invoke(chat, messages, node="coder", state_calls=calls)
-    content = str(resp.content)
 
-    code, brute, impossible, lesson = _parse_response(content)
+    # R14 (Sprint 3): fanout N개 candidate 생성 (default 1, opt-in).
+    # fanout=1이면 기존 단일 call path, fanout>1이면 temperature 변동으로 N
+    # solution 생성. 본 PR은 구조만 — 첫 번째 candidate 채택, best 선택은 후속 PR.
+    fanout = max(1, int(state.get("coder_fanout") or 1))
+    temps = _temperatures(fanout)
+    candidates: list[dict[str, Any]] = []
+    for temp in temps:
+        chat_t = get_chat(CODER_MODEL, temperature=temp) if temp != 0.7 else chat
+        resp = tracker.invoke(chat_t, messages, node="coder", state_calls=calls)
+        c, b, imp, lsn = _parse_response(str(resp.content))
+        candidates.append({
+            "code": c, "brute": b, "lesson": lsn,
+            "temperature": temp, "impossible": imp,
+        })
+
+    # 첫 번째 candidate 채택 (best 선택은 후속 PR — Executor가 sample 검증)
+    first = candidates[0]
+    code = first["code"]
+    brute = first["brute"]
+    impossible = first["impossible"]
+    lesson = first["lesson"]
 
     # R13: lesson 누적 (있을 때만). 기존 list 복사 후 append — 불변성 유지.
     lessons: list[str] = list(state.get("lessons_learned") or [])
@@ -185,6 +203,7 @@ def run(
             **state,
             "llm_calls": calls,
             "lessons_learned": lessons,
+            "candidate_solutions": candidates,
             "feedback_message": f"Coder declared IMPOSSIBLE: {impossible}",
             "last_failed_node": "architect",
         }
@@ -193,6 +212,7 @@ def run(
         **state,
         "llm_calls": calls,
         "lessons_learned": lessons,
+        "candidate_solutions": candidates,
         "solution_code": code,
         "feedback_message": None,
         "last_failed_node": None,
@@ -202,3 +222,19 @@ def run(
     if brute is not None:
         result["brute_solution_code"] = brute
     return result
+
+
+def _temperatures(fanout: int) -> list[float]:
+    """R14: fanout N에 대해 균등 분포 temperature 리스트 반환.
+
+    - fanout=1 → [0.7] (기존 default)
+    - fanout=2 → [0.3, 1.0]
+    - fanout=3 → [0.3, 0.65, 1.0]
+    - fanout=N → linspace(0.3, 1.0, N)
+
+    Coder 응답 다양성을 위해 0.3~1.0 범위로 spread.
+    """
+    if fanout <= 1:
+        return [0.7]
+    step = (1.0 - 0.3) / (fanout - 1)
+    return [round(0.3 + step * i, 2) for i in range(fanout)]
