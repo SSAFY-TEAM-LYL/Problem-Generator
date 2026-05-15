@@ -44,10 +44,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--language", choices=["python", "java"], default="python")
     ap.add_argument("--max-iter", type=int, default=DEFAULT_MAX_ITER)
     ap.add_argument("--max-cost-usd", type=float, default=DEFAULT_MAX_COST_USD)
-    ap.add_argument(
-        "--sandbox",
-        choices=["auto", "docker", "sandboxexec", "rlimit"], default="auto",
-    )
+    ap.add_argument("--sandbox", choices=["auto", "docker", "sandboxexec", "rlimit"], default="auto")  # noqa: E501
     ap.add_argument("--strict-sandbox", action="store_true")
     ap.add_argument("--resume", metavar="RUN_ID", help="resume from checkpoint.db")
     ap.add_argument("--replay", metavar="RUN_ID", help="replay from llm_traces")
@@ -56,11 +53,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap.add_argument("--budget-coder", type=int, default=4)
     ap.add_argument("--budget-auditor", type=int, default=4)
     ap.add_argument("--budget-generator", type=int, default=2)
-    # P12.1: Phase C parallelism (P6.3 PHASE_C_WORKERS default 4 — runtime override)
-    ap.add_argument("--exec-workers", type=int, default=None,
-                    help="ThreadPoolExecutor workers for Phase C (default 4)")
-    ap.add_argument("--parallel-fanout", type=int, default=None,
-                    help="alias for --exec-workers (alternative naming)")
+    # P12.1: Phase C parallelism (PHASE_C_WORKERS default 1 — R-sandbox)
+    ap.add_argument("--exec-workers", type=int, default=None, help="Phase C workers")
+    ap.add_argument("--parallel-fanout", type=int, default=None, help="alias for --exec-workers")
+    # R14: Coder Best-of-N — opt-in. N>1 시 N 솔루션 (temperature 변동)
+    ap.add_argument("--coder-fanout", type=int, default=1,
+                    help="R14 Best-of-N candidates (default 1, opt-in)")
     args = ap.parse_args(argv)
     if args.resume and args.replay:
         ap.error("--resume and --replay are mutually exclusive")
@@ -84,6 +82,7 @@ def _initial_state(run_id: str, args: argparse.Namespace) -> ProblemState:
         },
         "iteration_history": [],
         "llm_calls": [],
+        "coder_fanout": args.coder_fanout,
     }
 
 

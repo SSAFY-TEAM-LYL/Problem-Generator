@@ -93,6 +93,14 @@ class ProblemState(TypedDict, total=False):
     # cross-check — 알고리즘 도메인 특화 deterministic 검증 신호. LLM 비결정성
     # 과 무관하게 정확성 ↑. brute가 없으면 (LLM 형식 어김) cross-check 생략.
     brute_solution_code: str
+    # R14 (Sprint 3): Coder Best-of-N fanout. >1이면 N개 솔루션 동시 생성
+    # (temperature 변동). default 1 (opt-in, 회귀 0). CLI ``--coder-fanout N``.
+    coder_fanout: int
+    # R14: Coder가 fanout N으로 생성한 후보 솔루션 리스트. 각 dict는
+    # ``{code, brute, lesson, temperature}`` — Executor가 sample 검증 후
+    # best (fail count 최소) 선택 (별도 PR). 현 PR은 구조만 도입, best 선택은
+    # 첫 번째 후보 단순 채택 — 진짜 best는 다음 PR.
+    candidate_solutions: list[dict[str, Any]]
 
     # Auditor output
     adversarial_inputs: list[dict[str, Any]]

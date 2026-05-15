@@ -10,7 +10,7 @@ LLM 없이 순수 텍스트 파싱 + state dict 입력으로 검증 — fast/che
 from __future__ import annotations
 
 from ipe.nodes._history import _MAX_LESSONS_IN_PROMPT, build_history_section
-from ipe.nodes.coder import _parse_response
+from ipe.nodes.coder import _parse_response, _temperatures
 from ipe.state import ProblemState
 
 
@@ -173,3 +173,31 @@ class TestParseResponseBrute:
         assert code.strip() == "solution = 1"
         assert brute is None
         assert lesson == "legacy single-fence response."
+
+
+class TestTemperatures:
+    """R14: ``_temperatures(fanout)`` — Best-of-N fanout 시 temperature 분포."""
+
+    def test_fanout_1_returns_default_07(self) -> None:
+        assert _temperatures(1) == [0.7]
+
+    def test_fanout_0_or_negative_treated_as_1(self) -> None:
+        """방어적 — 잘못된 입력은 fanout=1로 fallback."""
+        assert _temperatures(0) == [0.7]
+        assert _temperatures(-1) == [0.7]
+
+    def test_fanout_2_spreads_0_3_to_1_0(self) -> None:
+        assert _temperatures(2) == [0.3, 1.0]
+
+    def test_fanout_3_midpoint_0_65(self) -> None:
+        assert _temperatures(3) == [0.3, 0.65, 1.0]
+
+    def test_fanout_5_linspace_2decimal_rounded(self) -> None:
+        """fanout=5 → [0.3, 0.47, 0.65, 0.82, 1.0] (2 decimal round + banker's).
+
+        실제 linspace는 [0.3, 0.475, 0.65, 0.825, 1.0]이지만 코드는
+        ``round(..., 2)`` — Python banker's rounding으로 0.475→0.47, 0.825→0.82.
+        diversity 목적엔 충분 (각 ~0.18 차이).
+        """
+        result = _temperatures(5)
+        assert result == [0.3, 0.47, 0.65, 0.82, 1.0]
