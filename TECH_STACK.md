@@ -3,7 +3,7 @@
 > **프로젝트**: IPE (Infinite Problem Engine)
 > **목적**: MVP 구현 + 운영에 사용된 기술 스택 카탈로그
 > **작성**: 2026-05-15, v0.2.0-rc 시점
-> **참조**: [REQUIREMENTS.md](REQUIREMENTS.md) · [PROJECT_SPEC.md](PROJECT_SPEC.md) · [ARCHITECTURE.md](ARCHITECTURE.md)
+> **참조**: [REQUIREMENTS.md](REQUIREMENTS.md) · [docs/dev/PROJECT_SPEC.md](docs/dev/PROJECT_SPEC.md) · [docs/dev/ARCHITECTURE.md](docs/dev/ARCHITECTURE.md)
 
 ---
 

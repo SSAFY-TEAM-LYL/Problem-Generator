@@ -2,12 +2,12 @@
 
 > 알고리즘 문제 자동 생성 파이프라인. **LangGraph + Claude**로 문제 설계 → 정해 작성 → 적대적 엣지케이스 → 시드 기반 stress test → 난이도 사후 평가까지 자동화.
 
-[![Status](https://img.shields.io/badge/status-v0.1.1-brightgreen)](CHANGES.md)
-[![Tests](https://img.shields.io/badge/tests-240%20passed-brightgreen)](tests/)
-[![e2e](https://img.shields.io/badge/e2e-3%2F5%20success-yellow)](docs/improvements/2026-05-14_sandbox-infra-rca.md)
+[![Status](https://img.shields.io/badge/status-v0.2.0--rc-brightgreen)](CHANGES.md)
+[![Tests](https://img.shields.io/badge/tests-247%20passed-brightgreen)](tests/)
+[![e2e](https://img.shields.io/badge/e2e-4%2F5%20success-brightgreen)](docs/improvements/2026-05-14_sandbox-infra-rca.md)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![Sandbox](https://img.shields.io/badge/sandbox-Docker%2Fnsjail%2Fsandbox--exec-brightgreen)](PROJECT_SPEC.md#451-sandboxing--resource-limits)
+[![Sandbox](https://img.shields.io/badge/sandbox-Docker%2Fnsjail%2Fsandbox--exec-brightgreen)](docs/dev/PROJECT_SPEC.md#451-sandboxing--resource-limits)
 
 ---
 
@@ -27,11 +27,30 @@ IPE는 외부 문제 소스에 의존하지 않고 고품질 알고리즘 문제
 
 | 문서 | 역할 |
 |---|---|
-| [`PROJECT_SPEC.md`](PROJECT_SPEC.md) | 요구사항·결정사항 (SSOT) |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | 모듈별 코드 설계 + 운영 가드레일 |
-| [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) | 12-phase 구현 로드맵 (planner-grade) |
-| [`PYTHON_GUIDE.md`](PYTHON_GUIDE.md) | Python/LangGraph 문법·관용구 참고 |
-| [`CHANGES.md`](CHANGES.md) | 변경 이력 (Round 1~6, P0~P12 구현 + polish) |
+**제출용 / 진입점 (루트)**
+
+| 문서 | 역할 |
+|---|---|
+| [`README.md`](README.md) | 본 문서 — 진입점 + 진행 상태 |
+| [`REQUIREMENTS.md`](REQUIREMENTS.md) | 기능적/비기능적 요구사항 정의서 (제출용) |
+| [`TECH_STACK.md`](TECH_STACK.md) | MVP 구현·운영 기술 스택 카탈로그 (제출용) |
+| [`CHANGES.md`](CHANGES.md) | 변경 이력 (Round 1~9, v0.1.0~v0.2.0 진행) |
+
+**에이전트 구현 참고 (`docs/dev/`)** — 구현 시 SSOT
+
+| 문서 | 역할 |
+|---|---|
+| [`docs/dev/PROJECT_SPEC.md`](docs/dev/PROJECT_SPEC.md) | 요구사항·결정사항 (SSOT) |
+| [`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md) | 모듈별 코드 설계 + 운영 가드레일 |
+| [`docs/dev/IMPLEMENTATION_ROADMAP.md`](docs/dev/IMPLEMENTATION_ROADMAP.md) | 12-phase 구현 로드맵 (planner-grade) |
+| [`docs/dev/PYTHON_GUIDE.md`](docs/dev/PYTHON_GUIDE.md) | Python/LangGraph 문법·관용구 참고 |
+
+**진단·운영 (`docs/improvements/`, `docs/backlog/`)**
+
+| 문서 | 역할 |
+|---|---|
+| [`docs/improvements/`](docs/improvements/) | RCA + troubleshooting playbook (Sprint 1~3 진행 기록) |
+| [`docs/backlog/`](docs/backlog/) | phase audit + post-phase 미해소 항목 |
 | [`archive/`](archive/) | 외부 리뷰 등 archival 문서 |
 
 ---
@@ -104,7 +123,7 @@ ipe --replay <run_id>
 | **🚀 v0.1.1 Patch** | ✅ | polish round 3 (B2 + sandbox CLI + F4) — tag `v0.1.1` |
 | **🧪 v0.2.0 Sprint 1-3** | 🟡 In Progress | R1/R4/R6/R10/R11/R13/R15 + **R-sandbox fix** (e2e 0/5 → **3/5**) — Run 9 검증 |
 
-상세 phase 정의·DoD: [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md)
+상세 phase 정의·DoD: [`docs/dev/IMPLEMENTATION_ROADMAP.md`](docs/dev/IMPLEMENTATION_ROADMAP.md)
 
 ---
 
@@ -123,7 +142,7 @@ outputs/<run_id>/
 outputs/by-name/<timestamp>_<algo>  → ../<run_id>   # 사람용 별칭
 ```
 
-스키마 상세: [`PROJECT_SPEC.md` §6](PROJECT_SPEC.md#6-산출물-구조-polygon-style)
+스키마 상세: [`docs/dev/PROJECT_SPEC.md` §6](docs/dev/PROJECT_SPEC.md#6-산출물-구조-polygon-style)
 
 ---
 
@@ -176,7 +195,7 @@ default `5.0` USD에서 시작, 필요 시 증감.
 - 새 노드 추가 시 모든 함수 시그니처에 type annotation 필수.
 - LangGraph node는 `(state) -> ProblemState` 형태로 반환 타입 명시.
 
-상세 운영 가이드: [`ARCHITECTURE.md` §7-10](ARCHITECTURE.md)
+상세 운영 가이드: [`docs/dev/ARCHITECTURE.md` §7-10](docs/dev/ARCHITECTURE.md)
 
 ---
 
