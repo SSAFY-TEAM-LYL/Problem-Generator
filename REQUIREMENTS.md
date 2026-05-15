@@ -360,7 +360,7 @@ ipe --sandbox rlimit --strict-sandbox         # 격리 강제
 - [ ] **DoD: 5/5 중 4+ success** (Run 10 측정 예정)
 
 ### 6.3 문서 / 운영
-- [x] PROJECT_SPEC.md / ARCHITECTURE.md / IMPLEMENTATION_ROADMAP.md 완비
+- [x] docs/dev/PROJECT_SPEC.md / ARCHITECTURE.md / IMPLEMENTATION_ROADMAP.md 완비
 - [x] RCA / playbook (`docs/improvements/`)
 - [x] CI GitHub Actions ubuntu + macOS 매트릭스 통과
 - [x] README badge / status 최신화

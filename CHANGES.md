@@ -177,7 +177,7 @@ outputs/
 
 | # | 변경 | 영향 |
 |---|---|---|
-| **M1** | **신규 파일 [`PYTHON_GUIDE.md`](PYTHON_GUIDE.md) 생성**. ARCH §4 (Python 문법), §5 (LangGraph 패턴), §7 (흔한 실수) + 모듈별 산재된 "Python 문법 노트" 박스를 통합. ARCH 본문은 짧은 redirect 링크로 교체. | ARCH ~1490줄 → ~1080줄 (-410줄), PYTHON_GUIDE ~210줄 신규. CLI 에이전트 컨텍스트 효율 향상. <br>**참고:** REVIEW가 주장한 "400줄 혼재"는 §4-7만 기준으로는 ~66줄이었음 (메타 검증 시 정정). 모듈별 박스를 통합한 결과 실제 분리량은 ~210줄 수준. |
+| **M1** | **신규 파일 [`PYTHON_GUIDE.md`](docs/dev/PYTHON_GUIDE.md) 생성**. ARCH §4 (Python 문법), §5 (LangGraph 패턴), §7 (흔한 실수) + 모듈별 산재된 "Python 문법 노트" 박스를 통합. ARCH 본문은 짧은 redirect 링크로 교체. | ARCH ~1490줄 → ~1080줄 (-410줄), PYTHON_GUIDE ~210줄 신규. CLI 에이전트 컨텍스트 효율 향상. <br>**참고:** REVIEW가 주장한 "400줄 혼재"는 §4-7만 기준으로는 ~66줄이었음 (메타 검증 시 정정). 모듈별 박스를 통합한 결과 실제 분리량은 ~210줄 수준. |
 | **M2** | `ARCHITECTURE.md` §3.3.0 신규 — **모델명 ↔ API ID 표준 매핑 표 (SSOT)**. SPEC §4 도입부에 "코드/설정/trace는 ARCH §3.3.0의 API ID를 사용"이라는 안내 추가. | SPEC=마케팅명, ARCH=API ID로 분리되어 있던 명명 정책을 단일 표로 통일. |
 
 ### 9.4 Q1~Q5 결정 반영
