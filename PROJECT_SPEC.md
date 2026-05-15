@@ -240,7 +240,7 @@ class ProblemState(TypedDict, total=False):
     4. **Phase B:** adversarial 입력 syntactic validator 통과 후 실행 (`constraints_structured.variables` 범위 확인). validator 실패 → Auditor로 (input 자체가 잘못됨). 솔루션 RTE/TLE 없으면 솔루션 출력을 oracle로 testcase에 추가.
     5. **Phase C:** generator 스크립트를 시드별로 실행하여 stdin 생성 → 솔루션 실행. 스크립트 자체 실패 → Generator로, 솔루션 RTE/TLE → Coder로.
         * **추가 게이트:** max-stress 케이스에서 정해 wall_time이 `time_limit_ms × 0.5`를 넘으면 "정해가 느림" 피드백과 함께 Coder로 (성능 개선 요청).
-    6. **병렬 실행 (P1):** Phase B/C는 case·seed 단위 embarrassingly parallel — `ThreadPoolExecutor`로 fan-out (subprocess는 GIL 영향 없음). 기본 4 worker, `--exec-workers`로 조정.
+    6. **병렬 실행 (P1):** Phase B/C는 case·seed 단위 embarrassingly parallel — `ThreadPoolExecutor`로 fan-out (subprocess는 GIL 영향 없음). 기본 1 worker (v0.2.0 R-sandbox: `subprocess.Popen + preexec_fn(setrlimit)` 병렬 race 회피로 4→1 직렬화, ulimit wrapper 도입 후 4 복귀 검토 — `docs/improvements/2026-05-14_sandbox-infra-rca.md`). `--exec-workers`로 조정 가능.
     7. **All Pass:** `final_status = "success"` → Difficulty Evaluator로 진행.
     8. **Termination:** 글로벌 `max_iter` 초과 → `max_iterations`. 노드별 `node_retry_budget` 소진 → `budget_exhausted`. `cost_usd` 합이 `max_cost_usd` 초과 → `cost_exceeded`. 어느 경우든 Halt → Human Review.
 

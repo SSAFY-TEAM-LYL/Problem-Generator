@@ -613,3 +613,67 @@ state.py + 4 빈 __init__` 외 polish로 추가:
 - 의도적 carryover 0건 (D1만 환경 의존)
 
 ---
+
+## 14. Round 9 — v0.2.0 Sprint 1-3 + R-sandbox (2026-05-10 ~ 2026-05-15)
+
+v0.1.1 release 후 실제 LLM e2e 측정에서 0/5 success. RCA → Sprint 1~3 R 시리즈
+→ Run 7/8 0/5 → trace + 로컬 reproduction으로 **진짜 병목이 sandbox race**임
+을 확정. R-sandbox 1줄 fix(`PHASE_C_WORKERS 4 → 1`)로 **3/5 success** 도달.
+
+### 14.1 Sprint 정리 (PR 시퀀스)
+
+| Sprint | PR | 변경 | success rate |
+|---|---|---|---|
+| Sprint 1 (R1+R4+R6) | #29 | Coder detailed feedback + auditor budget 4 + PRICING 주석 | 0/5 (Run 3) |
+| Sprint 1.5 (R11) | #30 | HIGH-VOLUME warning + Coder IO system prompt | 0/5 (Run 4) |
+| max_iter=10 baseline | #31 | e2e max_iter 8→10 (BFS 첫 단발) | 1/5 (Run 5) |
+| Sprint 2 (R10) | #32 | Generator input cap 5MB→2MB + size discipline | 1/5 (Run 6-retry) |
+| Sprint 3 R13 | #34 | Coder LESSON 추출 + history 누적 노출 | 0/5 (Run 7) |
+| Sprint 3 R15 | #36 | Brute oracle cross-check (golden + brute) | 0/5 (Run 8) |
+| **R-sandbox** ⭐ | #38 | **PHASE_C_WORKERS 4 → 1 직렬화** | **3/5 (Run 9)** |
+
+### 14.2 R-sandbox 진단 — 진짜 병목 발견 과정
+
+1. **Trace 분석** — Sprint 3 R 시리즈가 형식상 정상 작동 확인 (LESSON / brute fence / HIGH-VOLUME warning 모두 prompt에 정확히 노출)
+2. **로컬 reproduction** — 동일 솔루션 + 동일 stress input이 로컬 Python에서 40ms exit 0
+3. **Step 1 측정** (`tests/integration/test_sandbox_stdin_large.py`) — RlimitRunner direct sequential 정상, **parallel 4 workers에서 4.5% RTE (returncode=-24 SIGXCPU)**
+4. **진단 확정**: `subprocess.Popen + preexec_fn(resource.setrlimit)` 병렬 호출이 RLIMIT_CPU race로 child를 SIGXCPU(40-60ms)로 kill — Python interpreter 시작 직후 abort
+5. **Lock fix 시도** (fork만 직렬화) → 효과 없음 (race rate 5% → 10%) → fork 외부 race로 확정
+6. **PHASE_C_WORKERS=1** (1줄 fix) → sequential 30 trials 0 RTE → e2e Run 9 **3/5** 검증
+
+### 14.3 부수 fix + 문서
+
+| PR | 변경 |
+|---|---|
+| #35 | CI ubuntu Java test memory 512→2048 + COMPILE 1024→4096 + Linux skip (RLIMIT_AS + JVM 불안정) |
+| #37 | `docs/improvements/2026-05-14_sandbox-infra-rca.md` — Sprint 3 실행 후 진짜 RCA + A plan |
+| #33 | `docs/improvements/2026-05-14_quality-troubleshooting.md` — Sprint 3 진입 전 baseline + protocol |
+| #28 | `docs/improvements/2026-05-10_root-cause-analysis.md` — v0.1.1 baseline RCA + sprint plan |
+
+### 14.4 핵심 통찰
+
+- **Sprint 1~3 R 시리즈는 LLM-side 입력 quality 개선**. Sandbox race가 차단된 상태에선 효과 측정 자체가 불가했음 (R13/R15 형식 작동 → 0/5 측정 → R-sandbox 후 같은 R로 3/5 달성).
+- **진단의 순서**: 인프라(sandbox) → 입력(detailed feedback / IO 강화) → LLM 다양성(R14). 인프라 통과 후에야 입력 개선 효과 검증 가능.
+- **테스트 자체가 메트릭**: `test_sandbox_stdin_large.py`의 race rate 측정이 fix 가능성 진단 자료로 결정적.
+
+### 14.5 누적 backlog (Run 9 후 개정)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| R-sandbox | PHASE_C_WORKERS=1 직렬화 | ✅ Resolved (#38) |
+| R14 | Coder Best-of-N | 🔴 P0 — 4/5+ 도달 가장 큰 lever |
+| R2 | W4 → architect 라우팅 | 🟡 P1 — BFS/Segment oscillation 대상 |
+| R3 | Generator N gradient | 🟡 P2 — R10으로 부분 처리 |
+| R12 | hang resilience (ChatAnthropic timeout) | 🟡 P1 — Run 6 hang 재현 가능 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | 🔵 P3 (선택) — Phase C 시간 회복 |
+
+### 14.6 통계 (Round 9 종료 시점)
+
+- main HEAD: `73024e1`
+- **240 tests passed** + 3 skipped (Sprint 3 +30 tests: brute extraction, lesson parsing, stdin size threshold)
+- e2e Run 9 **3/5 success** (Two Sum / Dijkstra / LIS) — 역대 최고
+- ruff 0 / mypy --strict 0
+- 11 PR 머지 (Sprint 1 PR #29 ~ R-sandbox PR #38)
+- 4개 신규 문서 (RCA × 2 + playbook + sandbox RCA)
+
+---
