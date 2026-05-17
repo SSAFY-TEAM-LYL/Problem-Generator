@@ -762,3 +762,50 @@ Sprint 1~4의 모든 R 시리즈는 **prompt-side fix** (LLM 가이드 강화). 
 - 코드 변경 0 (release 자체는 tag-only)
 
 ---
+
+## 16. Round 11 — v0.2.1 결정적 Fix Sprint 진입 (2026-05-18)
+
+v0.2.0 release (Round 10) 후 backlog P0 두 항목 (`R-osc-break`, `R-gen-cap`) —
+prompt-only fix(Sprint 1~4)가 도달하지 못한 결정적 차단 메커니즘. Round 11은 그
+첫 항목인 `R-osc-break`을 시작한다.
+
+### 16.1 R-osc-break — Phase A oscillation breaker
+
+**문제**: BFS 케이스 e2e variance (Run 9~12 중 2/4 success). architect가 같은
+실패 signature로 반복 retry → budget 소진 → `budget_exhausted` 종료.
+prompt-only W4 경고(`build_history_section`의 "DIFFERENT STRATEGY REQUIRED")는
+LLM이 무시 가능 → 결정적 보완 필요.
+
+**해법** (PR — feat/v0.2.1-osc-break):
+- 신규 helper `ipe.graph._detect_architect_oscillation(state, current_signature)`
+- 조건 (전부 만족): `last_failed_node == "architect"` + `current_signature` 비공백
+  + `iteration_history`에 동일 architect signature 1회+ 존재 (이번 포함 = 2회+)
+- `_decision`에서 감지 시 `last_failed_node`를 `architect → coder`로 swap →
+  routing/budget 차감이 coder로 전환됨 → architect 무한 retry 차단
+- `iteration_history`에는 원인 노드(architect)를 그대로 기록하되
+  `action="oscillation_break"`로 마킹하여 trace 식별 가능
+
+**테스트** (+11): `tests/test_routing_units.py`
+- `TestDetectArchitectOscillation` × 6 (감지 helper unit)
+- `TestDecisionOscillationBreaker` × 5 (swap + budget + history + routing)
+
+**검증**:
+- 전체 pytest **266 passed + 3 skipped** (회귀 0)
+- ruff 0 / mypy --strict 0 (변경 파일: `ipe/graph.py`, `tests/test_routing_units.py`)
+- 결정적 동작 — LLM 응답 변동성 무관
+
+**한계 및 후속**:
+- BFS e2e 실측은 별도 release 검증(LLM 호출, 시간/비용) — v0.2.1 tag 시점에 5회 run
+- R-gen-cap (Segment Tree 차단) 후속 PR로 분리 — 검증 범위 분리해 회귀 원인 추적 용이
+
+### 16.2 잔존 backlog (v0.2.1 진행 중)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | Phase A oscillation breaker | ✅ Round 11 완료 |
+| **R-gen-cap** | Generator hard cap validator (sandbox 외부 사전 검증) | P0 — 다음 PR |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R12 hang resilience | ChatAnthropic timeout + retry | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+---

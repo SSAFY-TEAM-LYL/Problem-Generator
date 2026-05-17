@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0",
+    version: "v0.2.0 + Round 11",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "0a0a03a",
-    updated: "2026-05-15",
-    e2eSuccess: "4/5",
-    tests: 247,
+    mainCommit: "f4efa21",
+    updated: "2026-05-18",
+    e2eSuccess: "4/5 (R-osc-break 결정적 보완 적용, 실측 v0.2.1 대기)",
+    tests: 266,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -131,15 +131,28 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.1+)
+  // Backlog (v0.2.1+) — R-osc-break는 Round 11에서 완료 (CHANGES §16.1)
   backlog: [
-    { id: "R-gen-cap", title: "Generator hard cap validator", priority: "P0", desc: "Segment Tree variance 결정적 차단" },
-    { id: "R-osc-break", title: "Phase A oscillation breaker", priority: "P0", desc: "BFS oscillation 결정적 차단" },
+    { id: "R-gen-cap", title: "Generator hard cap validator", priority: "P0", desc: "Segment Tree variance 결정적 차단 (다음 PR)" },
     { id: "R12", title: "ChatAnthropic timeout + retry", priority: "P1", desc: "운영 hang resilience" },
     { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
     { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
     { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.0", desc: "_write_source 분기 추가" },
     { id: "FastAPI", title: "API화 + web UI", priority: "v0.4.0", desc: "다중 사용자" },
+  ],
+
+  // 완료된 결정적 fix (Round 11+) — dashboard에서 별도 섹션
+  completedFixes: [
+    {
+      id: "R-osc-break",
+      round: "Round 11",
+      date: "2026-05-18",
+      title: "Phase A oscillation breaker",
+      desc: "architect signature 2회+ 시 coder 강제 라우팅 (라우팅 레벨 결정적 차단)",
+      target: "BFS variance 2/4 → 결정적 차단",
+      tests: 11,
+      doc: "docs/improvements/2026-05-18_osc-break-deterministic.md",
+    },
   ],
 };

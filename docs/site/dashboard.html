@@ -105,6 +105,14 @@
   <div class="divider"></div>
 
   <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">Round 11 — 결정적 Fix Sprint</h2>
+    <p class="text-gray-400 mb-6">prompt-only fix(Sprint 1~4) 한계 너머 — 라우팅 레벨 결정적 차단</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="completed-fixes-grid"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
     <h2 class="text-3xl font-bold mb-2 text-white">v0.2.1+ Backlog</h2>
     <p class="text-gray-400 mb-6">잔존 variance 결정적 fix + 후속 확장</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="backlog-grid"></div>
@@ -112,9 +120,10 @@
 
   <footer class="border-t border-gray-800 mt-12">
     <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
-      <div>© 2026 LsMin124 · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div>© 2026 LsMin124 · <span id="f-version"></span> (<span id="f-commit"></span>)</div>
       <div class="flex gap-4">
         <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">CHANGES.md</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_osc-break-deterministic.md" target="_blank">R-osc-break RCA</a>
         <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-14_sandbox-infra-rca.md" target="_blank">Sandbox RCA</a>
         <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
       </div>
@@ -125,6 +134,7 @@
   <script>
     const D = window.IPE_DATA;
     document.getElementById('f-commit').textContent = D.meta.mainCommit;
+    document.getElementById('f-version').textContent = D.meta.version;
 
     Chart.defaults.color = '#7d8590';
     Chart.defaults.borderColor = '#30363d';
@@ -246,6 +256,25 @@
         <td class="text-gray-400">${pr.impact}</td>
       `;
       prBody.appendChild(tr);
+    });
+
+    const cfGrid = document.getElementById('completed-fixes-grid');
+    (D.completedFixes || []).forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="flex items-start gap-2 mb-2">
+          <span class="badge badge-success flex-shrink-0">${c.round}</span>
+          <div>
+            <div class="font-bold text-white">${c.id}</div>
+            <div class="text-sm text-gray-300 mt-1">${c.title}</div>
+            <div class="text-xs text-gray-400 mt-2">${c.desc}</div>
+            <div class="text-xs text-gray-500 mt-2">대상: ${c.target} · 테스트 +${c.tests} · ${c.date}</div>
+            <div class="text-xs mt-2"><a href="https://github.com/LsMin124/IPE/blob/main/${c.doc}" target="_blank" class="text-blue-400">RCA →</a></div>
+          </div>
+        </div>
+      `;
+      cfGrid.appendChild(div);
     });
 
     const bGrid = document.getElementById('backlog-grid');

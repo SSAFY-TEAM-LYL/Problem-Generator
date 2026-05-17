@@ -54,6 +54,33 @@ def _error_signature(feedback: str) -> str:
     return hashlib.sha1(feedback.encode("utf-8")).hexdigest()[:12]
 
 
+def _detect_architect_oscillation(state: ProblemState, current_signature: str) -> bool:
+    """R-osc-break: architect가 같은 signature로 2회+ 실패했는지 감지.
+
+    prompt-only W4 경고(`_build_history_section`)는 LLM이 무시 가능 → BFS variance
+    사례에서 architect가 같은 패턴으로 반복 retry하다 budget 소진. 이 함수가 True
+    리턴 시 `_decision`이 ``last_failed_node``를 ``architect → coder``로 swap하여
+    결정적으로 oscillation 차단.
+
+    조건 (전부 만족):
+    - 현 cycle의 ``last_failed_node == "architect"``
+    - ``current_signature`` 비어있지 않음
+    - ``iteration_history``에 ``node="architect"`` + 동일 signature 1회+ 존재
+      (이번 포함 = 2회+)
+    """
+    if state.get("last_failed_node") != "architect":
+        return False
+    if not current_signature:
+        return False
+    history = state.get("iteration_history") or []
+    prior = sum(
+        1
+        for r in history
+        if r.get("node") == "architect" and r.get("error_signature") == current_signature
+    )
+    return prior >= 1
+
+
 def _decision(state: ProblemState) -> ProblemState:
     """Halt 가드 + iteration_history 갱신 + budget 차감.
 
@@ -95,8 +122,17 @@ def _decision(state: ProblemState) -> ProblemState:
             ),
         }
 
-    # 4. budget exhausted — NodeRetryBudget(TypedDict)을 dict[str,int]로 narrow
+    # 4. R-osc-break: architect oscillation 감지 → coder 강제 라우팅 swap
     failed = state.get("last_failed_node")
+    feedback = state.get("feedback_message") or ""
+    current_sig = _error_signature(feedback)
+    osc_break = _detect_architect_oscillation(state, current_sig)
+    # 원인 노드(architect)는 history에 그대로 기록, routing/budget만 coder로 swap
+    origin_node = failed
+    if osc_break:
+        failed = "coder"
+
+    # 5. budget exhausted — NodeRetryBudget(TypedDict)을 dict[str,int]로 narrow
     nb_src: dict[str, Any] = dict(state.get("node_retry_budget") or {})
     budget: dict[str, int] = {k: int(v) for k, v in nb_src.items()}
     if failed in _RETRY_TARGETS:
@@ -109,18 +145,17 @@ def _decision(state: ProblemState) -> ProblemState:
                     f"{failed} retry budget exhausted (was {remaining})"
                 ),
             }
-        # 5. retry — budget 차감
+        # 6. retry — budget 차감
         budget[str(failed)] = remaining - 1
 
     # iteration_history 추가 (failed가 set된 경우에만)
     history: list[IterationRecord] = list(state.get("iteration_history") or [])
-    if failed:
-        feedback = state.get("feedback_message") or ""
+    if origin_node:
         record: IterationRecord = {
             "iter_index": iter_count,
-            "node": str(failed),
-            "action": "retry",
-            "error_signature": _error_signature(feedback),
+            "node": str(origin_node),
+            "action": "oscillation_break" if osc_break else "retry",
+            "error_signature": current_sig,
             "feedback": feedback,
         }
         history.append(record)
@@ -129,6 +164,7 @@ def _decision(state: ProblemState) -> ProblemState:
         **state,
         "node_retry_budget": cast(NodeRetryBudget, budget),
         "iteration_history": history,
+        "last_failed_node": failed,
     }
 
 

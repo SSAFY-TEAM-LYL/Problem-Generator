@@ -28,8 +28,8 @@
     <div class="max-w-6xl mx-auto px-6 py-24 text-center">
       <div class="inline-flex items-center gap-2 mb-6">
         <span class="badge badge-success" id="hero-version">v0.2.0</span>
-        <span class="badge badge-accent">4/5 e2e success</span>
-        <span class="badge">247 tests · 93% coverage</span>
+        <span class="badge badge-accent" id="hero-success">4/5 e2e success</span>
+        <span class="badge" id="hero-tests">247 tests · 93% coverage</span>
       </div>
       <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
         <span class="text-white">Infinite</span><br>
@@ -101,8 +101,8 @@
 
   <!-- recent progress -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">최근 진행 (v0.2.0)</h2>
-    <p class="text-gray-400 mb-8">Sprint 1~4 누적으로 e2e 0/5 → 4/5 DoD 도달.</p>
+    <h2 class="text-3xl font-bold mb-2 text-white">최근 진행 (v0.2.0 + Round 11)</h2>
+    <p class="text-gray-400 mb-8">Sprint 1~4 누적으로 e2e 0/5 → 4/5 DoD 도달. Round 11: R-osc-break (BFS 결정적 차단).</p>
     <div class="card">
       <table>
         <thead>
@@ -148,7 +148,7 @@
   <!-- footer -->
   <footer class="border-t border-gray-800 mt-12">
     <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
-      <div>© 2026 LsMin124 · MIT-compatible deps · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div>© 2026 LsMin124 · MIT-compatible deps · <span id="f-version">v0.2.0</span> (<span id="f-commit"></span>)</div>
       <div class="flex gap-4">
         <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
         <a href="https://github.com/LsMin124/IPE/releases" target="_blank">Releases</a>
@@ -161,11 +161,15 @@
   <script>
     const D = window.IPE_DATA;
     document.getElementById('hero-version').textContent = D.meta.version;
+    document.getElementById('hero-success').textContent = D.meta.e2eSuccess;
+    document.getElementById('hero-tests').textContent = `${D.meta.tests} tests · ${D.meta.coverage}% coverage`;
     document.getElementById('m-success').textContent = D.meta.e2eSuccess;
     document.getElementById('m-tests').textContent = D.meta.tests;
     document.getElementById('m-cov').textContent = D.meta.coverage + '%';
     document.getElementById('m-deps').textContent = D.meta.deps;
     document.getElementById('f-commit').textContent = D.meta.mainCommit;
+    const fv = document.getElementById('f-version');
+    if (fv) fv.textContent = D.meta.version;
 
     const nodesGrid = document.getElementById('nodes-grid');
     D.graphNodes.forEach(n => {
