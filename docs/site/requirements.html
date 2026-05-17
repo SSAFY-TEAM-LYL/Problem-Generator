@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Requirements — IPE</title>
+  <meta name="description" content="IPE 기능적·비기능적 요구사항 정의서">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(13,17,23,0.85);backdrop-filter:blur(8px);">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="text-lg font-bold text-white hover:no-underline">⚙️ <span class="text-blue-400">IPE</span></a>
+      <div class="flex gap-1">
+        <a href="index.html" class="nav-link">Overview</a>
+        <a href="requirements.html" class="nav-link active">Requirements</a>
+        <a href="tech-stack.html" class="nav-link">Tech Stack</a>
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank" class="nav-link">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-gradient">
+    <div class="max-w-6xl mx-auto px-6 py-16 text-center">
+      <h1 class="text-5xl font-bold text-white mb-4">요구사항 정의서</h1>
+      <p class="text-gray-400">기능적 (FR) 14 + 비기능적 (NFR) 10 + 인수 기준</p>
+      <div class="flex justify-center gap-2 mt-4">
+        <span class="badge badge-accent">FR 14</span>
+        <span class="badge badge-success">NFR 10</span>
+        <span class="badge">DoD 4/5 충족</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">1. 시스템 범위</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <div class="card">
+        <div class="text-green-400 font-bold text-lg mb-3">✓ 범위 내 (In Scope)</div>
+        <ul class="space-y-2 text-sm text-gray-300">
+          <li>• 한 algorithm 키워드 → 한 검증된 문제 (problem.json + solution + testcases)</li>
+          <li>• 단일 사용자, 단일 실행 단위 (run_id별 격리)</li>
+          <li>• Python / Java 솔루션 언어</li>
+          <li>• Sandboxed local execution (4-tier)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="text-red-400 font-bold text-lg mb-3">✗ 범위 외 (Out of Scope)</div>
+        <ul class="space-y-2 text-sm text-gray-300">
+          <li>• 웹 UI / 사용자 인증 / 다중 사용자 세션</li>
+          <li>• 자동 채점 시스템 통합 (출력 schema만 호환)</li>
+          <li>• 문제 데이터베이스 / 검색 인터페이스</li>
+          <li>• 다언어 문제 description 번역</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">2. 기능 요구사항 (FR)</h2>
+    <p class="text-gray-400 mb-8">14개 기능 요구사항 — 시스템이 무엇을 하는가</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="fr-grid"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">3. 비기능 요구사항 (NFR)</h2>
+    <p class="text-gray-400 mb-8">10개 비기능 요구사항 — 시스템이 어떻게 동작해야 하는가</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="nfr-grid"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">4. 인수 기준</h2>
+    <p class="text-gray-400 mb-8">v0.2.0 release 시점 충족 상태</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card">
+        <div class="text-green-400 font-bold mb-3">✅ 코어 인프라 (v0.1.0~v0.1.1)</div>
+        <ul class="space-y-1 text-sm text-gray-300">
+          <li>✓ 12-phase 구현 (P0~P12) DoD 통과</li>
+          <li>✓ 247 tests passed, coverage 93%</li>
+          <li>✓ ruff 0 / mypy --strict 0</li>
+          <li>✓ 3-Phase 검증 + brute cross-check</li>
+          <li>✓ Resume / Replay 검증</li>
+          <li>✓ 4-tier sandbox + isolation self-test</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="text-green-400 font-bold mb-3">✅ LLM Quality (v0.2.0)</div>
+        <ul class="space-y-1 text-sm text-gray-300">
+          <li>✓ R-sandbox fix (race 차단)</li>
+          <li>✓ R1/R10/R11/R13/R15/R14/R3/R-bfs</li>
+          <li>✓ <strong>DoD 4/5+ success</strong> (Run 11/12 2회 연속)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="text-green-400 font-bold mb-3">✅ 문서 / 운영</div>
+        <ul class="space-y-1 text-sm text-gray-300">
+          <li>✓ docs/dev/ (PROJECT_SPEC / ARCHITECTURE / ROADMAP / GUIDE)</li>
+          <li>✓ RCA + playbook (docs/improvements/)</li>
+          <li>✓ CI GitHub Actions matrix 통과</li>
+          <li>✓ README / REQUIREMENTS / TECH_STACK</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">5. 알려진 한계 (v0.2.0)</h2>
+    <p class="text-gray-400 mb-6">솔직한 명시 — 운영 시 인지 필요</p>
+    <div class="space-y-3">
+      <details>
+        <summary>e2e success rate: 4/5 (variance ±1)</summary>
+        <div class="text-sm text-gray-400 mt-2">5 case 중 평균 4 success. BFS / Segment Tree는 case-by-case variance. v0.2.1에서 결정적 fix (R-gen-cap / R-osc-break) 검토.</div>
+      </details>
+      <details>
+        <summary>LLM 비결정성</summary>
+        <div class="text-sm text-gray-400 mt-2">동일 알고리즘이 run마다 다른 결과 가능 — R14 Best-of-N으로 완화. prompt-side fix 한계 도달.</div>
+      </details>
+      <details>
+        <summary>Java integration test: Linux CI에서 skip</summary>
+        <div class="text-sm text-gray-400 mt-2">RLIMIT_AS + JVM 상호작용 불안정 → macOS만 검증.</div>
+      </details>
+      <details>
+        <summary>ChatAnthropic hang resilience 없음</summary>
+        <div class="text-sm text-gray-400 mt-2">외부 API 503/timeout 시 e2e 전체 lose 가능 — R12 backlog.</div>
+      </details>
+    </div>
+  </section>
+
+  <footer class="border-t border-gray-800 mt-12">
+    <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
+      <div>© 2026 LsMin124 · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div class="flex gap-4">
+        <a href="https://github.com/LsMin124/IPE/blob/main/REQUIREMENTS.md" target="_blank">REQUIREMENTS.md 원본</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const D = window.IPE_DATA;
+    document.getElementById('f-commit').textContent = D.meta.mainCommit;
+
+    const frGrid = document.getElementById('fr-grid');
+    D.fr.forEach(f => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `
+        <div class="flex items-start gap-3">
+          <span class="badge badge-accent flex-shrink-0">${f.id}</span>
+          <div>
+            <div class="font-bold text-white">${f.title}</div>
+            <div class="text-sm text-gray-400 mt-1">${f.desc}</div>
+          </div>
+        </div>
+      `;
+      frGrid.appendChild(el);
+    });
+
+    const nfrGrid = document.getElementById('nfr-grid');
+    D.nfr.forEach(n => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `
+        <div class="flex items-start gap-3">
+          <span class="badge badge-success flex-shrink-0">${n.id}</span>
+          <div>
+            <div class="font-bold text-white">${n.title}</div>
+            <div class="text-sm text-gray-400 mt-1">${n.metric}</div>
+          </div>
+        </div>
+      `;
+      nfrGrid.appendChild(el);
+    });
+  </script>
+</body>
+</html>

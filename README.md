@@ -9,6 +9,8 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![Sandbox](https://img.shields.io/badge/sandbox-Docker%2Fnsjail%2Fsandbox--exec-brightgreen)](docs/dev/PROJECT_SPEC.md#451-sandboxing--resource-limits)
 
+> 🌐 **인터랙티브 사이트**: [lsmin124.github.io/IPE](https://lsmin124.github.io/IPE/) — 시각화 대시보드 + 요구사항 + 기술 스택 (GitHub Pages 활성화 후 접근)
+
 ---
 
 ## 개요

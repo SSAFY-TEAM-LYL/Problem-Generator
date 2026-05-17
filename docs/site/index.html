@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPE — Infinite Problem Engine</title>
+  <meta name="description" content="LangGraph + Claude로 알고리즘 문제 자동 생성 — 정해 작성 → 적대적 엣지케이스 → stress test → 난이도 평가까지 자동화">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <!-- nav -->
+  <nav class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(13,17,23,0.85);backdrop-filter:blur(8px);">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="text-lg font-bold text-white hover:no-underline">⚙️ <span class="text-blue-400">IPE</span></a>
+      <div class="flex gap-1">
+        <a href="index.html" class="nav-link active">Overview</a>
+        <a href="requirements.html" class="nav-link">Requirements</a>
+        <a href="tech-stack.html" class="nav-link">Tech Stack</a>
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank" class="nav-link">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- hero -->
+  <section class="hero-gradient">
+    <div class="max-w-6xl mx-auto px-6 py-24 text-center">
+      <div class="inline-flex items-center gap-2 mb-6">
+        <span class="badge badge-success" id="hero-version">v0.2.0</span>
+        <span class="badge badge-accent">4/5 e2e success</span>
+        <span class="badge">247 tests · 93% coverage</span>
+      </div>
+      <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+        <span class="text-white">Infinite</span><br>
+        <span class="bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">Problem Engine</span>
+      </h1>
+      <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        LangGraph + Claude로 알고리즘 문제를 자체 생산한다.<br>
+        문제 설계 → 정해 → 적대적 엣지케이스 → stress test → 난이도 평가까지 한 파이프라인.
+      </p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="https://github.com/LsMin124/IPE" target="_blank" class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition hover:no-underline">
+          GitHub Repo →
+        </a>
+        <a href="dashboard.html" class="px-6 py-3 border border-gray-700 rounded-lg font-semibold hover:bg-gray-800 transition hover:no-underline text-white">
+          실측 Dashboard
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- key metrics -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-8 text-white">핵심 지표</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="card text-center lift">
+        <div class="text-4xl font-bold text-green-400" id="m-success">4/5</div>
+        <div class="text-sm text-gray-400 mt-2">e2e success rate</div>
+        <div class="text-xs text-gray-500">Run 11/12 2회 연속</div>
+      </div>
+      <div class="card text-center lift">
+        <div class="text-4xl font-bold text-blue-400" id="m-tests">247</div>
+        <div class="text-sm text-gray-400 mt-2">tests passed</div>
+        <div class="text-xs text-gray-500">+ 3 skipped</div>
+      </div>
+      <div class="card text-center lift">
+        <div class="text-4xl font-bold text-blue-400" id="m-cov">93%</div>
+        <div class="text-sm text-gray-400 mt-2">coverage</div>
+        <div class="text-xs text-gray-500">≥ 80% 기준 통과</div>
+      </div>
+      <div class="card text-center lift">
+        <div class="text-4xl font-bold text-blue-400" id="m-deps">11</div>
+        <div class="text-sm text-gray-400 mt-2">dependencies</div>
+        <div class="text-xs text-gray-500">Core 6 + Dev 5</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- architecture diagram -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">아키텍처</h2>
+    <p class="text-gray-400 mb-8">LangGraph 6 노드 + decision routing — 단일 ProblemState dict가 모든 노드 사이를 흐른다.</p>
+    <div class="card">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="nodes-grid"></div>
+      <div class="mt-6 p-4 rounded-lg" style="background:rgba(47,129,247,0.08); border:1px solid rgba(47,129,247,0.3);">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">🛡️</span>
+          <div>
+            <div class="font-semibold text-white">4-Tier Sandbox</div>
+            <div class="text-sm text-gray-400 mt-1">LLM 생성 코드는 격리된 환경에서만 실행 — Docker / nsjail / sandbox-exec / RLIMIT 자동 선택</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- recent progress -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">최근 진행 (v0.2.0)</h2>
+    <p class="text-gray-400 mb-8">Sprint 1~4 누적으로 e2e 0/5 → 4/5 DoD 도달.</p>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>PR</th><th>제목</th><th>타입</th><th>임팩트</th></tr>
+        </thead>
+        <tbody id="pr-tbody"></tbody>
+      </table>
+    </div>
+    <div class="text-center mt-6">
+      <a href="dashboard.html" class="text-blue-400 hover:text-blue-300">전체 Run 12회 결과 매트릭스 보기 →</a>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- philosophy -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-8 text-white">핵심 원칙</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card lift">
+        <div class="text-2xl mb-2">🛡️</div>
+        <h3 class="font-bold text-white text-lg mb-2">Sandboxed Local Execution</h3>
+        <p class="text-sm text-gray-400">LLM 생성 코드는 격리된 환경 (Docker / nsjail / sandbox-exec / RLIMIT 4-tier) 안에서만 실행</p>
+      </div>
+      <div class="card lift">
+        <div class="text-2xl mb-2">🔄</div>
+        <h3 class="font-bold text-white text-lg mb-2">Resumable & Observable</h3>
+        <p class="text-sm text-gray-400">LangGraph SqliteSaver checkpointing + 모든 LLM 호출 raw trace 보존 → replay 모드 0-cost 재현</p>
+      </div>
+      <div class="card lift">
+        <div class="text-2xl mb-2">📏</div>
+        <h3 class="font-bold text-white text-lg mb-2">Bounded</h3>
+        <p class="text-sm text-gray-400"><code>max_iter</code> (안전망) + per-node retry budget (정밀 제어) + <code>max_cost_usd</code> (비용 가드) 3중 제어</p>
+      </div>
+      <div class="card lift">
+        <div class="text-2xl mb-2">📊</div>
+        <h3 class="font-bold text-white text-lg mb-2">Post-Verification Difficulty</h3>
+        <p class="text-sm text-gray-400">난이도는 검증 후 사후 측정 — calibration anchor 동봉으로 분산 ↓</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- footer -->
+  <footer class="border-t border-gray-800 mt-12">
+    <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
+      <div>© 2026 LsMin124 · MIT-compatible deps · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div class="flex gap-4">
+        <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
+        <a href="https://github.com/LsMin124/IPE/releases" target="_blank">Releases</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">Changelog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const D = window.IPE_DATA;
+    document.getElementById('hero-version').textContent = D.meta.version;
+    document.getElementById('m-success').textContent = D.meta.e2eSuccess;
+    document.getElementById('m-tests').textContent = D.meta.tests;
+    document.getElementById('m-cov').textContent = D.meta.coverage + '%';
+    document.getElementById('m-deps').textContent = D.meta.deps;
+    document.getElementById('f-commit').textContent = D.meta.mainCommit;
+
+    const nodesGrid = document.getElementById('nodes-grid');
+    D.graphNodes.forEach(n => {
+      const el = document.createElement('div');
+      el.className = 'flow-node';
+      el.innerHTML = `<div class="text-blue-400 font-bold mb-1">${n.label}</div><div class="text-xs text-gray-400 font-normal">${n.desc}</div>`;
+      nodesGrid.appendChild(el);
+    });
+
+    const prBody = document.getElementById('pr-tbody');
+    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge' };
+    D.recentPrs.forEach(pr => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="https://github.com/LsMin124/IPE/pull/${pr.num}" target="_blank">#${pr.num}</a></td>
+        <td class="text-white">${pr.title}</td>
+        <td><span class="badge ${typeColor[pr.type]||''}">${pr.type}</span></td>
+        <td class="text-gray-400">${pr.impact}</td>
+      `;
+      prBody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>
