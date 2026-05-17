@@ -15,7 +15,12 @@ from __future__ import annotations
 import pytest
 from langgraph.graph import END
 
-from ipe.graph import _decision, _route_after_decision
+from ipe.graph import (
+    _decision,
+    _detect_architect_oscillation,
+    _error_signature,
+    _route_after_decision,
+)
 from ipe.nodes._history import build_history_section
 from ipe.state import ProblemState
 
@@ -193,3 +198,194 @@ class TestBuildHistorySection:
         }
         section = build_history_section(state, current_node="coder")
         assert "DIFFERENT STRATEGY REQUIRED" not in section
+
+
+# =============================================================================
+# R-osc-break — _detect_architect_oscillation + _decision 결정적 라우팅
+# =============================================================================
+
+
+class TestDetectArchitectOscillation:
+    """architect signature 2회+ → coder 강제 라우팅 trigger 감지 (prompt-only W4의 결정적 보완)."""
+
+    def test_no_history_returns_false(self) -> None:
+        state: ProblemState = {"last_failed_node": "architect"}
+        assert _detect_architect_oscillation(state, "sigX") is False
+
+    def test_failed_node_not_architect_returns_false(self) -> None:
+        """coder 실패면 architect oscillation 감지 대상 아님."""
+        state: ProblemState = {
+            "last_failed_node": "coder",
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": "sigX", "feedback": "f"},
+            ],
+        }
+        assert _detect_architect_oscillation(state, "sigX") is False
+
+    def test_empty_signature_returns_false(self) -> None:
+        """signature가 빈 문자열이면 False (잘못된 비교 방지)."""
+        state: ProblemState = {
+            "last_failed_node": "architect",
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": "", "feedback": ""},
+            ],
+        }
+        assert _detect_architect_oscillation(state, "") is False
+
+    def test_different_signature_returns_false(self) -> None:
+        """signature가 다르면 oscillation 아님 (정상 retry)."""
+        state: ProblemState = {
+            "last_failed_node": "architect",
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": "sigA", "feedback": "fA"},
+            ],
+        }
+        assert _detect_architect_oscillation(state, "sigB") is False
+
+    def test_same_architect_signature_once_in_history_returns_true(self) -> None:
+        """history에 같은 architect signature 1회 + 이번 cycle = 2회 → True."""
+        state: ProblemState = {
+            "last_failed_node": "architect",
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": "sigX", "feedback": "f"},
+            ],
+        }
+        assert _detect_architect_oscillation(state, "sigX") is True
+
+    def test_coder_signature_match_ignored(self) -> None:
+        """history의 coder 노드 같은 signature는 architect oscillation 아님."""
+        state: ProblemState = {
+            "last_failed_node": "architect",
+            "iteration_history": [
+                {"iter_index": 1, "node": "coder", "action": "retry",
+                 "error_signature": "sigX", "feedback": "f"},
+            ],
+        }
+        assert _detect_architect_oscillation(state, "sigX") is False
+
+
+class TestDecisionOscillationBreaker:
+    """_decision이 oscillation 감지 시 last_failed_node를 architect→coder swap."""
+
+    def test_first_architect_failure_no_swap(self) -> None:
+        """첫 architect 실패는 oscillation 아님 — 정상 architect retry."""
+        state: ProblemState = {
+            "iteration_count": 1,
+            "max_iter": 5,
+            "max_cost_usd": 100.0,
+            "llm_calls": [],
+            "last_failed_node": "architect",
+            "feedback_message": "Architect JSON parse error: foo",
+            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
+            "iteration_history": [],
+        }
+        result = _decision(state)
+        assert result.get("final_status") is None
+        assert result["last_failed_node"] == "architect"
+        assert result["node_retry_budget"]["architect"] == 1  # 2 → 1
+        assert result["node_retry_budget"]["coder"] == 4  # 그대로
+        history = result.get("iteration_history") or []
+        assert len(history) == 1
+        assert history[0]["node"] == "architect"
+        assert history[0]["action"] == "retry"
+
+    def test_second_same_signature_triggers_swap_to_coder(self) -> None:
+        """같은 architect signature 2회 → last_failed_node="coder" swap, coder budget 차감."""
+        feedback = "Architect JSON parse error: foo"
+        sig = _error_signature(feedback)
+        state: ProblemState = {
+            "iteration_count": 2,
+            "max_iter": 5,
+            "max_cost_usd": 100.0,
+            "llm_calls": [],
+            "last_failed_node": "architect",
+            "feedback_message": feedback,
+            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": sig, "feedback": feedback},
+            ],
+        }
+        result = _decision(state)
+        assert result.get("final_status") is None
+        # swap: routing target now coder
+        assert result["last_failed_node"] == "coder"
+        # coder budget 차감, architect budget 보존
+        assert result["node_retry_budget"]["coder"] == 3  # 4 → 3
+        assert result["node_retry_budget"]["architect"] == 2  # 보존
+        # history에 oscillation_break action 기록
+        history = result.get("iteration_history") or []
+        assert len(history) == 2
+        assert history[-1]["node"] == "architect"  # 원인 노드는 architect
+        assert history[-1]["action"] == "oscillation_break"
+        assert history[-1]["error_signature"] == sig
+
+    def test_swap_then_route_to_coder(self) -> None:
+        """swap 후 _route_after_decision은 coder로 라우팅."""
+        feedback = "Architect output missing fields"
+        sig = _error_signature(feedback)
+        state: ProblemState = {
+            "iteration_count": 2,
+            "max_iter": 5,
+            "max_cost_usd": 100.0,
+            "llm_calls": [],
+            "last_failed_node": "architect",
+            "feedback_message": feedback,
+            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": sig, "feedback": feedback},
+            ],
+        }
+        decided = _decision(state)
+        assert _route_after_decision(decided) == "coder"
+
+    def test_swap_with_coder_budget_zero_triggers_exhausted(self) -> None:
+        """swap 대상 coder budget=0이면 budget_exhausted(coder)."""
+        feedback = "Architect repeats"
+        sig = _error_signature(feedback)
+        budget = _default_budget()
+        budget["coder"] = 0
+        state: ProblemState = {
+            "iteration_count": 2,
+            "max_iter": 5,
+            "max_cost_usd": 100.0,
+            "llm_calls": [],
+            "last_failed_node": "architect",
+            "feedback_message": feedback,
+            "node_retry_budget": budget,  # type: ignore[typeddict-item]
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": sig, "feedback": feedback},
+            ],
+        }
+        result = _decision(state)
+        assert result["final_status"] == "budget_exhausted"
+        assert "coder" in (result.get("feedback_message") or "")
+
+    def test_different_signature_no_swap(self) -> None:
+        """architect가 다른 signature로 실패 = 정상 retry, swap 안 함."""
+        prev_feedback = "Architect JSON parse error: foo"
+        prev_sig = _error_signature(prev_feedback)
+        cur_feedback = "constraints_structured invalid: time_limit_ms required"
+        state: ProblemState = {
+            "iteration_count": 2,
+            "max_iter": 5,
+            "max_cost_usd": 100.0,
+            "llm_calls": [],
+            "last_failed_node": "architect",
+            "feedback_message": cur_feedback,
+            "node_retry_budget": _default_budget(),  # type: ignore[typeddict-item]
+            "iteration_history": [
+                {"iter_index": 1, "node": "architect", "action": "retry",
+                 "error_signature": prev_sig, "feedback": prev_feedback},
+            ],
+        }
+        result = _decision(state)
+        assert result["last_failed_node"] == "architect"  # 그대로
+        assert result["node_retry_budget"]["architect"] == 1  # 차감
+        assert result["node_retry_budget"]["coder"] == 4  # 보존
