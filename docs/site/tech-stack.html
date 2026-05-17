@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tech Stack — IPE</title>
+  <meta name="description" content="IPE MVP 구현·운영 기술 스택 카탈로그">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(13,17,23,0.85);backdrop-filter:blur(8px);">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="text-lg font-bold text-white hover:no-underline">⚙️ <span class="text-blue-400">IPE</span></a>
+      <div class="flex gap-1">
+        <a href="index.html" class="nav-link">Overview</a>
+        <a href="requirements.html" class="nav-link">Requirements</a>
+        <a href="tech-stack.html" class="nav-link active">Tech Stack</a>
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank" class="nav-link">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-gradient">
+    <div class="max-w-6xl mx-auto px-6 py-16 text-center">
+      <h1 class="text-5xl font-bold text-white mb-4">기술 스택</h1>
+      <p class="text-gray-400">MVP 구현·운영에 사용된 기술 카탈로그 + 의도적 미사용 기술</p>
+      <div class="flex justify-center gap-2 mt-4">
+        <span class="badge badge-accent">11 deps</span>
+        <span class="badge badge-success">MIT/BSD only</span>
+        <span class="badge">Anthropic API 단일 provider</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">언어 · 런타임</h2>
+    <p class="text-gray-400 mb-6">Python 3.11+ 강제 (TypedDict total=False, asyncio task group, mypy strict 호환)</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-runtime"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">LLM · AI 프레임워크</h2>
+    <p class="text-gray-400 mb-6">Claude Opus 4.7 단일 모델 (정확성 우선). 모델 전환은 PRICING table만 추가</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-llm"></div>
+
+    <div class="mt-8 card">
+      <div class="font-bold text-white mb-3">모델 단가 ($/1M tokens)</div>
+      <table>
+        <thead><tr><th>Model</th><th>Input</th><th>Output</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td><code>claude-opus-4-7</code></td><td>15</td><td>75</td><td>현재 운영 (모든 노드)</td></tr>
+          <tr><td><code>claude-sonnet-4-6</code></td><td>3</td><td>15</td><td>Sub-agent 후보 (future)</td></tr>
+          <tr><td><code>claude-haiku-4-5</code></td><td>1</td><td>5</td><td>경량 호출 후보 (future)</td></tr>
+        </tbody>
+      </table>
+      <div class="text-xs text-gray-500 mt-3">⚠️ list price upper bound — Anthropic Tier 할인 / prompt cache 미반영. 실제 청구 ≈ 0.4x.</div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">실행 격리 (4-Tier Sandbox)</h2>
+    <p class="text-gray-400 mb-6">LLM 생성 코드는 격리 환경에서만 — OS와 가용성에 따라 자동 선택</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-sandbox"></div>
+
+    <div class="mt-6 p-4 rounded-lg" style="background:rgba(248,81,73,0.08); border:1px solid rgba(248,81,73,0.3);">
+      <div class="font-bold text-red-400 mb-2">⚠️ 알려진 한계 (v0.2.0)</div>
+      <ul class="text-sm text-gray-300 space-y-1">
+        <li>• <strong>subprocess + preexec_fn race</strong> (R-sandbox): <code>ThreadPoolExecutor(max_workers=4)</code> 병렬 시 RLIMIT_CPU race → SIGXCPU. <strong>PHASE_C_WORKERS=1</strong>로 직렬화 (PR #38).</li>
+        <li>• <strong>Linux JVM</strong>: RLIMIT_AS + JVM 상호작용 불안정 → Java integration test Linux CI에서 skip.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">테스트 · 품질</h2>
+    <p class="text-gray-400 mb-6">pytest + ruff + mypy --strict 0 errors. 현재 247 tests / coverage 93%</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-quality"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">상태 · 환경 · 빌드</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-other"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">의도적 미사용 기술</h2>
+    <p class="text-gray-400 mb-6">최소 dependency 정책 — 후보가 있었지만 의도적으로 제외한 기술 + 이유</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="exclusions-grid"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">의존성 그래프</h2>
+    <p class="text-gray-400 mb-6">Layer 분리 — CLI / Orchestration / Nodes / Infrastructure</p>
+    <div class="card">
+      <div class="flex flex-col items-center gap-3 py-6">
+        <div class="flow-node">CLI <code>main.py</code></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node">Orchestration <code>ipe/graph.py</code> (langgraph)</div>
+        <div class="flow-arrow">↓ state 흐름</div>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <div class="flow-node">Nodes <code>ipe/nodes/*</code></div>
+          <div class="flow-arrow">↔</div>
+          <div class="flow-node">LLM <code>ipe/llm.py</code><br><span class="text-xs text-gray-500">langchain-anthropic</span></div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <div class="flow-node">Sandbox <code>ipe/sandbox/*</code></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node">Anthropic API</div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node">Docker / nsjail / sandbox-exec / RLIMIT</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-node">Python subprocess + 솔루션 실행</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="border-t border-gray-800 mt-12">
+    <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
+      <div>© 2026 LsMin124 · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div class="flex gap-4">
+        <a href="https://github.com/LsMin124/IPE/blob/main/TECH_STACK.md" target="_blank">TECH_STACK.md 원본</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const D = window.IPE_DATA;
+    document.getElementById('f-commit').textContent = D.meta.mainCommit;
+
+    function renderPkgList(elId, list) {
+      const el = document.getElementById(elId);
+      list.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        const versionBadge = p.version ? `<span class="badge ml-2">${p.version}</span>` : '';
+        const tierBadge = p.tier ? `<span class="badge badge-accent">${p.tier}</span> ` : '';
+        const envBadge = p.env ? `<span class="badge ml-2">${p.env}</span>` : '';
+        div.innerHTML = `
+          <div class="flex items-center flex-wrap gap-2 mb-2">
+            ${tierBadge}<span class="font-bold text-white">${p.name}</span>${versionBadge}${envBadge}
+          </div>
+          <div class="text-sm text-gray-400">${p.note}</div>
+        `;
+        el.appendChild(div);
+      });
+    }
+    renderPkgList('stack-runtime', D.stack.runtime);
+    renderPkgList('stack-llm', D.stack.llm);
+    renderPkgList('stack-sandbox', D.stack.sandbox);
+    renderPkgList('stack-quality', D.stack.quality);
+    renderPkgList('stack-other', D.stack.other);
+
+    const exGrid = document.getElementById('exclusions-grid');
+    D.exclusions.forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="font-bold text-white mb-2">❌ ${e.tech}</div>
+        <div class="text-sm text-gray-400">${e.reason}</div>
+      `;
+      exGrid.appendChild(div);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — IPE</title>
+  <meta name="description" content="IPE e2e Run 1~12 실측 결과 + Sprint 진행 + Backlog">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="border-b border-gray-800 sticky top-0 z-50" style="background:rgba(13,17,23,0.85);backdrop-filter:blur(8px);">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="text-lg font-bold text-white hover:no-underline">⚙️ <span class="text-blue-400">IPE</span></a>
+      <div class="flex gap-1">
+        <a href="index.html" class="nav-link">Overview</a>
+        <a href="requirements.html" class="nav-link">Requirements</a>
+        <a href="tech-stack.html" class="nav-link">Tech Stack</a>
+        <a href="dashboard.html" class="nav-link active">Dashboard</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank" class="nav-link">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-gradient">
+    <div class="max-w-6xl mx-auto px-6 py-16 text-center">
+      <h1 class="text-5xl font-bold text-white mb-4">실측 Dashboard</h1>
+      <p class="text-gray-400">e2e Run 1~12 + Sprint 4 효과 추적 + Backlog</p>
+      <div class="flex justify-center gap-2 mt-4">
+        <span class="badge badge-accent">12 runs</span>
+        <span class="badge badge-success">DoD 4/5</span>
+        <span class="badge">v0.2.0</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">e2e Success Rate Timeline</h2>
+    <p class="text-gray-400 mb-6">Run 1 (v0.1.1 baseline) → Run 12 (Sprint 4 R-bfs). Run 9에서 R-sandbox로 3/5 첫 도달, Run 10부터 4/5 안정.</p>
+    <div class="card">
+      <div class="chart-wrap">
+        <canvas id="chart-timeline"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">Case별 Stability Matrix</h2>
+    <p class="text-gray-400 mb-6">초록 = success, 빨강 = fail, 회색 = aborted (Run 6 API hang).</p>
+    <div class="card overflow-x-auto">
+      <table id="matrix-table">
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Sprint</th>
+            <th id="th-cases" colspan="5">Cases</th>
+            <th>Total</th>
+            <th>분</th>
+          </tr>
+        </thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <div class="card">
+        <div class="text-green-400 font-bold mb-3">✅ Stable success (Run 9~12 100%)</div>
+        <div class="flex flex-wrap gap-2" id="stable-list"></div>
+      </div>
+      <div class="card">
+        <div class="text-yellow-400 font-bold mb-3">⚠️ Variance (case-by-case)</div>
+        <div class="flex flex-wrap gap-2" id="variance-list"></div>
+        <div class="text-xs text-gray-500 mt-3">prompt-side fix 한계 → v0.2.1 결정적 fix 필요 (R-gen-cap / R-osc-break)</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">실행 시간 추세</h2>
+    <p class="text-gray-400 mb-6">Run 10 (R14 fanout=3) 후 Coder 3x token으로 시간 ↑, R3 + R-bfs 후 정상화.</p>
+    <div class="card">
+      <div class="chart-wrap">
+        <canvas id="chart-duration"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">Sprint별 PR + Impact</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>PR</th><th>제목</th><th>타입</th><th>임팩트</th></tr></thead>
+        <tbody id="pr-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">v0.2.1+ Backlog</h2>
+    <p class="text-gray-400 mb-6">잔존 variance 결정적 fix + 후속 확장</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="backlog-grid"></div>
+  </section>
+
+  <footer class="border-t border-gray-800 mt-12">
+    <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
+      <div>© 2026 LsMin124 · v0.2.0 (<span id="f-commit"></span>)</div>
+      <div class="flex gap-4">
+        <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">CHANGES.md</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-14_sandbox-infra-rca.md" target="_blank">Sandbox RCA</a>
+        <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/data.js"></script>
+  <script>
+    const D = window.IPE_DATA;
+    document.getElementById('f-commit').textContent = D.meta.mainCommit;
+
+    Chart.defaults.color = '#7d8590';
+    Chart.defaults.borderColor = '#30363d';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Pretendard", sans-serif';
+
+    const runs = D.e2eRuns;
+    const successCount = runs.map(r => r.results.filter(x => x === 1).length);
+    const runLabels = runs.map(r => `Run ${r.run}`);
+    new Chart(document.getElementById('chart-timeline'), {
+      type: 'line',
+      data: {
+        labels: runLabels,
+        datasets: [{
+          label: 'success / 5',
+          data: successCount,
+          borderColor: '#3fb950',
+          backgroundColor: 'rgba(63,185,80,0.15)',
+          tension: 0.3,
+          fill: true,
+          pointBackgroundColor: '#3fb950',
+          pointRadius: 6,
+          pointHoverRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 5, ticks: { stepSize: 1 }, grid: { color: '#21262d' } },
+          x: { grid: { color: '#21262d' } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                const r = runs[items[0].dataIndex];
+                return `${r.label} (${r.total})`;
+              }
+            }
+          },
+        },
+      },
+    });
+
+    const th = document.getElementById('th-cases');
+    th.outerHTML = D.e2eCases.map(c => `<th class="text-center">${c}</th>`).join('');
+    const tb = document.getElementById('matrix-body');
+    runs.forEach(r => {
+      const cells = r.results.map(v => {
+        if (v === null) return `<td class="text-center"><span class="case-cell" style="background:#21262d;color:#6e7681;">−</span></td>`;
+        return `<td class="text-center"><span class="case-cell ${v === 1 ? 'case-pass' : 'case-fail'}">${v === 1 ? '✓' : '✗'}</span></td>`;
+      }).join('');
+      const tr = document.createElement('tr');
+      const totalCls = r.total.startsWith('4') ? 'text-green-400 font-bold' :
+                       r.total.startsWith('3') ? 'text-yellow-400 font-bold' :
+                       r.total === 'aborted' ? 'text-gray-500' : 'text-red-400';
+      tr.innerHTML = `
+        <td class="font-bold">Run ${r.run}</td>
+        <td class="text-gray-400 text-xs">${r.label}</td>
+        ${cells}
+        <td class="${totalCls}">${r.total}</td>
+        <td class="text-gray-500 text-xs">${r.durMin ? r.durMin + 'm' : '−'}</td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    const stableRuns = runs.filter(r => r.run >= 9 && r.results.every(v => v !== null));
+    D.e2eCases.forEach((c, i) => {
+      const total = stableRuns.length;
+      const succ = stableRuns.reduce((acc, r) => acc + (r.results[i] === 1 ? 1 : 0), 0);
+      const isStable = succ === total;
+      const list = document.getElementById(isStable ? 'stable-list' : 'variance-list');
+      if (!isStable && succ === 0) return;
+      const cls = isStable ? 'badge-success' : 'badge-warning';
+      const el = document.createElement('span');
+      el.className = `badge ${cls}`;
+      el.textContent = `${c} ${succ}/${total}`;
+      list.appendChild(el);
+    });
+
+    const durData = runs.map(r => r.durMin);
+    new Chart(document.getElementById('chart-duration'), {
+      type: 'bar',
+      data: {
+        labels: runLabels,
+        datasets: [{
+          label: 'minutes',
+          data: durData,
+          backgroundColor: runs.map(r => {
+            const s = parseInt(r.total) || 0;
+            if (r.total === 'aborted') return '#6e7681';
+            if (s >= 4) return '#3fb950';
+            if (s >= 3) return '#d29922';
+            return '#f85149';
+          }),
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { grid: { color: '#21262d' }, title: { display: true, text: 'minutes' } },
+          x: { grid: { color: '#21262d' } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { afterBody: (items) => runs[items[0].dataIndex].label } },
+        },
+      },
+    });
+
+    const prBody = document.getElementById('pr-tbody');
+    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge' };
+    D.recentPrs.forEach(pr => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="https://github.com/LsMin124/IPE/pull/${pr.num}" target="_blank">#${pr.num}</a></td>
+        <td class="text-white">${pr.title}</td>
+        <td><span class="badge ${typeColor[pr.type]||''}">${pr.type}</span></td>
+        <td class="text-gray-400">${pr.impact}</td>
+      `;
+      prBody.appendChild(tr);
+    });
+
+    const bGrid = document.getElementById('backlog-grid');
+    const prioColor = { 'P0': 'badge-danger', 'P1': 'badge-warning', 'P2': 'badge', 'P3': 'badge' };
+    D.backlog.forEach(b => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="flex items-start gap-2 mb-2">
+          <span class="badge ${prioColor[b.priority] || 'badge'} flex-shrink-0">${b.priority}</span>
+          <div>
+            <div class="font-bold text-white">${b.id}</div>
+            <div class="text-sm text-gray-300 mt-1">${b.title}</div>
+            <div class="text-xs text-gray-500 mt-1">${b.desc}</div>
+          </div>
+        </div>
+      `;
+      bGrid.appendChild(div);
+    });
+  </script>
+</body>
+</html>
