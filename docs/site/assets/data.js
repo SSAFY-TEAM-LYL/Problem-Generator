@@ -7,10 +7,10 @@ window.IPE_DATA = {
   meta: {
     version: "v0.2.0 + Round 11",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "f4efa21",
+    mainCommit: "10e18fe",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 (R-osc-break 결정적 보완 적용, 실측 v0.2.1 대기)",
-    tests: 266,
+    e2eSuccess: "4/5 (R-osc-break + R-gen-cap 결정적 보완 적용, 실측 v0.2.1 대기)",
+    tests: 275,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -131,9 +131,8 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.1+) — R-osc-break는 Round 11에서 완료 (CHANGES §16.1)
+  // Backlog (v0.2.2+) — Round 11에서 두 P0 모두 완료 (CHANGES §16.1, §16.2)
   backlog: [
-    { id: "R-gen-cap", title: "Generator hard cap validator", priority: "P0", desc: "Segment Tree variance 결정적 차단 (다음 PR)" },
     { id: "R12", title: "ChatAnthropic timeout + retry", priority: "P1", desc: "운영 hang resilience" },
     { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
@@ -153,6 +152,16 @@ window.IPE_DATA = {
       target: "BFS variance 2/4 → 결정적 차단",
       tests: 11,
       doc: "docs/improvements/2026-05-18_osc-break-deterministic.md",
+    },
+    {
+      id: "R-gen-cap",
+      round: "Round 11",
+      date: "2026-05-18",
+      title: "Generator hard cap validator",
+      desc: "Generator 응답 직후 sandbox 실측으로 cap 초과 generator 사전 reject (Executor 진입 전 결정적 차단)",
+      target: "Segment Tree 0/4 → 결정적 차단",
+      tests: 9,
+      doc: "docs/improvements/2026-05-18_gen-cap-deterministic.md",
     },
   ],
 };

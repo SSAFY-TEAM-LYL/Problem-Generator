@@ -22,11 +22,19 @@
 from __future__ import annotations
 
 import re
+import uuid
+from pathlib import Path
 from typing import Any
 
 from ipe.llm import GENERATOR_MODEL, get_chat
+from ipe.nodes._executor_helpers import (
+    GENERATOR_MEMORY_LIMIT_MB,
+    GENERATOR_TIMEOUT_MS,
+    MAX_GENERATED_INPUT_BYTES,
+)
 from ipe.nodes._history import build_history_section
 from ipe.observability import LLMCallTracker
+from ipe.sandbox.runner import RunSpec, SandboxedRunner
 from ipe.state import LLMCallRecord, ProblemState
 
 DEFAULT_SEEDS_PER_GENERATOR: tuple[int, ...] = (1, 2, 3, 4, 5)
@@ -148,6 +156,75 @@ def _route_back(
     }
 
 
+def _validate_generator_caps(
+    generators: list[dict[str, Any]],
+    runner: SandboxedRunner,
+    workdir_root: Path,
+) -> str | None:
+    """R-gen-cap: generator script들을 첫 seed로 사전 실행하여 cap 초과 사전 차단.
+
+    Phase C에서 모든 generator가 동시에 cap 초과 → "gen_fail" 카운트 → Generator
+    self-loop → LLM 동일 패턴 재생성의 무한 루프(Segment Tree 0/4 패턴)를
+    Executor 진입 전 결정적으로 차단한다. prompt-only "< 2MB" 가이드(R10)는
+    LLM이 무시 가능하므로 sandbox 실측 보완 필요.
+
+    각 generator를 ``seeds[0]``으로만 실행 (Phase C는 모든 seed 검증):
+    - status == "OK" + 정상 size → 통과
+    - status == "OLE" 또는 truncated_stdout → cap 초과로 reject
+    - status ∈ {"RTE", "TLE", "MLE", "SANDBOX_ERROR"} → script 오류로 reject
+    - seeds 비어있음 → 검증 skip (Phase C의 "no seeds" 검사가 처리)
+
+    Returns:
+        모두 통과 시 ``None`` (Executor 진입 허용)
+        하나라도 reject 시 모든 위반을 모은 feedback string (early exit 없음 —
+        LLM에 한 번에 모든 신호 전달)
+    """
+    if not generators:
+        return None
+
+    work_dir = workdir_root / f"gencap_{uuid.uuid4().hex[:8]}"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    cap = MAX_GENERATED_INPUT_BYTES
+
+    rejects: list[str] = []
+    for g in generators:
+        seeds = g.get("seeds") or []
+        if not seeds:
+            continue
+        seed = int(seeds[0])
+        name = str(g.get("name") or "unnamed")
+        (work_dir / f"{name}.py").write_text(g.get("code") or "", encoding="utf-8")
+        spec = RunSpec(
+            cmd=["python3", f"{name}.py", str(seed)],
+            cwd=str(work_dir),
+            time_limit_ms=GENERATOR_TIMEOUT_MS,
+            memory_limit_mb=GENERATOR_MEMORY_LIMIT_MB,
+            max_stdout_bytes=cap,
+        )
+        res = runner.run(spec)
+        if res.status == "OK" and not res.truncated_stdout:
+            continue
+        if res.status == "OLE" or res.truncated_stdout:
+            actual = len(res.stdout)
+            rejects.append(
+                f"'{name}' (seed={seed}) exceeded cap: produced >= {actual} bytes, "
+                f"cap = {cap} bytes (2 MB). Reduce N, value range, or both."
+            )
+        else:
+            err = (res.stderr or res.stdout or "")[:200]
+            rejects.append(
+                f"'{name}' (seed={seed}) {res.status}: {err}"
+            )
+
+    if not rejects:
+        return None
+    return (
+        "R-gen-cap pre-validation rejected " + str(len(rejects)) + " generator(s). "
+        + "Rewrite ONLY the offenders (others were fine):\n- "
+        + "\n- ".join(rejects)
+    )
+
+
 def _parse(text: str) -> list[dict[str, Any]]:
     """LLM 응답에서 generator 블록을 추출.
 
@@ -170,8 +247,15 @@ def run(
     state: ProblemState,
     *,
     tracker: LLMCallTracker,
+    runner: SandboxedRunner | None = None,
+    workdir_root: Path | None = None,
 ) -> ProblemState:
-    """Generator 노드 — 시드 기반 Python 스크립트 3~5개 생성."""
+    """Generator 노드 — 시드 기반 Python 스크립트 3~5개 생성.
+
+    ``runner``가 주어지면 R-gen-cap 사전 검증 활성화 — Executor 진입 전
+    각 generator를 첫 seed로 실행하여 ``MAX_GENERATED_INPUT_BYTES`` 초과
+    시 즉시 self-loop. ``runner=None``이면 검증 skip (단위 테스트 호환).
+    """
     chat = get_chat(GENERATOR_MODEL, max_tokens=4096)
     user = USER_TEMPLATE.format(
         problem_description=state.get("problem_description", ""),
@@ -192,7 +276,7 @@ def run(
     resp = tracker.invoke(chat, messages, node="generator", state_calls=calls)
     text = str(resp.content)
 
-    generators = _parse(text)
+    generators = _parse(text)[:MAX_GENERATORS]
 
     if len(generators) < MIN_GENERATORS:
         return _route_back(
@@ -201,10 +285,18 @@ def run(
             f"generator: only {len(generators)} parsed, need >= {MIN_GENERATORS}",
         )
 
+    # R-gen-cap: sandbox 사전 검증 (runner 주입 시에만)
+    if runner is not None:
+        wd = workdir_root if workdir_root is not None else Path("workdir")
+        wd.mkdir(parents=True, exist_ok=True)
+        cap_reject = _validate_generator_caps(generators, runner, wd)
+        if cap_reject:
+            return _route_back(state, calls, cap_reject)
+
     return {
         **state,
         "llm_calls": calls,
-        "generators": generators[:MAX_GENERATORS],
+        "generators": generators,
         "feedback_message": None,
         "last_failed_node": None,
     }
