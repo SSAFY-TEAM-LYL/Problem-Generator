@@ -798,12 +798,45 @@ LLM이 무시 가능 → 결정적 보완 필요.
 - BFS e2e 실측은 별도 release 검증(LLM 호출, 시간/비용) — v0.2.1 tag 시점에 5회 run
 - R-gen-cap (Segment Tree 차단) 후속 PR로 분리 — 검증 범위 분리해 회귀 원인 추적 용이
 
-### 16.2 잔존 backlog (v0.2.1 진행 중)
+### 16.2 R-gen-cap — Generator hard cap validator
+
+**문제**: Segment Tree 케이스 e2e 0/4 (Run 9~12 전부 fail). Generator가 N+M
+이중 stress (배열 + 쿼리 양쪽 최대)로 출력 size > 2MB cap → Phase C에서
+모든 generator가 truncate → "gen_fail" 카운트 → Generator self-loop → LLM
+동일 패턴 재생성 → 무한 루프. prompt-side R3 "총 출력 byte 사전 계산" 가이드
+(`generator.py` SYSTEM_PROMPT)는 LLM이 실측 없이 추정 못 함.
+
+**해법** (PR — feat/v0.2.1-gen-cap):
+- 신규 helper `ipe.nodes.generator._validate_generator_caps(generators, runner, workdir_root)`
+- 각 generator를 첫 seed(`seeds[0]`)로 sandbox 실행
+- `status == "OK"` + truncate 없음 → 통과
+- `status == "OLE"` 또는 `truncated_stdout` → cap 초과 reject (실측 size 포함)
+- `status ∈ {RTE, TLE, MLE, SANDBOX_ERROR}` → script 오류 reject
+- 모든 위반을 한 feedback에 모아 self-loop (early exit 금지 — LLM에 한 번에
+  모든 신호) → 통과한 generator는 언급 안 함, 위반만 명시
+- `generator.run`에 `runner: SandboxedRunner | None = None`, `workdir_root: Path | None = None`
+  optional kwargs 추가 — runner 주입 시에만 cap 검증 활성화 (단위 테스트 호환)
+- `graph.py`: `partial(generator.run, tracker=..., runner=runner, workdir_root=workdir_root)`
+
+**테스트** (+9): `tests/test_generator_cap.py` (`_FakeRunner` 결정적 mock)
+- empty / all-pass / single-reject / multi-reject / RTE / no-seeds / first-seed
+  cmd / disk-write / OLE+stdout
+
+**검증**:
+- 전체 pytest **275 passed + 3 skipped** (회귀 0, +9)
+- ruff 0 / mypy --strict 0 (변경: `ipe/nodes/generator.py`, `ipe/graph.py`, `tests/test_generator_cap.py`)
+- 결정적 — LLM 응답 변동성 무관
+
+**한계 및 후속**:
+- 첫 seed 한 번만 실행 — 다른 seed에서 더 큰 출력 가능성 (Phase C가 fallback)
+- Segment Tree e2e 실측은 v0.2.1 release 검증 시점
+
+### 16.3 잔존 backlog (Round 12+)
 
 | ID | 항목 | 상태 |
 |---|---|---|
-| ~~R-osc-break~~ | Phase A oscillation breaker | ✅ Round 11 완료 |
-| **R-gen-cap** | Generator hard cap validator (sandbox 외부 사전 검증) | P0 — 다음 PR |
+| ~~R-osc-break~~ | Phase A oscillation breaker | ✅ Round 11 완료 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 완료 (§16.2) |
 | R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
 | R12 hang resilience | ChatAnthropic timeout + retry | P1 |
 | R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |

@@ -206,7 +206,10 @@ def build_graph(
     g.add_node("architect", partial(architect.run, tracker=tracker))
     g.add_node("coder", partial(coder.run, tracker=tracker))
     g.add_node("auditor", partial(auditor.run, tracker=tracker))
-    g.add_node("generator", partial(generator.run, tracker=tracker))
+    g.add_node(
+        "generator",
+        partial(generator.run, tracker=tracker, runner=runner, workdir_root=workdir_root),
+    )
     g.add_node(
         "executor",
         partial(executor.run, runner=runner, workdir_root=workdir_root),
