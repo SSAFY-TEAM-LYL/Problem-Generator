@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11",
+    version: "v0.2.0 + Round 11~12",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "10e18fe",
+    mainCommit: "0dbcbd0",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 (R-osc-break + R-gen-cap 결정적 보완 적용, 실측 v0.2.1 대기)",
-    tests: 275,
+    e2eSuccess: "4/5 + Round 12 R-coder-osc (Phase A oscillation 결정적 차단), v0.2.1 실측 대기",
+    tests: 289,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -162,6 +162,16 @@ window.IPE_DATA = {
       target: "Segment Tree 0/4 → 결정적 차단",
       tests: 9,
       doc: "docs/improvements/2026-05-18_gen-cap-deterministic.md",
+    },
+    {
+      id: "R-coder-osc",
+      round: "Round 12",
+      date: "2026-05-18",
+      title: "Coder oscillation breaker",
+      desc: "coder가 동일 signature 2회+ 시 architect로 강제 라우팅 swap (helper 일반화: architect↔coder 대칭)",
+      target: "Phase A coder 반복 fail (Docker BFS/SegTree 실측에서 발견)",
+      tests: 11,
+      doc: "docs/improvements/2026-05-18_coder-osc-deterministic.md",
     },
   ],
 };

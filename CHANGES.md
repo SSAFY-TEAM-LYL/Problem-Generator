@@ -842,3 +842,77 @@ LLM이 무시 가능 → 결정적 보완 필요.
 | R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
 
 ---
+
+## 17. Round 12 — R-coder-osc (Coder Oscillation Breaker, 2026-05-18)
+
+### 17.1 발견 (Round 11 e2e 실측)
+
+R-osc-break + R-gen-cap 머지 후 Docker(T1) e2e:
+
+| Case | Sandbox | Final | 원인 |
+|---|---|---|---|
+| BFS | RlimitRunner (T3) | **success** | R-osc-break 검증 |
+| BFS | Docker (T1) | budget_exhausted | **Coder Phase A 5/5 fail × 4 (동일 sig)** |
+| Segment Tree | Docker (T1) | budget_exhausted | **Coder Phase A 4/4 fail × 4 (동일 sig)** |
+
+두 Docker run 모두 Coder가 동일 signature로 4번 반복 → coder budget 소진.
+R-osc-break (architect 한정) / R-gen-cap (Generator 진입 전) 둘 다 발동 못 함.
+R-osc-break과 정확히 동일한 패턴이 **coder 노드에서 발생**.
+
+### 17.2 해법
+
+**일반화** — `_detect_architect_oscillation` → `_detect_node_oscillation(state, node, sig)`:
+
+```python
+_OSC_SWAP_TARGET: dict[str, str] = {
+    "architect": "coder",   # R-osc-break (Round 11)
+    "coder": "architect",   # R-coder-osc (Round 12) — 신규
+}
+```
+
+`_decision`에서 하나의 분기로 통합:
+
+```python
+if (
+    isinstance(failed, str)
+    and failed in _OSC_SWAP_TARGET
+    and _detect_node_oscillation(state, failed, current_sig)
+):
+    failed = _OSC_SWAP_TARGET[failed]
+    osc_break = True
+```
+
+- swap 방향: coder oscillation → architect 강제 라우팅 (problem 자체를 다시 만들도록)
+- architect oscillation은 기존대로 → coder swap (대칭)
+- auditor/generator는 swap 대상 아님 — auditor는 input 검증 도메인, generator는 R-gen-cap이 사전 차단
+
+**기존 `_detect_architect_oscillation`은 wrapper로 보존** — backward compat (기존 import 호환).
+
+**무한 swap 검증**: 각 swap은 동일 signature 반복일 때만 발동. swap된 노드가 LLM 응답하면 signature 바뀜 → 정상 retry로 복귀. swap 핑퐁 불가.
+
+### 17.3 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/graph.py` | `_OSC_SWAP_TARGET` dict + `_detect_node_oscillation` 일반화 + `_decision` 통합 (+18 / -10) |
+| `tests/test_routing_units.py` | `TestDetectNodeOscillation` × 5 + `TestDecisionCoderOscillationBreaker` × 6 (+11) |
+| `tests/integration/test_routing.py` | `test_coder_budget_exhausted_halt` assertion 완화 (R-coder-osc swap 인정, halt 자체는 보장) |
+
+### 17.4 검증
+
+- 전체 pytest **289 passed + 3 skipped** (회귀 0, +11 unit, +3 신규 integration 변동)
+- ruff 0 / mypy --strict 0
+- 결정적 — LLM 응답 변동성 무관
+
+### 17.5 잔존 backlog (v0.2.1 release 진입)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | Phase A oscillation breaker (architect) | ✅ Round 11 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 (§16.2) |
+| ~~R-coder-osc~~ | Coder oscillation breaker | ✅ Round 12 (§17) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R12 hang resilience | ChatAnthropic timeout + retry | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+---
