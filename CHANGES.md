@@ -1212,3 +1212,121 @@ Round 11~14의 결정적 fix 4종 (R-osc-break, R-gen-cap, R-coder-osc, R-sig-de
 e2e Docker 재실측으로 Round 11~13 효과 진짜 측정 → v0.2.1 tag.
 
 ---
+
+## 21. Round 16 — R-docker-mount (deeper 인프라 fix, 2026-05-18)
+
+### 21.1 발견 (Round 15 재실측 후)
+
+R-docker-workdir 머지 + Docker 재실측 → 여전히 budget_exhausted, 새 stderr:
+
+```
+BFS run_id b040d9387037 / SegTree run_id 5a66a428294a
+iter 1 sig=300ef614 fb=phase A failures: 5/5 [
+    idx=0:RTE stderr="python3: can't open file '/Users/iseungmin/claude_ws/IPE/wor..."
+    ...]
+```
+
+workdir path는 절대로 들어갔지만 (Round 15 fix 확인) **컨테이너 안에서 solution.py를 못 찾음**.
+
+### 21.2 진짜 원인 — `--tmpfs`가 호스트 파일 mask
+
+```python
+# 기존:
+"--tmpfs", f"{cwd_abs}:rw,size={spec.memory_limit_mb}m,exec"
+```
+
+`--tmpfs={path}`는 그 path 위에 **빈 tmpfs를 오버레이 마운트**. 호스트의 파일은 마스킹되어 컨테이너에서 안 보임.
+
+```
+호스트:       /Users/.../workdir/run_xxx/solution.py  (있음)
+컨테이너 안:  /Users/.../workdir/run_xxx/               (빈 tmpfs, 호스트 내용 mask됨)
+```
+
+`python3 solution.py` 실행 → 컨테이너의 빈 tmpfs에서 못 찾음 → RTE.
+
+### 21.3 왜 `isolation_self_test`는 통과했나
+
+```python
+# isolation_self_test 내부 (line 116):
+cwd = "/work"  # Dockerfile WORKDIR
+cmd = ["python3", "-c", script]  # inline code
+```
+
+파일 의존 없이 inline code 실행이라 tmpfs가 비어도 OK. 그래서 sanity check 통과했지만 실제 e2e는 fail. **함정 — sanity check가 실제 사용 패턴을 cover 못 함**.
+
+### 21.4 왜 RlimitRunner는 OK였나
+
+RlimitRunner는 호스트 위에서 직접 subprocess 실행 (격리 없음). 호스트 fs 그대로 보임 → `solution.py` 보임. 그래서 BFS RlimitRunner는 success였지만 같은 시나리오의 Docker는 fail. tier 추상화의 invariant 위반.
+
+### 21.5 해법 — `--tmpfs` → `-v` bind mount
+
+```python
+# Before (Round 15 stop):
+"--tmpfs", f"{cwd_abs}:rw,size={spec.memory_limit_mb}m,exec"
+
+# After (Round 16):
+"-v", f"{cwd_abs}:{cwd_abs}:rw"
+```
+
+- 호스트 cwd를 컨테이너의 같은 절대경로에 read-write bind
+- `--read-only` rootfs 유지 → cwd 외에는 못 씀 (격리 보존)
+- macOS Docker Desktop `/Users/` default file sharing → 안전
+
+**Sanity check 직접 확인** (Round 16 PR 작업 중):
+```
+status: OK, stdout: 'hi from host file\n'
+```
+호스트 파일이 컨테이너 안에서 정상 실행 — fix 검증.
+
+### 21.6 운영 → 테스트 영향
+
+운영 측 (Phase A/C executor)은 sandbox 호출 전에 `run_dir.mkdir()` 보장 →
+bind mount source 항상 존재 → OK.
+
+기존 `tests/sandbox/test_isolation.py::TestDockerRunner`는 `cwd="/work"` 사용
+(macOS 호스트에 `/work` 없음). bind mount는 host path 존재 필수 → 2 test fail →
+`tmp_path` fixture로 수정.
+
+### 21.7 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/sandbox/docker_runner.py` | `--tmpfs={cwd}:rw,...` → `-v {cwd}:{cwd}:rw` |
+| `tests/sandbox/test_docker_workdir.py` | `--tmpfs` 검증 → `-v` 검증 (3 test 갱신 + `test_no_tmpfs_overlay` 신규) |
+| `tests/sandbox/test_isolation.py` | `TestDockerRunner.test_basic_echo`, `test_network_blocked` cwd=`/work` → `tmp_path` |
+
+### 21.8 검증
+
+- 전체 pytest **322 passed + 3 skipped** (회귀 0, +1 신규 mock test_no_tmpfs_overlay)
+- ruff 0 / mypy --strict 0
+- 실측 sanity (real Docker): host에 작성한 `hello.py` → 컨테이너에서 `python3 hello.py` → OK
+
+### 21.9 메타-교훈 (Round 15에서 이어짐)
+
+Round 11~14 결정적 fix가 차례로 의도된 동작은 했지만 e2e 측정에서 효과를 못 본 진짜 이유는 **두 층의 인프라 버그**:
+
+| Round | 발견 |
+|---|---|
+| 13 R-sig-detail | observability 개선 → 인프라 버그 1 (workdir 상대경로) 노출 |
+| 15 R-docker-workdir | 인프라 버그 1 fix → **인프라 버그 2 (tmpfs mask) 노출** |
+| **16 R-docker-mount** | **인프라 버그 2 fix → 진짜 e2e 측정 가능** |
+
+**통찰**: observability 개선 → 1차 인프라 버그 → fix → 2차 인프라 버그 노출. 인프라 버그는 한 번에 다 안 보이고 layer 단위로 드러난다. 첫 fix 후 즉시 e2e 재실측의 가치.
+
+### 21.10 잔존 backlog (v0.2.1 release 진입)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | architect oscillation breaker | ✅ Round 11 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 (§16.2) |
+| ~~R-coder-osc~~ | Coder oscillation breaker | ✅ Round 12 (§17) |
+| ~~R-sig-detail~~ | Phase A signature granularity | ✅ Round 13 (§18) |
+| ~~R12~~ | Anthropic retry/backoff | ✅ Round 14 (§19) |
+| ~~R-docker-workdir~~ | DockerRunner cwd 절대화 | ✅ Round 15 (§20) |
+| ~~R-docker-mount~~ | DockerRunner bind mount (tmpfs 제거) | ✅ Round 16 (§21) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+**v0.2.1 release ready (제3차)**: 7종 fix 완료. Docker e2e 실제 동작 검증 완료. 다음: BFS + SegTree Docker 실측 → v0.2.1 tag.
+
+---

@@ -56,8 +56,8 @@ class TestDockerWorkdirResolution:
         assert Path(wd_value).is_absolute(), f"--workdir must be absolute, got {wd_value!r}"
         assert wd_value.endswith("workdir/run_test")
 
-    def test_relative_cwd_resolved_in_tmpfs(self) -> None:
-        """``--tmpfs=<cwd>:...`` 인자도 절대경로로 변환."""
+    def test_relative_cwd_resolved_in_bind_mount(self) -> None:
+        """R-docker-mount (Round 16): -v {host}:{container} bind mount, 둘 다 절대경로."""
         runner = _make_runner_no_init()
         spec = RunSpec(cmd=["echo", "hi"], cwd="rel/path", memory_limit_mb=256)
 
@@ -66,11 +66,29 @@ class TestDockerWorkdirResolution:
             runner.run(spec)
 
         cmd = _captured_cmd(m.call_args)
+        # -v 다음 인자는 "{host}:{container}:rw" 형식
+        v_idx = cmd.index("-v")
+        bind = cmd[v_idx + 1]
+        # "{host}:{container}:rw" 또는 "{host}:{container}" — 양쪽 동일 절대경로
+        parts = bind.split(":")
+        assert len(parts) >= 2, f"bind mount format: {bind!r}"
+        host, container = parts[0], parts[1]
+        assert Path(host).is_absolute(), f"bind host must be absolute, got {host!r}"
+        assert Path(container).is_absolute(), f"bind container must be absolute, got {container!r}"
+        assert host == container, "host and container path must match for in-place mount"
+
+    def test_no_tmpfs_overlay(self) -> None:
+        """R-docker-mount: --tmpfs 없음 (이전엔 호스트 파일 mask 원인)."""
+        runner = _make_runner_no_init()
+        spec = RunSpec(cmd=["echo", "hi"], cwd="/tmp/x")
+
+        with patch("ipe.sandbox.docker_runner.subprocess.run") as m:
+            m.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            runner.run(spec)
+
+        cmd = _captured_cmd(m.call_args)
         tmpfs_args = [a for a in cmd if a.startswith("--tmpfs=")]
-        assert len(tmpfs_args) == 1
-        tmpfs_value = tmpfs_args[0][len("--tmpfs="):]
-        path_part = tmpfs_value.split(":", 1)[0]
-        assert Path(path_part).is_absolute(), f"--tmpfs path must be absolute, got {path_part!r}"
+        assert tmpfs_args == [], f"--tmpfs should not be used (masks host files): {tmpfs_args}"
 
     def test_absolute_cwd_stays_absolute(self) -> None:
         """이미 절대경로면 절대경로 유지 (정확한 문자열은 OS symlink 해석에 따라 다를 수 있음)."""
@@ -111,8 +129,8 @@ class TestDockerWorkdirResolution:
     ("./local", "local"),
     ("a/b/c", "a/b/c"),
 ])
-def test_workdir_and_tmpfs_match(cwd_in: str, expected_endswith: str) -> None:
-    """--workdir와 --tmpfs path가 동일한 절대경로여야 함 (tmpfs mount = workdir)."""
+def test_workdir_and_bind_match(cwd_in: str, expected_endswith: str) -> None:
+    """R-docker-mount (Round 16): --workdir와 -v bind mount의 container path가 일치."""
     runner = _make_runner_no_init()
     spec = RunSpec(cmd=["echo", "hi"], cwd=cwd_in)
 
@@ -122,9 +140,9 @@ def test_workdir_and_tmpfs_match(cwd_in: str, expected_endswith: str) -> None:
 
     cmd = _captured_cmd(m.call_args)
     workdir = next(a[len("--workdir="):] for a in cmd if a.startswith("--workdir="))
-    tmpfs_path = next(
-        a[len("--tmpfs="):].split(":", 1)[0] for a in cmd if a.startswith("--tmpfs=")
-    )
-    assert workdir == tmpfs_path, "--workdir and --tmpfs path must match"
+    v_idx = cmd.index("-v")
+    bind = cmd[v_idx + 1]
+    container_path = bind.split(":")[1]
+    assert workdir == container_path, "--workdir and -v container path must match"
     assert workdir.endswith(expected_endswith)
     assert Path(workdir).is_absolute()

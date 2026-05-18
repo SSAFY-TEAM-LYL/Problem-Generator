@@ -51,16 +51,19 @@ class DockerRunner(SandboxedRunner):
             raise RuntimeError(f"Docker daemon not available: {e}") from e
 
     def run(self, spec: RunSpec) -> RunResult:
-        # R-docker-workdir (Round 15): Docker는 --workdir와 --tmpfs에 절대경로 필수.
-        # 상대경로 spec.cwd가 들어오면 "the working directory ... is invalid, it needs to
-        # be an absolute path" 에러로 sandbox 자체 실행 실패 (Round 14 e2e BFS/SegTree
-        # 둘 다 fail). 자체 방어로 절대화.
+        # R-docker-workdir (Round 15): Docker는 --workdir와 -v에 절대경로 필수.
+        # 자체 방어로 절대화.
         cwd_abs = str(Path(spec.cwd).resolve())
         cmd = [
             "docker", "run", "--rm",
             "--network=none",
             "--read-only",
-            f"--tmpfs={cwd_abs}:rw,size={spec.memory_limit_mb}m,exec",
+            # R-docker-mount (Round 16): 기존 --tmpfs={cwd}는 그 경로 위에 빈 tmpfs를
+            # 오버레이 마운트 → 호스트의 solution.py가 mask되어 컨테이너에서
+            # "python3: can't open file ..." RTE (Round 15 e2e 측정에서 발견).
+            # bind mount(-v)로 변경: 호스트 cwd를 컨테이너의 같은 경로에 r/w로 마운트.
+            # --read-only rootfs는 유지 → 다른 곳 못 쓰지만 cwd는 writable.
+            "-v", f"{cwd_abs}:{cwd_abs}:rw",
             f"--memory={spec.memory_limit_mb}m",
             f"--memory-swap={spec.memory_limit_mb}m",
             "--cpus=1",

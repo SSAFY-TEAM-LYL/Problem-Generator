@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~15",
+    version: "v0.2.0 + Round 11~16",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "3c3bccd",
+    mainCommit: "fdcec14",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 + Round 15 R-docker-workdir (Docker 인프라 fix — Round 11~13 효과 측정 가능해짐)",
-    tests: 321,
+    e2eSuccess: "4/5 + Round 16 R-docker-mount (bind mount로 Docker 실제 동작 — sanity check 통과)",
+    tests: 322,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -201,6 +201,16 @@ window.IPE_DATA = {
       target: "Round 14 e2e BFS/SegTree Docker 모든 sample RTE — sandbox 실행 자체 불가",
       tests: 7,
       doc: "docs/improvements/2026-05-18_docker-workdir-fix.md",
+    },
+    {
+      id: "R-docker-mount",
+      round: "Round 16",
+      date: "2026-05-18",
+      title: "DockerRunner bind mount (deeper 인프라)",
+      desc: "--tmpfs={cwd}가 호스트 파일을 mask해 'python3: can't open file' 유발. -v {cwd}:{cwd}:rw bind mount로 변경. --read-only rootfs 유지로 격리 보장. real Docker sanity check 통과.",
+      target: "Round 15 재실측에서 노출된 호스트 solution.py 안 보임 문제 (tmpfs overlay 효과)",
+      tests: 1,
+      doc: "docs/improvements/2026-05-18_docker-mount-fix.md",
     },
   ],
 };
