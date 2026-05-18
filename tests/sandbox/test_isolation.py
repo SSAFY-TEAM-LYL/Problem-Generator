@@ -199,14 +199,15 @@ class TestDockerRunner:
         assert runner.tier == "T1"
 
     @pytest.mark.slow
-    def test_basic_echo(self, runner: DockerRunner) -> None:
-        # 컨테이너 내부에서 실행 — /work는 Dockerfile WORKDIR
-        res = runner.run(RunSpec(cmd=["echo", "hello"], cwd="/work"))
+    def test_basic_echo(self, runner: DockerRunner, tmp_path: Path) -> None:
+        # R-docker-mount (Round 16): bind mount는 host cwd가 존재해야 함.
+        # 운영은 executor가 run_dir.mkdir() — 테스트는 tmp_path fixture 사용.
+        res = runner.run(RunSpec(cmd=["echo", "hello"], cwd=str(tmp_path)))
         assert res.status == "OK"
         assert res.stdout.strip() == "hello"
 
     @pytest.mark.slow
-    def test_network_blocked(self, runner: DockerRunner) -> None:
+    def test_network_blocked(self, runner: DockerRunner, tmp_path: Path) -> None:
         """--network=none이 외부 연결 차단."""
         script = (
             "import socket\n"
@@ -219,7 +220,7 @@ class TestDockerRunner:
         res = runner.run(
             RunSpec(
                 cmd=["python3", "-c", script],
-                cwd="/work",
+                cwd=str(tmp_path),
                 time_limit_ms=10000,
             )
         )
