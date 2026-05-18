@@ -916,3 +916,85 @@ if (
 | R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
 
 ---
+
+## 18. Round 13 — R-sig-detail (Phase A Signature Granularity, 2026-05-18)
+
+### 18.1 발견 (Round 12 e2e 측정)
+
+R-coder-osc 머지 후 SegTree Docker 재실측 → `budget_exhausted` 여전:
+
+```
+iter 1: coder retry             (sig 7ef9ec5e — "phase A failures: 4/4")
+iter 2: coder oscillation_break (sig 7ef9ec5e 동일)  ← R-coder-osc 발동
+iter 3: coder oscillation_break (sig 7ef9ec5e 동일!) ← 발동했지만 sig 그대로
+iter 4: coder oscillation_break (sig 7ef9ec5e 동일!)
+iter 5: coder retry             (sig add33e43 — fail mode 4/4 → 5/5로 변화)
+iter 6: coder oscillation_break (sig add33e43 동일)
+```
+
+R-coder-osc는 **메커니즘적으로 정확히 발동**했지만 **effective fix 아님**:
+- architect swap → 새 problem 생성 → coder 다시 fail (`4/4`)
+- feedback이 problem-agnostic (`"phase A failures: 4/4"`)이라 sig 같음
+- 같은 sig → oscillation_break 매 cycle 발동, 의미 없는 swap 반복
+
+### 18.2 해법 — `_summarize_phase_a_failure` + coder feedback detail 포함
+
+`ipe.nodes.executor`에 helper 추가:
+
+```python
+def _summarize_phase_a_failure(r: dict) -> str:
+    idx = r.get("index", "?")
+    status = r.get("status", "?")
+    if status != "OK":
+        err = (r.get("stderr") or "")[:60].replace("\n", " ")
+        return f"idx={idx}:{status} stderr={err!r}"
+    expected = (r.get("expected") or "")[:60].replace("\n", " ")
+    actual = (r.get("actual") or "")[:60].replace("\n", " ")
+    return f"idx={idx}:OK exp={expected!r} got={actual!r}"
+```
+
+`_build_phase_a_feedback`의 coder routing 분기:
+
+```python
+# Before: f"phase A failures: {failures}/{n_total}"
+# After:
+fails = [r for r in results if not r["pass"]]
+details = " | ".join(_summarize_phase_a_failure(r) for r in fails)
+return f"phase A failures: {failures}/{n_total} [{details}]"
+```
+
+**효과**:
+- 같은 fail count (e.g. 4/4)라도 다른 expected/actual → 다른 feedback → 다른 sig
+- R-coder-osc swap 후 architect의 새 problem이 다른 sig 만들면 자연스럽게 정상 retry로 복귀
+- 통과한 sample은 details에 미포함 (LLM이 통과한 것까지 다시 쓰지 않도록)
+
+**Architect routing 분기 byte-identical 보존** — 기존 회귀 0.
+
+**길이 cap**: expected/actual 각 60자 truncate, sample 5개 + meta = ~700자 전체. LLM prompt 부담 없음.
+
+### 18.3 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/executor.py` | `_summarize_phase_a_failure` + `_build_phase_a_feedback` coder 분기 detail 포함 (+25 lines) |
+| `tests/test_phase_a_feedback.py` | `TestSummarizePhaseAFailure` × 5 + `TestBuildPhaseAFeedbackCoderRouting` × 5 + `TestBuildPhaseAFeedbackArchitectRoutingPreserved` × 2 (+12 tests, 신규) |
+
+### 18.4 검증
+
+- 전체 pytest **301 passed + 3 skipped** (회귀 0, +12)
+- ruff 0 / mypy --strict 0
+- 결정적 — input results dict만 보고 deterministic string 생성
+
+### 18.5 잔존 backlog (Round 14+)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | Phase A oscillation breaker (architect) | ✅ Round 11 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 (§16.2) |
+| ~~R-coder-osc~~ | Coder oscillation breaker | ✅ Round 12 (§17) |
+| ~~R-sig-detail~~ | Phase A signature granularity | ✅ Round 13 (§18) |
+| R12 hang resilience | ChatAnthropic 529 Overloaded retry/backoff | P0 ↑ (Round 12 BFS run에서 crash 관찰) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+---

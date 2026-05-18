@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~12",
+    version: "v0.2.0 + Round 11~13",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "0dbcbd0",
+    mainCommit: "fc46c86",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 + Round 12 R-coder-osc (Phase A oscillation 결정적 차단), v0.2.1 실측 대기",
-    tests: 289,
+    e2eSuccess: "4/5 + Round 13 R-sig-detail (Phase A sig granularity 확보) — R-coder-osc effective fix 적용",
+    tests: 301,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -172,6 +172,16 @@ window.IPE_DATA = {
       target: "Phase A coder 반복 fail (Docker BFS/SegTree 실측에서 발견)",
       tests: 11,
       doc: "docs/improvements/2026-05-18_coder-osc-deterministic.md",
+    },
+    {
+      id: "R-sig-detail",
+      round: "Round 13",
+      date: "2026-05-18",
+      title: "Phase A signature granularity",
+      desc: "coder routing feedback에 실패 sample의 expected/actual prefix 포함 — 다른 problem이 같은 X/Y로 fail해도 sig 달라짐 (R-coder-osc effective fix)",
+      target: "Round 12 SegTree에서 매 cycle oscillation_break 무의미 발동 패턴 해소",
+      tests: 12,
+      doc: "docs/improvements/2026-05-18_sig-detail.md",
     },
   ],
 };

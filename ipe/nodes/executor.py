@@ -217,6 +217,29 @@ def _decide_phase_a_route(results: list[dict[str, Any]]) -> str:
     return "coder"
 
 
+# R-sig-detail (Round 13): coder routing feedback에 포함되는 expected/actual
+# truncate 한계. 너무 길면 prompt 부담 + sig가 expected/actual 길이에 dominate.
+# 60자: sample 5개 × 60자 × 2 (expected/actual) = ~600자 + meta = ~700자 cap.
+_PHASE_A_FIELD_LIMIT = 60
+
+
+def _summarize_phase_a_failure(r: dict[str, Any]) -> str:
+    """R-sig-detail: 실패 sample 1개를 sig-friendly 한 줄 요약으로 압축.
+
+    coder routing feedback에 포함되어 `_error_signature(feedback)`가 problem-specific
+    해지도록 한다. 같은 X/Y 카운트라도 expected/actual이 다르면 sig가 달라져
+    R-coder-osc oscillation_break이 매 cycle 무의미하게 발동되는 패턴 해소.
+    """
+    idx = r.get("index", "?")
+    status = r.get("status", "?")
+    if status != "OK":
+        err = (r.get("stderr") or "")[:_PHASE_A_FIELD_LIMIT].replace("\n", " ")
+        return f"idx={idx}:{status} stderr={err!r}"
+    expected = (r.get("expected") or "")[:_PHASE_A_FIELD_LIMIT].replace("\n", " ")
+    actual = (r.get("actual") or "")[:_PHASE_A_FIELD_LIMIT].replace("\n", " ")
+    return f"idx={idx}:OK exp={expected!r} got={actual!r}"
+
+
 def _build_phase_a_feedback(results: list[dict[str, Any]], target: str) -> str:
     n_total = len(results)
     n_pass = sum(1 for r in results if r["pass"])
@@ -231,7 +254,10 @@ def _build_phase_a_feedback(results: list[dict[str, Any]], target: str) -> str:
             f"phase A: all {n_total} failed but solution gave consistent unique "
             f"outputs (samples likely wrong)"
         )
-    return f"phase A failures: {failures}/{n_total}"
+    # R-sig-detail: coder routing — 실패 sample summary 포함 → sig granularity
+    fails = [r for r in results if not r["pass"]]
+    details = " | ".join(_summarize_phase_a_failure(r) for r in fails)
+    return f"phase A failures: {failures}/{n_total} [{details}]"
 
 
 def _pick_best_candidate(
