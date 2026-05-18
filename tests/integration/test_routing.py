@@ -60,9 +60,13 @@ def test_happy_path_full_cycle_success(
 def test_coder_budget_exhausted_halt(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """잘못된 코드(print(0)) 반복 → coder 라우팅 누적 → budget_exhausted halt.
+    """잘못된 코드(print(0)) 반복 → 라우팅 누적 → budget_exhausted halt.
 
-    coder budget=2로 설정 → 2회 retry 후 3번째 fail에서 budget_exhausted.
+    R-coder-osc (Round 12): coder가 동일 signature 반복 시 architect로 swap.
+    BAD_CODER는 매 cycle 같은 응답 → 첫 cycle은 coder retry (budget 2→1),
+    두 번째 cycle은 oscillation 감지 → architect로 swap → architect budget
+    차감 … 결국 architect 또는 coder budget 중 먼저 0이 된 쪽이 halt.
+    halt 자체는 보장 (잘못된 코드 반복 → 어느 노드의 budget이든 결국 소진).
     """
     wire_all_chats_normal(monkeypatch, coder_response=BAD_CODER)
 
@@ -75,8 +79,10 @@ def test_coder_budget_exhausted_halt(
     final = graph.invoke(initial_state(budget=budget))
 
     assert final.get("final_status") == "budget_exhausted"
-    assert "coder" in (final.get("feedback_message") or "")
-    # iteration_history에 coder 시도가 누적되었어야 함
+    fb = final.get("feedback_message") or ""
+    # R-coder-osc swap 후 architect budget이 먼저 소진될 수도, coder가 먼저일 수도
+    assert "budget exhausted" in fb
+    # iteration_history에 coder 시도가 누적되었어야 함 (원인 노드는 coder 그대로 기록)
     history = final.get("iteration_history") or []
     coder_entries = [h for h in history if h.get("node") == "coder"]
     assert len(coder_entries) >= 2

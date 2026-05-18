@@ -42,6 +42,15 @@ from ipe.state import IterationRecord, NodeRetryBudget, ProblemState
 
 _RETRY_TARGETS = ("architect", "coder", "auditor", "generator")
 
+# R-osc-break (Round 11) + R-coder-osc (Round 12):
+# 동일 signature 2회+ oscillation 감지 시 swap 대상 매핑.
+# 대칭: architect ↔ coder. auditor/generator는 oscillation 패턴이 다른 도메인
+# (auditor는 input 검증, generator는 R-gen-cap이 사전 차단)이라 swap 대상 아님.
+_OSC_SWAP_TARGET: dict[str, str] = {
+    "architect": "coder",   # architect oscillation → coder (BFS 결정적 차단)
+    "coder": "architect",   # coder oscillation → architect (Phase A oscillation 차단)
+}
+
 
 def _error_signature(feedback: str) -> str:
     """feedback_message → SHA-1 hash 앞 12자.
@@ -54,21 +63,23 @@ def _error_signature(feedback: str) -> str:
     return hashlib.sha1(feedback.encode("utf-8")).hexdigest()[:12]
 
 
-def _detect_architect_oscillation(state: ProblemState, current_signature: str) -> bool:
-    """R-osc-break: architect가 같은 signature로 2회+ 실패했는지 감지.
+def _detect_node_oscillation(
+    state: ProblemState, node_name: str, current_signature: str
+) -> bool:
+    """일반화된 oscillation 감지 — Round 12에서 R-osc-break과 R-coder-osc 둘 다 사용.
 
-    prompt-only W4 경고(`_build_history_section`)는 LLM이 무시 가능 → BFS variance
-    사례에서 architect가 같은 패턴으로 반복 retry하다 budget 소진. 이 함수가 True
-    리턴 시 `_decision`이 ``last_failed_node``를 ``architect → coder``로 swap하여
-    결정적으로 oscillation 차단.
+    prompt-only W4 경고(`_build_history_section`)는 LLM이 무시 가능 →
+    architect/coder 양쪽에서 같은 signature로 반복 retry하다 budget 소진.
+    이 함수가 True 리턴 시 `_decision`이 ``last_failed_node``를
+    ``_OSC_SWAP_TARGET[node_name]``로 swap하여 결정적으로 oscillation 차단.
 
     조건 (전부 만족):
-    - 현 cycle의 ``last_failed_node == "architect"``
+    - 현 cycle의 ``last_failed_node == node_name``
     - ``current_signature`` 비어있지 않음
-    - ``iteration_history``에 ``node="architect"`` + 동일 signature 1회+ 존재
+    - ``iteration_history``에 ``node==node_name`` + 동일 signature 1회+ 존재
       (이번 포함 = 2회+)
     """
-    if state.get("last_failed_node") != "architect":
+    if state.get("last_failed_node") != node_name:
         return False
     if not current_signature:
         return False
@@ -76,9 +87,15 @@ def _detect_architect_oscillation(state: ProblemState, current_signature: str) -
     prior = sum(
         1
         for r in history
-        if r.get("node") == "architect" and r.get("error_signature") == current_signature
+        if r.get("node") == node_name and r.get("error_signature") == current_signature
     )
     return prior >= 1
+
+
+def _detect_architect_oscillation(state: ProblemState, current_signature: str) -> bool:
+    """R-osc-break wrapper — 기존 호출자 backward compat. 새 코드는
+    ``_detect_node_oscillation(state, "architect", sig)`` 권장."""
+    return _detect_node_oscillation(state, "architect", current_signature)
 
 
 def _decision(state: ProblemState) -> ProblemState:
@@ -122,15 +139,21 @@ def _decision(state: ProblemState) -> ProblemState:
             ),
         }
 
-    # 4. R-osc-break: architect oscillation 감지 → coder 강제 라우팅 swap
+    # 4. R-osc-break / R-coder-osc: 동일 signature 2회+ oscillation 감지 →
+    #    _OSC_SWAP_TARGET 매핑으로 강제 라우팅 swap (architect ↔ coder 대칭).
     failed = state.get("last_failed_node")
     feedback = state.get("feedback_message") or ""
     current_sig = _error_signature(feedback)
-    osc_break = _detect_architect_oscillation(state, current_sig)
-    # 원인 노드(architect)는 history에 그대로 기록, routing/budget만 coder로 swap
+    # 원인 노드는 history에 그대로 기록, routing/budget 차감 대상만 swap
     origin_node = failed
-    if osc_break:
-        failed = "coder"
+    osc_break = False
+    if (
+        isinstance(failed, str)
+        and failed in _OSC_SWAP_TARGET
+        and _detect_node_oscillation(state, failed, current_sig)
+    ):
+        failed = _OSC_SWAP_TARGET[failed]
+        osc_break = True
 
     # 5. budget exhausted — NodeRetryBudget(TypedDict)을 dict[str,int]로 narrow
     nb_src: dict[str, Any] = dict(state.get("node_retry_budget") or {})
