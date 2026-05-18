@@ -1101,3 +1101,114 @@ def _invoke_with_retry(chat, messages, *, max_retries=3, base_backoff=2.0, sleep
 다음 단계: e2e Docker 재실측 (BFS + SegTree) → v0.2.1 tag.
 
 ---
+
+## 20. Round 15 — R-docker-workdir (인프라 fix, 2026-05-18)
+
+### 20.1 발견 (Round 14 후 e2e 재실측)
+
+Round 13/14 적용 후 BFS + SegTree Docker 재실측 (각각 budget_exhausted, iter 6):
+
+```
+BFS run_id: fa491a961832
+iter 1 coder retry            sig=da822803 fb=phase A failures: 5/5 [
+    idx=0:RTE stderr="docker: Error response from daemon: the working
+    directory 'workdir/run_xxx' is invalid, it needs to be an absolute
+    path" | idx=1:RTE stderr="docker:..." | ...]
+
+SegTree run_id: 81d2f297289c (동일 패턴)
+```
+
+**Round 13 R-sig-detail가 비로소 진짜 원인 노출**:
+- 이전 Round 12 SegTree에서 `"phase A failures: 4/4"`만 보였던 진짜 원인은
+  coder oscillation이 **아니라 Docker workdir 인프라 버그**였다
+- R-sig-detail가 feedback에 stderr를 포함시키면서 정확한 진단 가능
+
+### 20.2 원인
+
+`main.py:35`:
+
+```python
+WORKDIR_ROOT = Path("workdir")  # ← 상대경로!
+```
+
+`DockerRunner.run`:
+
+```python
+f"--workdir={spec.cwd}",  # ← 상대경로 그대로 → daemon 거부
+f"--tmpfs={spec.cwd}:rw,...",
+```
+
+Docker daemon은 `--workdir`에 절대경로 필수. RlimitRunner는 OS의 `chdir` 사용해서 상대경로도 OK이지만 DockerRunner는 fail. 따라서 RlimitRunner BFS run은 success였지만 Docker BFS는 모든 sample RTE.
+
+### 20.3 해법 — 이중 안전망
+
+**`ipe/sandbox/docker_runner.py`** — 진입점 자체 방어:
+
+```python
+def run(self, spec: RunSpec) -> RunResult:
+    # R-docker-workdir: Docker는 --workdir/--tmpfs에 절대경로 필수.
+    cwd_abs = str(Path(spec.cwd).resolve())
+    cmd = [
+        "docker", "run", "--rm",
+        ...
+        f"--tmpfs={cwd_abs}:rw,...",
+        f"--workdir={cwd_abs}",
+        ...
+    ]
+```
+
+**`main.py`** — 호출자 측 안전망:
+
+```python
+OUTPUTS_ROOT = Path("outputs").resolve()
+WORKDIR_ROOT = Path("workdir").resolve()
+```
+
+DockerRunner 한 군데만 fix해도 충분하지만, main.py에서도 명시적으로 절대화 →
+다른 호출자가 추가될 때 같은 실수 안 하도록 신호.
+
+### 20.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/sandbox/docker_runner.py` | `Path` import + `cwd_abs = str(Path(spec.cwd).resolve())` + cmd 내 사용 (+5 / -2) |
+| `main.py` | `OUTPUTS_ROOT` / `WORKDIR_ROOT`에 `.resolve()` (+3 / -2) |
+| `tests/sandbox/test_docker_workdir.py` | `TestDockerWorkdirResolution` × 4 + `test_workdir_and_tmpfs_match` parametrize × 3 (+7, 신규 mock-based) |
+
+### 20.5 검증
+
+- 전체 pytest **321 passed + 3 skipped** (회귀 0, +7)
+- ruff 0 / mypy --strict 0
+- mock subprocess 기반 — Docker daemon 없이 결정적 검증
+
+### 20.6 메타-교훈 (Round 12~15)
+
+Round 11~14의 결정적 fix 4종 (R-osc-break, R-gen-cap, R-coder-osc, R-sig-detail)이 차례로 적용되었지만, Round 14 e2e 재실측에서 드러난 진짜 문제는 **인프라 버그**였다:
+
+| Round | 의도된 fix | 실제 측정에서 본 것 |
+|---|---|---|
+| 11 | architect oscillation 차단 | (RlimitRunner BFS success — 효과 모름) |
+| 12 | coder oscillation 차단 | "4/4" generic feedback — 진짜 원인 가려짐 |
+| 13 | sig granularity | feedback에 stderr 노출 — 진짜 원인 드러남 |
+| 14 | Anthropic retry | (BFS run 자체가 Docker fail로 못 봄) |
+| **15** | **Docker workdir 절대화** | **인프라 버그 해소** |
+
+**통찰**: R-sig-detail (Round 13)가 없었으면 인프라 버그가 계속 "coder가 같은 문제로 4번 fail" 같은 잘못된 진단으로 가려졌을 것. **observability 개선이 진짜 fix의 시작점**.
+
+### 20.7 잔존 backlog (v0.2.1 release 진입)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | Phase A oscillation breaker (architect) | ✅ Round 11 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 (§16.2) |
+| ~~R-coder-osc~~ | Coder oscillation breaker | ✅ Round 12 (§17) |
+| ~~R-sig-detail~~ | Phase A signature granularity | ✅ Round 13 (§18) |
+| ~~R12~~ | Anthropic retry/backoff | ✅ Round 14 (§19) |
+| ~~R-docker-workdir~~ | DockerRunner cwd 절대화 (인프라) | ✅ Round 15 (§20) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+**v0.2.1 release ready (재확인)**: 6종 fix (5 결정적 + 1 인프라) 완료. 다음:
+e2e Docker 재실측으로 Round 11~13 효과 진짜 측정 → v0.2.1 tag.
+
+---

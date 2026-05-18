@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~14",
+    version: "v0.2.0 + Round 11~15",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "b9cd4f0",
+    mainCommit: "3c3bccd",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 + Round 14 R12 (Anthropic 529/timeout retry/backoff) — v0.2.1 release 진입",
-    tests: 314,
+    e2eSuccess: "4/5 + Round 15 R-docker-workdir (Docker 인프라 fix — Round 11~13 효과 측정 가능해짐)",
+    tests: 321,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -191,6 +191,16 @@ window.IPE_DATA = {
       target: "Round 12 BFS Docker run에서 발생한 Anthropic 529 Overloaded crash",
       tests: 13,
       doc: "docs/improvements/2026-05-18_r12-retry-resilience.md",
+    },
+    {
+      id: "R-docker-workdir",
+      round: "Round 15",
+      date: "2026-05-18",
+      title: "DockerRunner cwd 절대경로 fix (인프라)",
+      desc: "DockerRunner.run()이 spec.cwd를 자동 절대화 (Path.resolve) + main.py도 OUTPUTS_ROOT/WORKDIR_ROOT를 .resolve(). R-sig-detail 덕분에 노출된 'docker working directory not absolute' 에러 해소.",
+      target: "Round 14 e2e BFS/SegTree Docker 모든 sample RTE — sandbox 실행 자체 불가",
+      tests: 7,
+      doc: "docs/improvements/2026-05-18_docker-workdir-fix.md",
     },
   ],
 };
