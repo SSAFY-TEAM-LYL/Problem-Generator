@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,6 +15,8 @@ from ipe.observability import (
     LLMCallTracker,
     ReplayTracker,
     _cost_usd,
+    _invoke_with_retry,
+    _is_retryable,
     _serialize_messages,
 )
 from ipe.state import LLMCallRecord
@@ -308,3 +311,144 @@ class TestReplayTrackerInvoke:
 
         assert [c["seq"] for c in calls] == [1, 2]
         assert [c["node"] for c in calls] == ["a", "b"]
+
+
+# =============================================================================
+# R12 (Round 14) — Anthropic 일시 장애 retry helpers
+# =============================================================================
+
+
+def _api_status_error(status_code: int) -> Exception:
+    """anthropic APIStatusError instance with given HTTP status (for test simulation)."""
+    from anthropic import APIStatusError
+    resp = MagicMock(status_code=status_code)
+    return APIStatusError(message=f"http {status_code}", response=resp, body=None)
+
+
+def _rate_limit_error() -> Exception:
+    from anthropic import RateLimitError
+    resp = MagicMock(status_code=429)
+    return RateLimitError(message="rate limited", response=resp, body=None)
+
+
+class TestIsRetryable:
+    """HTTP status code 기반 + isinstance fallback으로 retryable 판별."""
+
+    def test_rate_limit_error_is_retryable(self) -> None:
+        assert _is_retryable(_rate_limit_error()) is True
+
+    def test_overloaded_status_529_is_retryable(self) -> None:
+        """anthropic 529 Overloaded — Round 12 BFS crash 원인."""
+        assert _is_retryable(_api_status_error(529)) is True
+
+    def test_server_5xx_is_retryable(self) -> None:
+        for status in (500, 502, 503, 504):
+            assert _is_retryable(_api_status_error(status)) is True, f"status {status}"
+
+    def test_request_timeout_408_is_retryable(self) -> None:
+        assert _is_retryable(_api_status_error(408)) is True
+
+    def test_client_4xx_not_retryable(self) -> None:
+        """400/401/403/404 같은 client error는 retry 금지 (사용자 잘못)."""
+        for status in (400, 401, 403, 404):
+            assert _is_retryable(_api_status_error(status)) is False, f"status {status}"
+
+    def test_arbitrary_exception_not_retryable(self) -> None:
+        assert _is_retryable(ValueError("bug")) is False
+        assert _is_retryable(RuntimeError("oops")) is False
+
+
+class TestInvokeWithRetry:
+    """exponential backoff retry — 2 → 4 → 8 secs, max 3 retries."""
+
+    def _mock_chat(self, side_effect: list[Any]) -> MagicMock:
+        chat = MagicMock()
+        chat.invoke.side_effect = side_effect
+        return chat
+
+    def test_first_attempt_success_no_sleep(self) -> None:
+        resp = MagicMock(spec=BaseMessage)
+        chat = self._mock_chat([resp])
+        sleeps: list[float] = []
+        result = _invoke_with_retry(chat, [], sleep=sleeps.append)
+        assert result is resp
+        assert chat.invoke.call_count == 1
+        assert sleeps == []
+
+    def test_retry_after_overloaded_then_success(self) -> None:
+        resp = MagicMock(spec=BaseMessage)
+        chat = self._mock_chat([_api_status_error(529), resp])
+        sleeps: list[float] = []
+        result = _invoke_with_retry(chat, [], base_backoff=2.0, sleep=sleeps.append)
+        assert result is resp
+        assert chat.invoke.call_count == 2
+        assert sleeps == [2.0]  # first backoff = 2.0 * 2^0
+
+    def test_two_retries_then_success_exponential_backoff(self) -> None:
+        resp = MagicMock(spec=BaseMessage)
+        chat = self._mock_chat([_rate_limit_error(), _api_status_error(503), resp])
+        sleeps: list[float] = []
+        result = _invoke_with_retry(chat, [], base_backoff=2.0, sleep=sleeps.append)
+        assert result is resp
+        assert chat.invoke.call_count == 3
+        assert sleeps == [2.0, 4.0]  # exponential: 2*2^0, 2*2^1
+
+    def test_all_retries_exhausted_raises_last(self) -> None:
+        errs = [_api_status_error(529) for _ in range(4)]  # 4 attempts (1 + 3 retries)
+        chat = self._mock_chat(errs)
+        sleeps: list[float] = []
+        from anthropic import APIStatusError
+        with pytest.raises(APIStatusError) as excinfo:
+            _invoke_with_retry(chat, [], max_retries=3, base_backoff=2.0, sleep=sleeps.append)
+        assert excinfo.value.status_code == 529
+        assert chat.invoke.call_count == 4  # initial + 3 retries
+        assert sleeps == [2.0, 4.0, 8.0]  # 3 backoffs before final failure
+
+    def test_non_retryable_raised_immediately(self) -> None:
+        """RateLimit/Overloaded 아닌 예외는 retry 없이 즉시 raise."""
+        chat = self._mock_chat([_api_status_error(400)])
+        sleeps: list[float] = []
+        from anthropic import APIStatusError
+        with pytest.raises(APIStatusError) as excinfo:
+            _invoke_with_retry(chat, [], sleep=sleeps.append)
+        assert excinfo.value.status_code == 400
+        assert chat.invoke.call_count == 1
+        assert sleeps == []
+
+    def test_arbitrary_exception_raised_immediately(self) -> None:
+        chat = self._mock_chat([ValueError("bug")])
+        sleeps: list[float] = []
+        with pytest.raises(ValueError):
+            _invoke_with_retry(chat, [], sleep=sleeps.append)
+        assert chat.invoke.call_count == 1
+        assert sleeps == []
+
+
+class TestLLMCallTrackerUsesRetry:
+    """tracker.invoke가 _invoke_with_retry를 사용 — Anthropic 일시 장애에 자동 복구."""
+
+    def test_tracker_invoke_retries_on_overloaded(self, tmp_path: Path) -> None:
+        """tracker가 Overloaded 1회 후 자동 retry로 success — Round 12 BFS crash 시나리오."""
+        chat = MagicMock()
+        chat.model = "claude-opus-4-7"
+        resp = MagicMock(spec=BaseMessage)
+        resp.content = "after retry"
+        resp.usage_metadata = {"input_tokens": 10, "output_tokens": 5}
+        chat.invoke.side_effect = [_api_status_error(529), resp]
+
+        tracker = LLMCallTracker("test-r12", tmp_path / "traces")
+        state_calls: list[LLMCallRecord] = []
+
+        # sleep을 mock하여 테스트 빠르게 (실제 backoff 2초 대기 안 함)
+        import ipe.observability as obs
+        original_sleep = obs.time.sleep
+        obs.time.sleep = lambda _: None
+        try:
+            result = tracker.invoke(chat, [], node="architect", state_calls=state_calls)
+        finally:
+            obs.time.sleep = original_sleep
+
+        assert result is resp
+        assert chat.invoke.call_count == 2
+        assert len(state_calls) == 1
+        assert state_calls[0]["input_tokens"] == 10

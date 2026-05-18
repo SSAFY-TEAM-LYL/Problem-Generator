@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~13",
+    version: "v0.2.0 + Round 11~14",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "fc46c86",
+    mainCommit: "b9cd4f0",
     updated: "2026-05-18",
-    e2eSuccess: "4/5 + Round 13 R-sig-detail (Phase A sig granularity 확보) — R-coder-osc effective fix 적용",
-    tests: 301,
+    e2eSuccess: "4/5 + Round 14 R12 (Anthropic 529/timeout retry/backoff) — v0.2.1 release 진입",
+    tests: 314,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -133,7 +133,6 @@ window.IPE_DATA = {
 
   // Backlog (v0.2.2+) — Round 11에서 두 P0 모두 완료 (CHANGES §16.1, §16.2)
   backlog: [
-    { id: "R12", title: "ChatAnthropic timeout + retry", priority: "P1", desc: "운영 hang resilience" },
     { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
     { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
@@ -182,6 +181,16 @@ window.IPE_DATA = {
       target: "Round 12 SegTree에서 매 cycle oscillation_break 무의미 발동 패턴 해소",
       tests: 12,
       doc: "docs/improvements/2026-05-18_sig-detail.md",
+    },
+    {
+      id: "R12",
+      round: "Round 14",
+      date: "2026-05-18",
+      title: "Anthropic retry/backoff (운영 안정성)",
+      desc: "LLM 호출에 HTTP status 기반 retryable 판별 + exponential backoff (2/4/8s, max 3). 529/429/timeout 등 일시 장애 자동 복구. 4xx client error는 즉시 raise.",
+      target: "Round 12 BFS Docker run에서 발생한 Anthropic 529 Overloaded crash",
+      tests: 13,
+      doc: "docs/improvements/2026-05-18_r12-retry-resilience.md",
     },
   ],
 };
