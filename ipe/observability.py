@@ -12,10 +12,17 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from anthropic import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    RateLimitError,
+)
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage
 
@@ -73,6 +80,77 @@ def _cost_usd(model: str, in_tokens: int, out_tokens: int) -> float:
     return (in_tokens * p["input"] + out_tokens * p["output"]) / 1_000_000
 
 
+# ============================================================================
+# R12 (Round 14) — Anthropic 일시 장애 retry/backoff
+#
+# 배경: Round 12 BFS Docker run에서 `anthropic._exceptions.OverloadedError`
+# (HTTP 529) 발생 시 즉시 crash. retry 없음. 운영 안정성 저해.
+#
+# 설계: HTTP status code 기반 판별 (+ isinstance fallback for network/timeout).
+# `_exceptions` 내부 모듈 import 회피 → public SDK surface만 사용.
+# ============================================================================
+
+# 408 Request Timeout, 429 Too Many Requests, 500/502/503/504 server errors,
+# 529 Overloaded (anthropic-specific).
+_RETRYABLE_HTTP_STATUSES: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504, 529})
+
+_R12_MAX_RETRIES = 3            # 총 4번 시도 (initial + 3 retries)
+_R12_BASE_BACKOFF_SECS = 2.0    # 2, 4, 8 secs exponential — 최대 14초 대기
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """R12: Anthropic 일시 장애 판별.
+
+    True: 일시적 — backoff 후 retry 가치 있음
+        - RateLimitError (429)
+        - APITimeoutError, APIConnectionError (network)
+        - APIStatusError with status ∈ {408, 429, 500, 502, 503, 504, 529}
+    False: 영구적 또는 사용자 오류 — 즉시 raise
+        - BadRequestError (400), AuthenticationError (401), etc.
+        - 일반 Exception (ValueError, bug 등)
+    """
+    if isinstance(exc, (RateLimitError, APITimeoutError, APIConnectionError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        status = getattr(exc, "status_code", None)
+        return isinstance(status, int) and status in _RETRYABLE_HTTP_STATUSES
+    return False
+
+
+def _invoke_with_retry(
+    chat: ChatAnthropic,
+    messages: list[Any],
+    *,
+    max_retries: int = _R12_MAX_RETRIES,
+    base_backoff: float = _R12_BASE_BACKOFF_SECS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> BaseMessage:
+    """R12: ``chat.invoke``에 exponential backoff retry — Anthropic 일시 장애 자동 복구.
+
+    backoff: ``base_backoff * 2^attempt`` (default 2, 4, 8 secs).
+    ``_is_retryable``이 False인 예외는 즉시 raise (retry 0).
+    모든 retry 소진 시 마지막 예외 raise (호출자에게 전파).
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            resp = chat.invoke(messages)
+            if not isinstance(resp, BaseMessage):
+                raise TypeError(
+                    f"unexpected response type from chat.invoke: {type(resp).__name__}"
+                )
+            return resp
+        except Exception as e:  # noqa: BLE001 — 분류 helper로 위임
+            if not _is_retryable(e):
+                raise
+            last_exc = e
+            if attempt == max_retries:
+                break
+            sleep(base_backoff * (2 ** attempt))
+    assert last_exc is not None
+    raise last_exc
+
+
 def _serialize_messages(messages: list[Any]) -> list[dict[str, Any]]:
     """messages를 JSON-serializable dict list로 변환.
 
@@ -126,7 +204,9 @@ class LLMCallTracker:
         ts = datetime.now(UTC).isoformat()
 
         start = time.perf_counter()
-        resp = chat.invoke(messages)
+        # R12 (Round 14): Anthropic 일시 장애 (529/429/timeout 등) 자동 retry.
+        # _invoke_with_retry는 BaseMessage 반환 보장 + 비-retryable 예외 즉시 raise.
+        resp = _invoke_with_retry(chat, messages)
         latency_ms = int((time.perf_counter() - start) * 1000)
 
         usage = getattr(resp, "usage_metadata", None) or {}
@@ -176,9 +256,6 @@ class LLMCallTracker:
             "trace_path": f"{self.traces_dir.name}/{trace_path.name}",
         }
         state_calls.append(record)
-
-        if not isinstance(resp, BaseMessage):
-            raise TypeError(f"unexpected response type from chat.invoke: {type(resp).__name__}")
         return resp
 
 

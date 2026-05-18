@@ -998,3 +998,106 @@ return f"phase A failures: {failures}/{n_total} [{details}]"
 | R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
 
 ---
+
+## 19. Round 14 — R12 (Anthropic 일시 장애 retry/backoff, 2026-05-18)
+
+### 19.1 발견 (Round 12 BFS Docker 실측)
+
+R-coder-osc 머지 후 BFS Docker run이 crash:
+
+```
+anthropic._exceptions.OverloadedError: Error code: 529 - {'type': 'error',
+  'error': {'type': 'overloaded_error', 'message': 'Overloaded'}, ...}
+During task with name 'architect' and id '6f6db9a0-7bdd-a047-e03d-55e2d3478ef7'
+```
+
+Anthropic 서버 일시 과부하 (HTTP 529) → retry 없이 즉시 crash → e2e run 종료.
+운영 안정성 + e2e 재현성 둘 다 저해.
+
+### 19.2 해법 — `_invoke_with_retry` exponential backoff
+
+`ipe.observability`에 두 helper 추가:
+
+**`_is_retryable(exc) -> bool`** — HTTP status code 기반 분류:
+
+```python
+_RETRYABLE_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504, 529})
+
+def _is_retryable(exc):
+    if isinstance(exc, (RateLimitError, APITimeoutError, APIConnectionError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        status = getattr(exc, "status_code", None)
+        return isinstance(status, int) and status in _RETRYABLE_HTTP_STATUSES
+    return False
+```
+
+| 분류 | 처리 |
+|---|---|
+| 408 / 429 / 500 / 502 / 503 / 504 / 529 | retry |
+| RateLimitError / APITimeoutError / APIConnectionError | retry |
+| 400 / 401 / 403 / 404 (client error) | 즉시 raise |
+| ValueError, TypeError 등 일반 예외 | 즉시 raise |
+
+**`_invoke_with_retry(chat, messages, ...)`** — exponential backoff:
+
+```python
+def _invoke_with_retry(chat, messages, *, max_retries=3, base_backoff=2.0, sleep=time.sleep):
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            resp = chat.invoke(messages)
+            if not isinstance(resp, BaseMessage):
+                raise TypeError(...)
+            return resp
+        except Exception as e:
+            if not _is_retryable(e):
+                raise
+            last_exc = e
+            if attempt == max_retries:
+                break
+            sleep(base_backoff * (2 ** attempt))
+    raise last_exc
+```
+
+총 4번 시도 (initial + 3 retries), backoff 2 → 4 → 8 secs (max 14초 대기).
+
+**중요 설계 결정**:
+- **public SDK surface만 사용** — `anthropic._exceptions` 내부 모듈 import 회피
+  (`_exceptions`는 private이라 SDK 업데이트 시 깨질 위험)
+- **HTTP status code 기반** — `OverloadedError`가 `APIStatusError(status=529)`
+  이므로 직접 import 없이 status 검사로 처리
+- **sleep injection** — 테스트에서 mock 가능, 실제 backoff 대기 없이 빠르게 검증
+
+`LLMCallTracker.invoke`에서 `chat.invoke(messages)` → `_invoke_with_retry(chat, messages)`
+한 줄 교체. 기존 BaseMessage type check는 helper가 처리 (중복 제거).
+
+### 19.3 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/observability.py` | `_is_retryable` + `_invoke_with_retry` helper (+50) + `LLMCallTracker.invoke` 한 줄 swap (-3 / +3) |
+| `tests/test_observability.py` | `TestIsRetryable` × 6 + `TestInvokeWithRetry` × 6 + `TestLLMCallTrackerUsesRetry` × 1 (+13 tests) |
+
+### 19.4 검증
+
+- 전체 pytest **314 passed + 3 skipped** (회귀 0, +13)
+- ruff 0 / mypy --strict 0
+- 결정적 — sleep injection으로 테스트 즉시 완료
+
+### 19.5 잔존 backlog (v0.2.1 release 진입)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ | Phase A oscillation breaker (architect) | ✅ Round 11 (§16.1) |
+| ~~R-gen-cap~~ | Generator hard cap validator | ✅ Round 11 (§16.2) |
+| ~~R-coder-osc~~ | Coder oscillation breaker | ✅ Round 12 (§17) |
+| ~~R-sig-detail~~ | Phase A signature granularity | ✅ Round 13 (§18) |
+| ~~R12~~ | Anthropic retry/backoff | ✅ Round 14 (§19) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+**v0.2.1 release ready**: 5종 결정적 fix 모두 완료 + 회귀 0 + lint/type clean.
+다음 단계: e2e Docker 재실측 (BFS + SegTree) → v0.2.1 tag.
+
+---
