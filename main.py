@@ -31,8 +31,11 @@ from ipe.state import ProblemState
 
 DEFAULT_MAX_ITER = 5
 DEFAULT_MAX_COST_USD = 5.0
-OUTPUTS_ROOT = Path("outputs")
-WORKDIR_ROOT = Path("workdir")
+# R-docker-workdir (Round 15): DockerRunner는 --workdir에 절대경로 필수.
+# Path("...")는 상대경로라 docker가 거부. .resolve()로 cwd 기준 절대화.
+# DockerRunner 자체도 방어 fix 적용했지만, 호출자 측에서도 안전망 유지.
+OUTPUTS_ROOT = Path("outputs").resolve()
+WORKDIR_ROOT = Path("workdir").resolve()
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

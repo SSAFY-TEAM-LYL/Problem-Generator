@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+from pathlib import Path
 from typing import ClassVar
 
 from ipe.sandbox.runner import RunResult, RunSpec, RunStatus, SandboxedRunner
@@ -50,16 +51,21 @@ class DockerRunner(SandboxedRunner):
             raise RuntimeError(f"Docker daemon not available: {e}") from e
 
     def run(self, spec: RunSpec) -> RunResult:
+        # R-docker-workdir (Round 15): Docker는 --workdir와 --tmpfs에 절대경로 필수.
+        # 상대경로 spec.cwd가 들어오면 "the working directory ... is invalid, it needs to
+        # be an absolute path" 에러로 sandbox 자체 실행 실패 (Round 14 e2e BFS/SegTree
+        # 둘 다 fail). 자체 방어로 절대화.
+        cwd_abs = str(Path(spec.cwd).resolve())
         cmd = [
             "docker", "run", "--rm",
             "--network=none",
             "--read-only",
-            f"--tmpfs={spec.cwd}:rw,size={spec.memory_limit_mb}m,exec",
+            f"--tmpfs={cwd_abs}:rw,size={spec.memory_limit_mb}m,exec",
             f"--memory={spec.memory_limit_mb}m",
             f"--memory-swap={spec.memory_limit_mb}m",
             "--cpus=1",
             f"--pids-limit={spec.max_processes}",
-            f"--workdir={spec.cwd}",
+            f"--workdir={cwd_abs}",
             "-i",
             self.image,
             *spec.cmd,
