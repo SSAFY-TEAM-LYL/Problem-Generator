@@ -31,6 +31,7 @@ Hook contract:
 from __future__ import annotations
 
 import re
+import sys
 from collections.abc import Callable
 
 from ipe.state import ProblemState
@@ -98,17 +99,15 @@ def wrap_with_pre_hooks(
 # ============================================================================
 
 # Python 표준 라이브러리 외 import 차단 — solution은 self-contained여야 함.
-# 외부 패키지 (numpy, pandas 등)는 sandbox image에 없으므로 RTE.
-_PYTHON_STDLIB = frozenset({
-    "sys", "os", "re", "io", "math", "cmath", "random", "string", "collections",
-    "itertools", "functools", "heapq", "bisect", "operator", "copy", "pprint",
-    "array", "queue", "threading", "subprocess", "time", "datetime", "calendar",
-    "json", "csv", "ast", "typing", "abc", "enum", "dataclasses", "contextlib",
-    "weakref", "gc", "inspect", "warnings", "traceback", "logging",
-    "hashlib", "hmac", "secrets", "base64", "struct", "codecs",
-    "fractions", "decimal", "statistics", "numbers",
-    "__future__",
-})
+# 외부 패키지 (numpy, pandas 등)는 sandbox image (python:3.11-slim)에 없으므로 RTE.
+#
+# Manually-maintained allow-list는 fragile — Python 3.10+의 ``sys.stdlib_module_names``
+# 가 정확한 최신 stdlib 리스트 제공 (Python 3.11에서 305 modules). hot-fix:
+# 이전 hardcoded set이 ``ctypes`` / ``tempfile`` 등 누락 → 정상 솔루션 false reject
+# (Round 20 e2e smoke에서 발견).
+#
+# ``__future__`` 는 stdlib_module_names에 포함됨 (확인됨).
+_PYTHON_STDLIB: frozenset[str] = frozenset(sys.stdlib_module_names)
 
 _IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE)
 
