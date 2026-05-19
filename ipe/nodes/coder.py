@@ -177,14 +177,35 @@ def run(
     fanout = max(1, int(state.get("coder_fanout") or 1))
     temps = _temperatures(fanout)
     candidates: list[dict[str, Any]] = []
+    parse_errors: list[str] = []
+    # R-coder-parse (Round 18): LLM이 가끔 fenced block 없이 응답 → ValueError.
+    # graceful fallback: 모든 fanout candidate가 fail이면 coder self-loop with
+    # explicit feedback (e2e crash 방지). 일부 success 시 그 candidate들로 진행.
     for temp in temps:
         chat_t = get_chat(CODER_MODEL, temperature=temp) if temp != 0.7 else chat
         resp = tracker.invoke(chat_t, messages, node="coder", state_calls=calls)
-        c, b, imp, lsn = _parse_response(str(resp.content))
+        try:
+            c, b, imp, lsn = _parse_response(str(resp.content))
+        except ValueError as e:
+            parse_errors.append(f"temp={temp}: {e}")
+            continue
         candidates.append({
             "code": c, "brute": b, "lesson": lsn,
             "temperature": temp, "impossible": imp,
         })
+
+    if not candidates:
+        # 모든 fanout candidate가 parse 실패 → coder self-loop
+        joined = "; ".join(parse_errors) if parse_errors else "no candidates"
+        return {
+            **state,
+            "llm_calls": calls,
+            "feedback_message": (
+                f"Coder response parse failed for all {fanout} fanout candidate(s): "
+                f"{joined}. Wrap your solution in ```python ... ``` fenced block."
+            ),
+            "last_failed_node": "coder",
+        }
 
     # 첫 번째 candidate 채택 (best 선택은 후속 PR — Executor가 sample 검증)
     first = candidates[0]

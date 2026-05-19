@@ -134,3 +134,59 @@ def test_fanout_1_skips_best_selection(
     )
     # 기존 path와 동일 — Phase A 통과 → auditor
     assert state["last_failed_node"] == "auditor"
+
+
+# =============================================================================
+# R-coder-parse (Round 18) — fenced block 누락 graceful fallback
+# =============================================================================
+
+
+# fenced block 없는 응답 (LLM이 prose만 반환하는 패턴)
+RESP_NO_FENCE = "I think the answer is simply: a + b. No code block."
+RESP_NO_FENCE_2 = "Just print a+b directly without code formatting."
+
+
+def test_coder_self_loops_when_all_candidates_lack_fence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """R-coder-parse: fanout=2, 둘 다 fenced block 없음 → ValueError 대신 self-loop."""
+    _patch_coder_chat_with_responses(monkeypatch, [RESP_NO_FENCE, RESP_NO_FENCE_2])
+
+    tracker = LLMCallTracker("test", tmp_path / "traces")
+    state = _state_for_a_plus_b(fanout=2)
+    state["llm_calls"] = []
+    state["target_language"] = "python"
+
+    # crash 없이 정상 return
+    out = coder.run(state, tracker=tracker)
+
+    assert out.get("last_failed_node") == "coder", "self-loop으로 라우팅"
+    fb = out.get("feedback_message") or ""
+    assert "Coder response parse failed" in fb
+    assert "fenced block" in fb
+    # solution_code는 set되지 않음 (실패)
+    assert "solution_code" not in out or not out.get("solution_code")
+
+
+def test_coder_proceeds_when_one_candidate_succeeds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """fanout=3, 1개만 valid → 그 candidate로 진행 (graceful continue)."""
+    _patch_coder_chat_with_responses(
+        monkeypatch,
+        [RESP_NO_FENCE, RESP_CORRECT_ADD, RESP_NO_FENCE_2],
+    )
+
+    tracker = LLMCallTracker("test", tmp_path / "traces")
+    state = _state_for_a_plus_b(fanout=3)
+    state["llm_calls"] = []
+    state["target_language"] = "python"
+
+    out = coder.run(state, tracker=tracker)
+
+    # 1개 valid candidate가 채택됨 → 정상 진행
+    assert out.get("last_failed_node") is None, "정상 진행 (self-loop 아님)"
+    assert "print(a + b)" in (out.get("solution_code") or ""), "valid candidate 채택"
+    assert (out.get("candidate_solutions") or []) != [], "candidates 비어있지 않음"
+    # 1개 candidate만 (2개는 parse fail로 제외됨)
+    assert len(out["candidate_solutions"]) == 1

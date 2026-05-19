@@ -1434,3 +1434,75 @@ BFS run 2에서 `ValueError: Coder response has no fenced code block` crash. LLM
 **v0.2.1 release 가능성 (제4차)**: 8종 fix 완료. BFS 재실측으로 R-phase-a-osc-break 효과 확인 필요. SegTree는 success 검증 완료.
 
 ---
+
+## 23. Round 18 — R-coder-parse (graceful fenced block fallback, 2026-05-19)
+
+### 23.1 발견 (Round 16 BFS variance run)
+
+R-docker-mount 후 BFS run 2 시도 (variance check) → crash:
+
+```
+File "ipe/nodes/coder.py", line 119, in _parse_response
+    raise ValueError("Coder response has no fenced code block")
+ValueError: Coder response has no fenced code block
+During task with name 'coder' and id '38fc2ae8-6d09-55b9-c3dc-98d83cc429b3'
+```
+
+LLM이 가끔 fenced ``` block 없이 prose 응답만 반환 → `_parse_response`가 ValueError raise → langgraph가 graceful 처리 못 함 → 프로세스 crash.
+
+### 23.2 해법 — `coder.run`에서 try/except + self-loop
+
+```python
+candidates: list[dict[str, Any]] = []
+parse_errors: list[str] = []
+for temp in temps:
+    chat_t = get_chat(CODER_MODEL, temperature=temp) if temp != 0.7 else chat
+    resp = tracker.invoke(chat_t, messages, node="coder", state_calls=calls)
+    try:
+        c, b, imp, lsn = _parse_response(str(resp.content))
+    except ValueError as e:
+        parse_errors.append(f"temp={temp}: {e}")
+        continue
+    candidates.append({...})
+
+if not candidates:
+    return {
+        **state,
+        "llm_calls": calls,
+        "feedback_message": (
+            f"Coder response parse failed for all {fanout} fanout candidate(s): "
+            f"{joined}. Wrap your solution in ```python ... ``` fenced block."
+        ),
+        "last_failed_node": "coder",
+    }
+```
+
+**fanout 활용**: fanout=N이면 N개 candidate 중 일부만 fail해도 나머지는 그대로 채택. 모두 fail일 때만 self-loop.
+
+**`_parse_response`는 그대로** — exception purity 보존. `run()` level에서 graceful 처리.
+
+### 23.3 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/coder.py` | `try/except ValueError` + 모든 fail 시 self-loop (+18 lines) |
+| `tests/integration/test_coder_fanout.py` | `test_coder_self_loops_when_all_candidates_lack_fence` + `test_coder_proceeds_when_one_candidate_succeeds` (+2 tests) |
+
+### 23.4 검증
+
+- 전체 pytest **333 passed + 3 skipped** (회귀 0, +2)
+- ruff 0 / mypy --strict 0
+- Round 16 BFS run 2 crash 시나리오 → 재현 + 회귀 방지 보장
+
+### 23.5 잔존 backlog
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ ~ ~~R-phase-a-osc-break~~ | Round 11~17 결정적 8종 | ✅ 완료 |
+| ~~R-coder-parse~~ | Coder fenced block 누락 graceful fallback | ✅ Round 18 (§23) |
+| R5 brute 확대 | Phase B 전 brute oracle cross-check | P1 (sample-wrong 근본 해결) |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+
+**v0.2.1 release 9종 fix 완료**. BFS variance는 LLM quality 본질 — 결정적 fix는 의도 패턴 차단을 보장하지만 e2e success는 LLM 응답 다양성에 의존. release notes에 measured limits 명시 권장.
+
+---
