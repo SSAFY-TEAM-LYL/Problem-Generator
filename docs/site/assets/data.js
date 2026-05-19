@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~16",
+    version: "v0.2.0 + Round 11~17",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "fdcec14",
-    updated: "2026-05-18",
-    e2eSuccess: "4/5 + Round 16 R-docker-mount (bind mount로 Docker 실제 동작 — sanity check 통과)",
-    tests: 322,
+    mainCommit: "6fff8ec",
+    updated: "2026-05-19",
+    e2eSuccess: "SegTree success 확인 (v0.2.0 0/4 → success). BFS는 Round 17 R-phase-a-osc-break 적용 후 재실측 예정",
+    tests: 331,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -131,8 +131,9 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.2+) — Round 11에서 두 P0 모두 완료 (CHANGES §16.1, §16.2)
+  // Backlog (v0.2.2+) — Round 11~17에서 결정적 fix 8종 완료
   backlog: [
+    { id: "R-coder-parse", title: "Coder fenced block 누락 graceful fallback", priority: "P1", desc: "BFS run 2 (Round 16)에서 발견된 새 crash 패턴" },
     { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
     { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
@@ -211,6 +212,16 @@ window.IPE_DATA = {
       target: "Round 15 재실측에서 노출된 호스트 solution.py 안 보임 문제 (tmpfs overlay 효과)",
       tests: 1,
       doc: "docs/improvements/2026-05-18_docker-mount-fix.md",
+    },
+    {
+      id: "R-phase-a-osc-break",
+      round: "Round 17",
+      date: "2026-05-19",
+      title: "Phase A 라우팅 무한 반복 차단",
+      desc: "_decide_phase_a_route에 history 인지 추가 — 같은 sig로 architect 라우팅 2회+ 누적 시 (이번 포함 3회+) coder 강제. R-osc-break (decision swap)이 cover 못 하는 routing 결정 layer 차단.",
+      target: "Round 16 BFS run 1: 4/5 mismatch 무한 반복 (R-osc-break 발동했지만 swap 1 cycle만 유효)",
+      tests: 9,
+      doc: "docs/improvements/2026-05-19_phase-a-osc-break.md",
     },
   ],
 };
