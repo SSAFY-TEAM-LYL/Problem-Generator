@@ -180,6 +180,16 @@ class TestCheckSolutionImports:
         state: ProblemState = {"solution_code": "", "target_language": "python"}
         assert check_solution_imports(state) is None
 
+    def test_lesser_known_stdlib_modules_pass(self) -> None:
+        """Round 20 e2e smoke 회귀 방지: ctypes/tempfile/typing/pathlib 같은 stdlib
+        모듈이 manually-maintained list에서 누락되어 false positive 발생한 케이스.
+        sys.stdlib_module_names 사용으로 모든 stdlib 모듈 cover."""
+        for mod in ("ctypes", "tempfile", "typing", "pathlib", "asyncio", "concurrent"):
+            code = f"import {mod}\nprint(42)\n"
+            state: ProblemState = {"solution_code": code, "target_language": "python"}
+            reason = check_solution_imports(state)
+            assert reason is None, f"stdlib '{mod}' should pass, got reject: {reason}"
+
 
 class TestCheckProblemComplete:
     def _valid_state(self) -> ProblemState:
