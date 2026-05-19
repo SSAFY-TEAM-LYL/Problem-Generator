@@ -36,12 +36,20 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from ipe.hooks import wrap_with_pre_hooks
-from ipe.nodes import architect, auditor, coder, evaluator, executor, generator
+from ipe.nodes import (
+    algorithm_designer,
+    architect,
+    auditor,
+    coder,
+    evaluator,
+    executor,
+    generator,
+)
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.runner import SandboxedRunner
 from ipe.state import IterationRecord, NodeRetryBudget, ProblemState
 
-_RETRY_TARGETS = ("architect", "coder", "auditor", "generator")
+_RETRY_TARGETS = ("architect", "algorithm_designer", "coder", "auditor", "generator")
 
 # R-osc-break (Round 11) + R-coder-osc (Round 12):
 # 동일 signature 2회+ oscillation 감지 시 swap 대상 매핑.
@@ -237,6 +245,9 @@ def build_graph(
         partial(executor.run, runner=runner, workdir_root=workdir_root),
     ))
     g.add_node("architect", partial(architect.run, tracker=tracker))
+    # M1 (v0.3.0 RFC §M1): AlgorithmDesigner 노드 — Coder 분해의 designer 측.
+    # ECC subagent 패턴: problem → algorithm name + pseudocode + complexity + edge_cases.
+    g.add_node("algorithm_designer", partial(algorithm_designer.run, tracker=tracker))
     g.add_node("coder", coder_node)
     g.add_node("auditor", partial(auditor.run, tracker=tracker))
     g.add_node(
@@ -247,9 +258,10 @@ def build_graph(
     g.add_node("decision", _decision)
     g.add_node("evaluator", partial(evaluator.run, tracker=tracker))
 
-    # 직선 entry — first iteration: architect → coder → executor → decision
+    # 직선 entry — M1 후: architect → algorithm_designer → coder → executor → decision
     g.add_edge(START, "architect")
-    g.add_edge("architect", "coder")
+    g.add_edge("architect", "algorithm_designer")
+    g.add_edge("algorithm_designer", "coder")
     g.add_edge("coder", "executor")
     # auditor/generator는 decision으로부터만 진입 → executor로 다시
     g.add_edge("auditor", "executor")
@@ -264,6 +276,7 @@ def build_graph(
         _route_after_decision,
         {
             "architect": "architect",
+            "algorithm_designer": "algorithm_designer",
             "coder": "coder",
             "auditor": "auditor",
             "generator": "generator",

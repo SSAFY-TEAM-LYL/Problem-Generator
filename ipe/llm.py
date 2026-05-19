@@ -21,6 +21,9 @@ from langchain_anthropic import ChatAnthropic
 # ============================================================================
 
 ARCHITECT_MODEL = "claude-opus-4-7"
+# M1 (v0.3.0 RFC §M1): AlgorithmDesigner는 algorithm 선택 + pseudocode만 — Sonnet으로
+# 충분 (빠르고 cost ↓). Opus만큼 깊은 reasoning 필요 없음.
+DESIGNER_MODEL = "claude-sonnet-4-6"
 CODER_MODEL = "claude-sonnet-4-6"
 AUDITOR_MODEL = "claude-opus-4-7"
 GENERATOR_MODEL = "claude-opus-4-7"

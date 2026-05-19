@@ -45,9 +45,14 @@ class LLMCallRecord(TypedDict, total=False):
 
 
 class NodeRetryBudget(TypedDict, total=False):
-    """노드별 잔여 재시도 횟수. SPEC §5 기본값: architect=2, coder=4, auditor=2, generator=2."""
+    """노드별 잔여 재시도 횟수. SPEC §5 기본값: architect=2, coder=4, auditor=2, generator=2.
+
+    M1 (v0.3.0 RFC §M1): ``algorithm_designer`` 추가 — Coder 분해의 designer 측.
+    default 2 (architect와 동일 — design 시도 횟수 제한).
+    """
 
     architect: int
+    algorithm_designer: int
     coder: int
     auditor: int
     generator: int
@@ -81,6 +86,12 @@ class ProblemState(TypedDict, total=False):
     sample_testcases: list[dict[str, Any]]
     has_special_judge: bool
     special_judge_code: str | None
+
+    # M1 (v0.3.0 RFC §M1) — AlgorithmDesigner output. Coder 분해의 designer 출력.
+    # schema: ``{name, pseudocode, complexity_target, edge_cases: list[str]}``.
+    # Coder가 이 출력을 prompt에 포함하여 implementation 품질 ↑ (ECC subagent 패턴).
+    # 없으면 (legacy path) Coder는 problem만 보고 implementation.
+    algorithm_design: dict[str, Any]
 
     # Coder output
     solution_code: str
