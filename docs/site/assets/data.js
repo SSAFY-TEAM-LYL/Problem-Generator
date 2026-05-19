@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.3.0-dev (Round 21 M1 Sub-agent)",
+    version: "v0.3.0-dev (Round 22 M3 Multi-Model Consensus)",
     repo: "https://github.com/LsMin124/IPE",
     mainCommit: "63dbf38",
     updated: "2026-05-19",
-    e2eSuccess: "v0.3.0 RFC PR #2 완료 — M1 AlgorithmDesigner sub-agent (Coder 분해). graph: architect → algorithm_designer → coder. Next: M3 Multi-model consensus",
-    tests: 378,
+    e2eSuccess: "v0.3.0 RFC PR #3 완료 — M3 Architect dual-model (Opus + Sonnet) structural consensus voting. graph 무변경, architect 노드 내부만 교체. Next: M4 Adversarial review",
+    tests: 401,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -265,6 +265,16 @@ window.IPE_DATA = {
       target: "Coder 한 노드의 책임 분산 (algorithm 선택 + 구현 + brute + LESSON) → quality 분리. 통합 테스트 5개 mock 업데이트.",
       tests: 11,
       doc: "docs/improvements/2026-05-19_m1-sub-agent.md",
+    },
+    {
+      id: "M3",
+      round: "Round 22 (v0.3.0 RFC PR #3)",
+      date: "2026-05-19",
+      title: "Multi-Model Consensus (Architect Opus+Sonnet voting)",
+      desc: "ECC Multi-perspective Analysis 패턴 — Architect를 Opus + Sonnet 두 모델 family로 순차 dual-call 후 structural consensus voting. 5-way 결정 (match / opus_only / sonnet_only / both_invalid retry / structural diff retry). state.architect_candidates + architect_consensus 신규 필드. graph 무변경 — architect 노드 내부만 교체.",
+      target: "단일 모델 비결정성 완화 — 두 family 독립 호출 후 구조 합의 시 채택. 한쪽 fail 시 graceful degradation. 둘 다 valid인데 구조 갈리면 명세 모호 신호 → retry feedback에 양쪽 구조 요약.",
+      tests: 23,
+      doc: "docs/improvements/2026-05-19_m3-multi-model.md",
     },
   ],
 };

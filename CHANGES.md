@@ -1781,8 +1781,97 @@ After:  START → architect → algorithm_designer → coder → executor → de
 |---|---|---|
 | ~~M2~~ Hook pre-verification | | ✅ Round 20 |
 | ~~M1~~ Sub-agent | | ✅ Round 21 (§27) |
-| M3 Multi-model consensus | Architect Opus+Sonnet voting | 다음 |
-| M4 Adversarial review | Reviewer gate | 마지막 |
-| v0.3.0 release | e2e ≥80% success rate | M3+M4 후 |
+| ~~M3~~ Multi-model consensus | Architect Opus+Sonnet voting | ✅ Round 22 (§28) |
+| M4 Adversarial review | Reviewer gate | 다음 |
+| v0.3.0 release | e2e ≥80% success rate | M4 후 |
+
+---
+
+## 28. Round 22 — M3 Multi-Model Consensus (v0.3.0 RFC §M3, 2026-05-19)
+
+### 28.1 동기
+
+RFC §M3 — Architect 단일 모델(Opus) 응답이 LLM 비결정성으로 인해 cycle마다 구조가
+요동치는 문제. ECC `Multi-perspective Analysis` 패턴 적용: Opus + Sonnet 두 모델에
+같은 프롬프트를 던지고 **structural consensus**로 신뢰성 ↑.
+
+가설: 두 모델 family가 같은 구조 (time/memory/variable shape/sample count)를 독립적
+으로 도출하면 그 응답은 신뢰 가능. 구조가 갈리면 문제 정의 자체가 모호하다는 신호 —
+architect retry로 명세 강화.
+
+### 28.2 설계
+
+**dual sequential call** (`ipe/nodes/architect.py`):
+```
+chat_opus = get_chat(ARCHITECT_MODEL, max_tokens=4096)     # claude-opus-4-7
+chat_sonnet = get_chat(CONSENSUS_MODEL, max_tokens=4096)   # claude-sonnet-4-6
+
+resp_opus = tracker.invoke(chat_opus, ...)
+resp_sonnet = tracker.invoke(chat_sonnet, ...)
+```
+
+병렬이 아닌 **순차** 호출: `LLMCallTracker.seq` race + trace 순서 보장. latency 2×
+부담은 1 PR 당 cycle 수 감소로 상쇄 (consensus 통과 후 retry 없음).
+
+**5-way voting 결정**:
+| 분기 | 조건 | 액션 | consensus |
+|---|---|---|---|
+| 1 | 둘 다 invalid | architect retry | (없음) |
+| 2 | Opus valid + Sonnet invalid | Opus 채택 (graceful degradation) | `"opus_only"` |
+| 3 | Opus invalid + Sonnet valid | Sonnet 채택 (graceful) | `"sonnet_only"` |
+| 4 | 둘 다 valid + `_structural_match` | Opus 채택 | `"match"` |
+| 5 | 둘 다 valid + structural diff | architect retry (모호 신호) | (없음) |
+
+**`_structural_match(a, b) -> bool`** — 일치 조건 (모두 충족):
+- `constraints_structured.time_limit_ms` 같음
+- `constraints_structured.memory_limit_mb` 같음
+- `variables` 개수 같음 + 정렬된 name 집합 같음
+- `sample_testcases` 개수 같음
+
+제목·설명·sample 값 비교 X — 자연어는 모델마다 달라도 정상. 구조만 합의 신호.
+
+**state schema** (`ipe/state.py`):
+- `architect_candidates: list[dict[str, Any]]` (valid 응답만 저장)
+- `architect_consensus: str` (`"match"` | `"opus_only"` | `"sonnet_only"`)
+
+**llm.py**: `CONSENSUS_MODEL = "claude-sonnet-4-6"` 신규 상수. `DESIGNER_MODEL`과
+같은 값이지만 의미 분리 — 한쪽 변경이 다른 쪽 영향 X.
+
+### 28.3 ECC mapping
+
+| ECC primitive | IPE M3 구현 |
+|---|---|
+| Multi-perspective Analysis | Opus + Sonnet 두 family 독립 호출 |
+| Cross-validation | structural consensus → 둘 다 구조 동의해야 채택 |
+| Graceful Degradation | 한쪽 fail 시 다른 모델로 fallback (opus_only / sonnet_only) |
+
+### 28.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/architect.py` | dual-call + `_parse_and_validate` + `_structural_match` + `_summarize` + 5-way voting |
+| `ipe/llm.py` | `CONSENSUS_MODEL` 상수 |
+| `ipe/state.py` | `architect_candidates` + `architect_consensus` field |
+| `tests/test_architect_consensus.py` | 신규 unit tests (+23) — parse/match/summarize/run 5 경로 |
+
+graph.py 변경 **없음** — architect 노드만 내부 구현 교체. 외부 contract 동일.
+
+### 28.5 검증
+
+- 전체 pytest **401 passed + 3 skipped** (회귀 0, +23 M3)
+- ruff 0 / mypy --strict 0
+- 기존 architect mock test (`test_architect_unit.py`, `test_architect_phase_a.py`)
+  영향 0: lambda factory 패턴이 같은 mock chat을 2번 반환 → 둘 다 같은 응답 → match
+  consensus → 정상 path. 코드 변경 불필요.
+
+### 28.6 다음 단계
+
+| PR | 메커니즘 | 상태 |
+|---|---|---|
+| ~~M2~~ Hook pre-verification | | ✅ Round 20 |
+| ~~M1~~ Sub-agent | | ✅ Round 21 (§27) |
+| ~~M3~~ Multi-model consensus | | ✅ Round 22 (§28) |
+| M4 Adversarial review | Reviewer gate | 다음 |
+| v0.3.0 release | e2e ≥80% success rate (5 algorithm × 3 runs) | M4 후 |
 
 ---

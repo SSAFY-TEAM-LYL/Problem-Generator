@@ -93,6 +93,13 @@ class ProblemState(TypedDict, total=False):
     # 없으면 (legacy path) Coder는 problem만 보고 implementation.
     algorithm_design: dict[str, Any]
 
+    # M3 (v0.3.0 RFC §M3) — Multi-model consensus for Architect.
+    # Opus + Sonnet 두 모델 순차 호출 후 structural voting. 분석용으로 둘 다 저장.
+    # ``architect_candidates``: 2 LLM 응답 dict (parsed). 둘 다 valid면 [opus, sonnet].
+    # ``architect_consensus``: "match" | "opus_only" | "sonnet_only" — 채택 경로 표시.
+    architect_candidates: list[dict[str, Any]]
+    architect_consensus: str
+
     # Coder output
     solution_code: str
     # R13 (Sprint 3): Coder가 매 cycle 응답 시작 시 출력하는 1-line "LESSON"
