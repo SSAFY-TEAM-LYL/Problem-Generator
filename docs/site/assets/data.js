@@ -5,11 +5,11 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~18",
+    version: "v0.2.1",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "7011b06",
+    mainCommit: "ead30a0",
     updated: "2026-05-19",
-    e2eSuccess: "SegTree success 1회 확인 (v0.2.0 0/4 → success). LLM variance 큼 — 결정적 fix 9종 누적 + crash 방지 강화",
+    e2eSuccess: "v0.2.0 4/5 stable + SegTree 0/4 → success 1회 (v0.2.1 Round 16). 결정적 fix 9종 + LLM variance는 본질적 한계",
     tests: 333,
     coverage: 93,
     nodes: 6,
@@ -54,6 +54,10 @@ window.IPE_DATA = {
     { run: 10, label: "Sprint 4 R14 fanout=3", results: [1,1,1,0,1], total: "4/5", durMin: 18.6 },
     { run: 11, label: "Sprint 4 R3",           results: [1,0,1,1,1], total: "4/5", durMin: 12.4 },
     { run: 12, label: "Sprint 4 R-bfs",        results: [1,1,1,0,1], total: "4/5", durMin: 12.9 },
+    // v0.2.1 Round 15~18 — Docker tier 단일 case 측정 (5/5 set 아님, partial)
+    { run: 13, label: "v0.2.1 R-docker-workdir (BFS+ST Docker, infra still RTE)", results: [null,0,null,0,null], total: "0/2 partial", durMin: 5.0 },
+    { run: 14, label: "v0.2.1 R-docker-mount Round 16 (BFS budget_exh / ST success)", results: [null,0,null,1,null], total: "1/2 partial", durMin: 10.0 },
+    { run: 15, label: "v0.2.1 R-phase-a-osc-break Round 17 (BFS budget_exh / ST budget_exh)", results: [null,0,null,0,null], total: "0/2 partial", durMin: 8.5 },
   ],
 
   // FR (기능 요구사항)

@@ -2,7 +2,7 @@
 
 > 알고리즘 문제 자동 생성 파이프라인. **LangGraph + Claude**로 문제 설계 → 정해 작성 → 적대적 엣지케이스 → 시드 기반 stress test → 난이도 사후 평가까지 자동화.
 
-[![Status](https://img.shields.io/badge/status-v0.2.0-brightgreen)](CHANGES.md)
+[![Status](https://img.shields.io/badge/status-v0.2.1-brightgreen)](CHANGES.md)
 [![Tests](https://img.shields.io/badge/tests-247%20passed-brightgreen)](tests/)
 [![e2e](https://img.shields.io/badge/e2e-4%2F5%20success-brightgreen)](docs/improvements/2026-05-14_sandbox-infra-rca.md)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
@@ -125,6 +125,7 @@ ipe --replay <run_id>
 | **🚀 v0.1.1 Patch** | ✅ | polish round 3 (B2 + sandbox CLI + F4) — tag `v0.1.1` |
 | **🧪 v0.2.0 Sprint 1-3** | ✅ | R1/R4/R6/R10/R11/R13/R15 + R-sandbox (Run 9 3/5) |
 | **🎉 v0.2.0 Release** | ✅ | Sprint 4 (R14 + R3 + R-bfs) — e2e **4/5 stable** (Run 11/12) — tag `v0.2.0` |
+| **🎯 v0.2.1 Release** | ✅ | Round 11~18: 결정적 fix 9종 (oscillation breakers + sig granularity + infra fixes + retry/parse fallback) — SegTree 0/4 → success 직접 확인. tag `v0.2.1` |
 
 상세 phase 정의·DoD: [`docs/dev/IMPLEMENTATION_ROADMAP.md`](docs/dev/IMPLEMENTATION_ROADMAP.md)
 
