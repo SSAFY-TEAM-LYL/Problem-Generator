@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.1",
+    version: "v0.2.2-dev (Round 19 R5)",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "ead30a0",
+    mainCommit: "adb406c",
     updated: "2026-05-19",
-    e2eSuccess: "v0.2.0 4/5 stable + SegTree 0/4 → success 1회 (v0.2.1 Round 16). 결정적 fix 9종 + LLM variance는 본질적 한계",
-    tests: 333,
+    e2eSuccess: "v0.2.1 release 완료 (9종 결정적 fix). Round 19: R5 brute oracle Phase A — sample-wrong 진단 결정적화 (BFS 측정 예정)",
+    tests: 342,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -135,11 +135,11 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.2+) — Round 11~18에서 결정적 fix 9종 완료
+  // Backlog (v0.2.2+) — Round 19 R5 완료, 결정적 fix 10종 누적
   backlog: [
-    { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑ (sample-wrong 근본 해결)" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
     { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
+    { id: "Multi-model consensus", title: "Architect Opus+Sonnet voting", priority: "v0.3.0 RFC", desc: "ECC-style multi-mechanism" },
     { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.0", desc: "_write_source 분기 추가" },
     { id: "FastAPI", title: "API화 + web UI", priority: "v0.4.0", desc: "다중 사용자" },
   ],
@@ -235,6 +235,16 @@ window.IPE_DATA = {
       target: "Round 16 BFS variance run 2: LLM이 fenced block 없이 응답 → 프로세스 crash",
       tests: 2,
       doc: "docs/improvements/2026-05-19_coder-parse-fallback.md",
+    },
+    {
+      id: "R5",
+      round: "Round 19 (v0.2.2 진입)",
+      date: "2026-05-19",
+      title: "Brute oracle Phase A cross-check",
+      desc: "Phase A 실패 시 brute solution을 sample stdin에 실행 → architect expected 정확성 결정적 검증. brute가 모든 sample confirm → coder 강제 (1 cycle). brute가 다른 답 → architect feedback에 brute output 노출.",
+      target: "BFS sample-wrong 오진단 첫 cycle에 차단 (R-phase-a-osc-break의 3 cycle threshold 보다 빠름)",
+      tests: 9,
+      doc: "docs/improvements/2026-05-19_r5-brute-oracle-phase-a.md",
     },
   ],
 };

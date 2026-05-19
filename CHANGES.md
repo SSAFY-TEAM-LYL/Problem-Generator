@@ -1506,3 +1506,73 @@ if not candidates:
 **v0.2.1 release 9종 fix 완료**. BFS variance는 LLM quality 본질 — 결정적 fix는 의도 패턴 차단을 보장하지만 e2e success는 LLM 응답 다양성에 의존. release notes에 measured limits 명시 권장.
 
 ---
+
+## 24. Round 19 — R5 Brute Oracle Phase A cross-check (v0.2.2 진입, 2026-05-19)
+
+### 24.1 동기 (v0.2.1 release 후 측정 분석)
+
+Round 11~18 결정적 fix 9종 적용 + e2e 측정 후 BFS variance 본질:
+- Phase A 분기 (a): "다수 통과 + 소수 mismatch + crash 없음 → architect (sample wrong 의심)"
+- 실제로 sample이 wrong인지 architect의 hand-compute 오류인지 **구분 불가**
+- R-osc-break (Round 11) + R-phase-a-osc-break (Round 17)이 무한 반복은 차단하지만 진짜 원인 진단 안 함
+
+**핵심 통찰**: Coder는 R15 (Sprint 3)부터 ``brute_solution_code``를 동시 작성. brute는
+naive 알고리즘이라 small sample에 대해 결정적 정답 산출. 이걸 Phase A에서 활용하면
+architect expected의 정확성을 결정적으로 검증 가능.
+
+### 24.2 해법 — `_run_brute_on_samples` + `_decide_phase_a_route(brute_results=)`
+
+**Helper `_run_brute_on_samples`** (executor.py):
+- `brute_code`를 `workdir/brute_oracle/`에 작성 + 컴파일
+- 각 sample stdin에 brute 실행 → `{index, status, output, matches_expected}` list 반환
+- compile fail이면 `None` (fallback)
+
+**`_decide_phase_a_route` 분기 매트릭스 (R5 추가)**:
+
+| Phase A | brute oracle | 진단 | routing |
+|---|---|---|---|
+| fail (분기 a 또는 b) | 모든 sample OK + matches_expected=True | architect 정확, **golden bug** | **coder 강제** (1 cycle) |
+| fail | brute가 architect와 다른 답 일관 | architect expected 오류 | architect + feedback에 brute output |
+| fail | brute 자체 RTE/일부 fail | unreliable | 기존 분기 |
+| fail | brute 없음 (Coder가 안 만듬) | unknown | 기존 분기 (R15 fallback) |
+
+**Feedback enrichment** (`_enrich_with_brute_oracle`):
+- architect routing 시 brute가 다른 답을 produce한 sample에 대해
+  `"idx=N: architect expected='X' but brute oracle gave 'Y'"` 노출
+- architect가 다음 cycle에 sample expected를 brute 값으로 수정 가능
+
+### 24.3 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/executor.py` | `_run_brute_on_samples` 신규 + `_decide_phase_a_route(brute_results=)` + `_build_phase_a_feedback(brute_results=)` + `_enrich_with_brute_oracle` helper + `executor.run` Phase A 실패 분기에서 brute 호출 |
+| `tests/test_phase_a_feedback.py` | `TestPhaseARouteWithBruteOracle` × 6 + `TestPhaseAFeedbackWithBruteOracle` × 3 (+9 tests) |
+
+### 24.4 검증
+
+- 전체 pytest **342 passed + 3 skipped** (회귀 0, +9)
+- ruff 0 / mypy --strict 0
+- 결정적: brute가 매번 same input → same output 보장 → Phase A 진단 결정적
+
+### 24.5 R-phase-a-osc-break과 보완
+
+| Fix | 발동 조건 | 비용 |
+|---|---|---|
+| **R5 (Round 19)** | brute 있음 + 모든 sample match | **첫 cycle**부터 결정 (brute 1 compile + N runs) |
+| R-phase-a-osc-break (Round 17) | history에 같은 sig 2회+ 누적 | 3 cycle 후 (오래 걸림) |
+
+R5가 brute 있을 때 더 빠르고 정확. R-phase-a-osc-break는 brute 없을 때 fallback.
+
+### 24.6 잔존 backlog (v0.2.2+)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R-osc-break~~ ~ ~~R-coder-parse~~ | Round 11~18 결정적 9종 | ✅ v0.2.1 완료 |
+| ~~R5 brute oracle~~ | Phase A brute cross-check | ✅ Round 19 (§24) — v0.2.2 진입 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+| Sub-agent | Coder 분해 (Algorithm + Implementation) | v0.2.2 candidate |
+| Multi-model consensus | Architect Opus+Sonnet voting | v0.3.0 RFC candidate |
+
+**다음 측정**: BFS Docker 재실측 → R5가 sample-wrong oscillation을 첫 cycle부터 차단하는지 확인.
+
+---

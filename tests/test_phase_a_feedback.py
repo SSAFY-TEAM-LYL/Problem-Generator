@@ -23,6 +23,22 @@ from ipe.nodes.executor import (
 from ipe.state import ProblemState
 
 
+def _brute_result(
+    idx: int,
+    *,
+    status: str = "OK",
+    output: str = "",
+    matches_expected: bool = False,
+) -> dict:
+    """R5 brute oracle result helper — _run_brute_on_samples 반환 schema."""
+    return {
+        "index": idx,
+        "status": status,
+        "output": output,
+        "matches_expected": matches_expected,
+    }
+
+
 def _r(*, idx: int, status: str = "OK", passed: bool = False,
        expected: str = "", actual: str = "", stderr: str = "") -> dict:
     """Phase A result dict — executor.py:151-160 schema."""
@@ -287,3 +303,127 @@ class TestDecidePhaseARouteWithHistory:
         results = self._results_partial_pass()
         state: ProblemState = {}
         assert _decide_phase_a_route(results, state) == "architect"
+
+
+# =============================================================================
+# R5 (Round 19) — Phase A brute oracle cross-check
+# =============================================================================
+
+
+def _results_partial_pass_4of5() -> list[dict]:
+    """4/5 pass + 1 mismatch (분기 (a) trigger). idx=4가 fail."""
+    return [
+        _r(idx=0, passed=True, status="OK", expected="3", actual="3"),
+        _r(idx=1, passed=True, status="OK", expected="30", actual="30"),
+        _r(idx=2, passed=True, status="OK", expected="12", actual="12"),
+        _r(idx=3, passed=True, status="OK", expected="42", actual="42"),
+        _r(idx=4, status="OK", expected="100", actual="99"),  # mismatch
+    ]
+
+
+class TestPhaseARouteWithBruteOracle:
+    """R5: brute oracle cross-check가 routing 결정에 영향."""
+
+    def test_no_brute_results_uses_base_routing(self) -> None:
+        """brute_results=None → 기존 동작 (회귀 0)."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {}
+        assert _decide_phase_a_route(results, state) == "architect"
+        assert _decide_phase_a_route(results, state, brute_results=None) == "architect"
+
+    def test_brute_confirms_architect_expected_forces_coder(self) -> None:
+        """R5 핵심: brute가 모든 sample에서 architect expected와 일치 (matches_expected=True 모두)
+        → architect 정확, golden bug → **coder 강제** (sample-wrong 오진단 회피)."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {}
+        brute = [
+            _brute_result(0, output="3", matches_expected=True),
+            _brute_result(1, output="30", matches_expected=True),
+            _brute_result(2, output="12", matches_expected=True),
+            _brute_result(3, output="42", matches_expected=True),
+            _brute_result(4, output="100", matches_expected=True),  # ← architect 정답 확정
+        ]
+        assert _decide_phase_a_route(results, state, brute_results=brute) == "coder"
+
+    def test_brute_disagrees_with_architect_keeps_architect_routing(self) -> None:
+        """brute가 다른 답 → architect routing 유지 (feedback에 brute 결과 노출)."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {}
+        brute = [
+            _brute_result(0, output="3", matches_expected=True),
+            _brute_result(1, output="30", matches_expected=True),
+            _brute_result(2, output="12", matches_expected=True),
+            _brute_result(3, output="42", matches_expected=True),
+            _brute_result(4, output="999", matches_expected=False),  # ← architect expected와 다름
+        ]
+        assert _decide_phase_a_route(results, state, brute_results=brute) == "architect"
+
+    def test_brute_compile_fail_returns_none_uses_base(self) -> None:
+        """brute_results=[] (compile fail) → 기존 분기."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {}
+        assert _decide_phase_a_route(results, state, brute_results=[]) == "architect"
+
+    def test_brute_with_rte_status_ignored(self) -> None:
+        """brute 일부 RTE → matches_expected 신뢰 못 함, 기존 분기."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {}
+        brute = [
+            _brute_result(0, output="3", matches_expected=True),
+            _brute_result(1, status="RTE", matches_expected=False),  # crash
+            _brute_result(2, output="12", matches_expected=True),
+            _brute_result(3, output="42", matches_expected=True),
+            _brute_result(4, output="100", matches_expected=True),
+        ]
+        # brute 일부 RTE → all-match 보장 못 함 → 기존 분기
+        assert _decide_phase_a_route(results, state, brute_results=brute) == "architect"
+
+    def test_brute_force_overrides_phase_a_osc_break(self) -> None:
+        """R5는 R-phase-a-osc-break (history threshold 3회) 발동 전에 효과 — 1 cycle에 결정."""
+        results = _results_partial_pass_4of5()
+        state: ProblemState = {"iteration_history": []}  # 첫 cycle (history 비어있음)
+        brute_match_all = [_brute_result(i, matches_expected=True) for i in range(5)]
+        # 첫 cycle이지만 brute confirm → coder
+        assert _decide_phase_a_route(results, state, brute_results=brute_match_all) == "coder"
+
+
+class TestPhaseAFeedbackWithBruteOracle:
+    """R5: architect routing 시 feedback에 brute 결과 enrichment."""
+
+    def test_architect_feedback_includes_brute_output_when_disagree(self) -> None:
+        """architect routing + brute가 다른 답 → feedback에 brute output 포함."""
+        results = _results_partial_pass_4of5()
+        brute = [
+            _brute_result(0, output="3", matches_expected=True),
+            _brute_result(1, output="30", matches_expected=True),
+            _brute_result(2, output="12", matches_expected=True),
+            _brute_result(3, output="42", matches_expected=True),
+            _brute_result(4, output="999", matches_expected=False),
+        ]
+        fb = _build_phase_a_feedback(results, "architect", brute_results=brute)
+        # 기존 메시지 보존
+        assert "sample expected_output likely wrong" in fb
+        # brute 정보 enrichment
+        assert "brute oracle" in fb.lower() or "brute" in fb.lower()
+        assert "999" in fb  # brute가 제시한 정답 후보
+
+    def test_architect_feedback_unchanged_without_brute(self) -> None:
+        """brute_results 없으면 기존 형식."""
+        results = _results_partial_pass_4of5()
+        fb_old = _build_phase_a_feedback(results, "architect")
+        fb_no_brute = _build_phase_a_feedback(results, "architect", brute_results=None)
+        assert fb_old == fb_no_brute
+
+    def test_coder_feedback_unchanged_with_brute(self) -> None:
+        """coder routing은 brute info 추가 안 함 (기존 형식 유지)."""
+        results = [
+            _r(idx=0, status="RTE", stderr="boom"),
+            _r(idx=1, passed=True, status="OK"),
+        ]
+        brute = [_brute_result(i, matches_expected=True) for i in range(2)]
+        fb_brute = _build_phase_a_feedback(results, "coder", brute_results=brute)
+        fb_none = _build_phase_a_feedback(results, "coder")
+        # coder feedback은 기존 형식 (brute 무관)
+        assert "phase A failures" in fb_brute
+        # brute oracle 텍스트는 coder feedback에 없음
+        assert "brute" not in fb_brute.lower() or fb_brute == fb_none
