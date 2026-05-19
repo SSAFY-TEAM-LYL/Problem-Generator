@@ -158,6 +158,22 @@ def run(
         constraints=state.get("constraints", ""),
         language=language,
     )
+
+    # M1 (v0.3.0 RFC §M1): AlgorithmDesigner 출력이 있으면 prompt에 포함 — Coder는
+    # 알고리즘 선택 부담을 덜고 implementation에 집중. design 없으면 legacy 동작.
+    design = state.get("algorithm_design")
+    if design and isinstance(design, dict):
+        edge_cases = design.get("edge_cases") or []
+        edge_block = "\n".join(f"- {ec}" for ec in edge_cases) if edge_cases else "(none)"
+        user += (
+            "\n\n## Algorithm Design (from AlgorithmDesigner)\n\n"
+            f"**Name**: {design.get('name', 'unknown')}\n\n"
+            f"**Complexity target**: {design.get('complexity_target', 'unknown')}\n\n"
+            f"**Pseudocode**:\n```\n{design.get('pseudocode', '')}\n```\n\n"
+            f"**Edge cases to handle**:\n{edge_block}\n\n"
+            "Implement this algorithm. Follow the pseudocode + handle the edge cases."
+        )
+
     feedback = state.get("feedback_message")
     if feedback:
         user += FEEDBACK_SUFFIX.format(feedback=feedback)

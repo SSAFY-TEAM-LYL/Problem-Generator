@@ -23,6 +23,7 @@ from ipe.graph import build_graph
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.rlimit_runner import RlimitRunner
 from tests.integration._helpers import (
+    DESIGNER_RESPONSE,
     VALID_SAMPLES,
     arch_response,
     initial_state,
@@ -68,8 +69,10 @@ def test_resume_after_coder_abort(
     runner = RlimitRunner()
     thread_id = "resume-thread"
 
-    # 1단계: architect 정상, coder가 raise → 의도적 abort
+    # 1단계: architect + algorithm_designer 정상, coder가 raise → 의도적 abort.
+    # M1 (Round 21) 후 graph가 architect → algorithm_designer → coder 흐름.
     patch_chat(monkeypatch, "ipe.nodes.architect.get_chat", arch_response(VALID_SAMPLES))
+    patch_chat(monkeypatch, "ipe.nodes.algorithm_designer.get_chat", DESIGNER_RESPONSE)
     patch_chat_raises(
         monkeypatch, "ipe.nodes.coder.get_chat",
         RuntimeError("simulated network error"),

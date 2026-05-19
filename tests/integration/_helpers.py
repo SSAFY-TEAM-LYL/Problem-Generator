@@ -175,9 +175,26 @@ print(f"{500000000 + seed} {500000000 + seed}")
 """
 
 
+# M1 (v0.3.0 RFC §M1): AlgorithmDesigner mock 응답 — A+B problem의 algorithm.
+DESIGNER_RESPONSE = """```json
+{
+  "name": "Addition",
+  "pseudocode": "1. Read two integers a, b from stdin\\n2. Print a+b",
+  "complexity_target": "Time O(1), Space O(1)",
+  "edge_cases": ["a=0", "b=0", "very large values near 1e9"]
+}
+```"""
+
+
 def default_budget() -> dict[str, int]:
-    """SPEC §5 default node_retry_budget."""
-    return {"architect": 2, "coder": 4, "auditor": 2, "generator": 2}
+    """SPEC §5 default node_retry_budget. M1 (Round 21): algorithm_designer 추가."""
+    return {
+        "architect": 2,
+        "algorithm_designer": 2,
+        "coder": 4,
+        "auditor": 2,
+        "generator": 2,
+    }
 
 
 def initial_state(
@@ -206,9 +223,11 @@ def wire_all_chats_normal(
     in_tok: int = 0,
     out_tok: int = 0,
 ) -> None:
-    """4 LLM 노드 모두 정상 응답 mock."""
+    """모든 LLM 노드 정상 응답 mock — M1 (Round 21) 후 algorithm_designer 포함 6 노드."""
     patch_chat(monkeypatch, "ipe.nodes.architect.get_chat",
                arch_response(VALID_SAMPLES), in_tok=in_tok, out_tok=out_tok)
+    patch_chat(monkeypatch, "ipe.nodes.algorithm_designer.get_chat",
+               DESIGNER_RESPONSE, in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.coder.get_chat", coder_response,
                in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.auditor.get_chat",
@@ -220,6 +239,7 @@ def wire_all_chats_normal(
 
 
 def wire_all_chats_forbid_invoke(monkeypatch: pytest.MonkeyPatch) -> None:
-    """모든 노드의 chat.invoke를 금지 — ReplayTracker가 우회해야 PASS."""
-    for node in ("architect", "coder", "auditor", "generator", "evaluator"):
+    """모든 노드의 chat.invoke를 금지 — ReplayTracker가 우회해야 PASS.
+    M1 (Round 21): algorithm_designer 포함 6 노드."""
+    for node in ("architect", "algorithm_designer", "coder", "auditor", "generator", "evaluator"):
         patch_forbid(monkeypatch, f"ipe.nodes.{node}.get_chat")

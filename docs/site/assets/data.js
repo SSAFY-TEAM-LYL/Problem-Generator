@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.3.0-dev (Round 20 M2 Hook)",
+    version: "v0.3.0-dev (Round 21 M1 Sub-agent)",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "1aba053",
+    mainCommit: "63dbf38",
     updated: "2026-05-19",
-    e2eSuccess: "v0.3.0 RFC PR #1 완료 — M2 Hook infrastructure (PreToolUse 패턴). LLM call 비용 지불 전 정적 reject. Next: M1 Sub-agent (Coder 분해)",
-    tests: 366,
+    e2eSuccess: "v0.3.0 RFC PR #2 완료 — M1 AlgorithmDesigner sub-agent (Coder 분해). graph: architect → algorithm_designer → coder. Next: M3 Multi-model consensus",
+    tests: 378,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -135,9 +135,8 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.3.0 진행 중) — M2 완료, M1/M3/M4 남음
+  // Backlog (v0.3.0 진행 중) — M1+M2 완료, M3/M4 남음
   backlog: [
-    { id: "M1 Sub-agent (Coder)", title: "Coder = AlgorithmDesigner + Implementer 분해", priority: "v0.3.0 PR #2", desc: "ECC subagent 패턴 — 책임 분리로 quality 개선" },
     { id: "M3 Multi-model consensus", title: "Architect Opus + Sonnet voting", priority: "v0.3.0 PR #3", desc: "santa-loop generator 측 — hallucination 차단" },
     { id: "M4 Adversarial review", title: "Solution → Reviewer gate", priority: "v0.3.0 PR #4", desc: "santa-loop reviewer 측 — complexity/edge case 검증" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
@@ -256,6 +255,16 @@ window.IPE_DATA = {
       target: "LLM call 비용 지불 전에 invalid state reject — coder가 빈 solution / numpy import 등 명백한 실패 사전 차단",
       tests: 24,
       doc: "docs/improvements/2026-05-19_m2-pre-hook.md",
+    },
+    {
+      id: "M1",
+      round: "Round 21 (v0.3.0 RFC PR #2)",
+      date: "2026-05-19",
+      title: "AlgorithmDesigner sub-agent (Coder 분해)",
+      desc: "ECC subagent 패턴 — Coder를 두 단계로 분해: AlgorithmDesigner (algorithm 선택 + pseudocode + complexity + edge_cases) → Coder (implementation). graph: architect → algorithm_designer → coder. state.algorithm_design 필드 + NodeRetryBudget.algorithm_designer + DESIGNER_MODEL (Sonnet).",
+      target: "Coder 한 노드의 책임 분산 (algorithm 선택 + 구현 + brute + LESSON) → quality 분리. 통합 테스트 5개 mock 업데이트.",
+      tests: 11,
+      doc: "docs/improvements/2026-05-19_m1-sub-agent.md",
     },
   ],
 };

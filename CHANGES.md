@@ -1708,3 +1708,81 @@ architect/auditor/generator/evaluator는 wrap 없음 (M3/M4에서 추가 예정)
 | v0.3.0 release | e2e ≥80% success rate | M1~M4 모두 완료 후 |
 
 ---
+
+## 27. Round 21 — M1 AlgorithmDesigner sub-agent (v0.3.0 RFC §M1, 2026-05-19)
+
+### 27.1 동기
+
+RFC §M1 — Coder 한 노드가 (a) algorithm 선택 + (b) 구현 + (c) brute solution +
+(d) LESSON 생성을 한 LLM call에 처리 → 책임 분산 + quality ↓. ECC subagent
+패턴 적용: AlgorithmDesigner 분리.
+
+### 27.2 설계
+
+**그래프 topology 변화**:
+```
+Before: START → architect → coder → executor → decision → ...
+After:  START → architect → algorithm_designer → coder → executor → decision → ...
+```
+
+**신규 노드 `algorithm_designer`** (`ipe/nodes/algorithm_designer.py`):
+- 입력: `problem_description`, `constraints`, `sample_testcases`
+- LLM call (Sonnet, temperature=0.3 — 결정적 design 우선)
+- 출력 (state.algorithm_design):
+  - `name`: algorithm 이름 (e.g. "BFS shortest path")
+  - `pseudocode`: language-agnostic step-by-step (5-15 lines)
+  - `complexity_target`: Big-O time + space
+  - `edge_cases`: list[str] — Implementer가 cover할 case 3-7개
+
+**`coder.py` 보강**: `state.algorithm_design` 있으면 prompt에 포함 (없으면 legacy
+동작 → 회귀 0).
+
+**state schema** (`ipe/state.py`):
+- `algorithm_design: dict[str, Any]` (TypedDict optional field)
+- `NodeRetryBudget.algorithm_designer: int` (default 2)
+
+**llm.py**: `DESIGNER_MODEL = "claude-sonnet-4-6"` 신규 (Sonnet으로 충분 + cost ↓).
+
+**graph.py**:
+- `_RETRY_TARGETS`에 `"algorithm_designer"` 추가
+- `g.add_node("algorithm_designer", ...)` + `g.add_edge("architect", "algorithm_designer")` + `g.add_edge("algorithm_designer", "coder")`
+- conditional_edges 매핑에 `"algorithm_designer": "algorithm_designer"`
+
+### 27.3 ECC mapping
+
+| ECC primitive | IPE M1 구현 |
+|---|---|
+| `code-explorer` subagent | AlgorithmDesigner (algorithm 선택 + pseudocode + 분석) |
+| `coder` subagent | Coder (algorithm_design 받아 implementation에 집중) |
+| Multi-step planning | architect → designer → coder 순차 책임 분리 |
+
+### 27.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/algorithm_designer.py` | 신규 노드 (+150 lines) |
+| `ipe/llm.py` | `DESIGNER_MODEL` 상수 |
+| `ipe/state.py` | `algorithm_design` field + `NodeRetryBudget.algorithm_designer` |
+| `ipe/nodes/coder.py` | `algorithm_design` 활용 prompt block (legacy compat 보존) |
+| `ipe/graph.py` | designer 노드 + edge + routing |
+| `tests/test_algorithm_designer.py` | 신규 unit tests (+11) |
+| `tests/integration/_helpers.py` | `DESIGNER_RESPONSE` mock + `wire_all_chats_*` + `default_budget` |
+| `tests/integration/test_resume.py` | architect→designer→coder 흐름 반영 |
+
+### 27.5 검증
+
+- 전체 pytest **378 passed + 3 skipped** (회귀 0, +11)
+- ruff 0 / mypy --strict 0
+- 통합 테스트 5개 (test_routing, test_evaluator, test_replay, test_resume, test_save_result) 모두 mock 업데이트 후 pass
+
+### 27.6 다음 단계 (RFC §3 sequencing)
+
+| PR | 메커니즘 | 상태 |
+|---|---|---|
+| ~~M2~~ Hook pre-verification | | ✅ Round 20 |
+| ~~M1~~ Sub-agent | | ✅ Round 21 (§27) |
+| M3 Multi-model consensus | Architect Opus+Sonnet voting | 다음 |
+| M4 Adversarial review | Reviewer gate | 마지막 |
+| v0.3.0 release | e2e ≥80% success rate | M3+M4 후 |
+
+---
