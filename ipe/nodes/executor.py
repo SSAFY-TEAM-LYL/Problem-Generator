@@ -173,9 +173,24 @@ def run(
             next_iter=next_iter,
         )
 
+    # R5 (Round 19): Phase A 실패 시 brute oracle cross-check —
+    # architect expected를 brute로 재계산하여 sample-wrong 오진단 첫 cycle 차단.
+    brute_code = state.get("brute_solution_code")
+    brute_results = None
+    if brute_code:
+        brute_results = _run_brute_on_samples(
+            brute_code=brute_code,
+            samples=samples,
+            runner=runner,
+            workdir=workdir,
+            language=language,
+            time_limit=time_limit,
+            memory_limit=memory_limit,
+        )
+
     # P4 — Phase A 3-way 휴리스틱 라우팅 (REVIEW W3) + R-phase-a-osc-break (Round 17)
-    target = _decide_phase_a_route(results, state)
-    feedback_msg = _build_phase_a_feedback(results, target)
+    target = _decide_phase_a_route(results, state, brute_results=brute_results)
+    feedback_msg = _build_phase_a_feedback(results, target, brute_results=brute_results)
     return {
         **state,
         "iteration_count": next_iter,
@@ -186,7 +201,9 @@ def run(
 
 
 def _decide_phase_a_route(
-    results: list[dict[str, Any]], state: ProblemState
+    results: list[dict[str, Any]],
+    state: ProblemState,
+    brute_results: list[dict[str, Any]] | None = None,
 ) -> str:
     """Phase A failure 결과로부터 라우팅 결정.
 
@@ -202,6 +219,11 @@ def _decide_phase_a_route(
     architect 라우팅이 history에 2회+ 누적되면 (이번 포함 3회+) coder로 강제 전환.
     R-osc-break의 swap이 1 cycle만 유효하고 executor가 다시 architect로 라우팅하는
     무한 패턴 (BFS "sample wrong" 측정에서 발견) 결정적 차단.
+
+    **R5 brute oracle (Round 19)**: ``brute_results``가 주어지고 brute가 모든 sample
+    에서 OK + ``matches_expected=True``면 architect expected가 정확하다는 결정적
+    신호 → **golden bug** 진단으로 base="architect"를 **coder로 강제 전환**.
+    BFS sample-wrong 오진단 첫 cycle부터 차단.
     """
     n_total = len(results)
     if n_total == 0:
@@ -222,6 +244,17 @@ def _decide_phase_a_route(
             base = "architect"
         else:
             # (c) 그 외 — 솔루션 버그 의심
+            return "coder"
+
+    # R5 (Round 19): brute oracle이 모든 sample에서 architect expected와 일치 →
+    # architect 정확 + golden bug → coder 강제 (sample-wrong 오진단 첫 cycle 차단).
+    if base == "architect" and brute_results:
+        all_brute_confirm = (
+            len(brute_results) == n_total
+            and all(b.get("status") == "OK" for b in brute_results)
+            and all(b.get("matches_expected") is True for b in brute_results)
+        )
+        if all_brute_confirm:
             return "coder"
 
     # R-phase-a-osc-break (Round 17): 같은 sig로 architect 라우팅 반복 시 coder 강제.
@@ -265,24 +298,107 @@ def _summarize_phase_a_failure(r: dict[str, Any]) -> str:
     return f"idx={idx}:OK exp={expected!r} got={actual!r}"
 
 
-def _build_phase_a_feedback(results: list[dict[str, Any]], target: str) -> str:
+def _build_phase_a_feedback(
+    results: list[dict[str, Any]],
+    target: str,
+    brute_results: list[dict[str, Any]] | None = None,
+) -> str:
     n_total = len(results)
     n_pass = sum(1 for r in results if r["pass"])
     failures = n_total - n_pass
     if target == "architect" and n_pass > 0:
-        return (
+        base = (
             f"phase A: {n_pass}/{n_total} passed but {failures} mismatched "
             f"(sample expected_output likely wrong)"
         )
+        return _enrich_with_brute_oracle(base, results, brute_results)
     if target == "architect":
-        return (
+        base = (
             f"phase A: all {n_total} failed but solution gave consistent unique "
             f"outputs (samples likely wrong)"
         )
+        return _enrich_with_brute_oracle(base, results, brute_results)
     # R-sig-detail: coder routing — 실패 sample summary 포함 → sig granularity
     fails = [r for r in results if not r["pass"]]
     details = " | ".join(_summarize_phase_a_failure(r) for r in fails)
     return f"phase A failures: {failures}/{n_total} [{details}]"
+
+
+def _enrich_with_brute_oracle(
+    base: str,
+    results: list[dict[str, Any]],
+    brute_results: list[dict[str, Any]] | None,
+) -> str:
+    """R5 (Round 19): architect routing feedback에 brute oracle 결과 enrichment.
+
+    brute가 architect expected와 다른 답을 일관되게 produce하면 architect가
+    sample expected를 수정할 수 있도록 brute output을 feedback에 노출.
+    brute 없거나 모두 confirm 또는 brute 자체 fail이면 base 그대로.
+    """
+    if not brute_results:
+        return base
+    # brute가 architect expected와 다른 답을 produce한 sample만 추출 (OK status만 신뢰).
+    mismatches: list[str] = []
+    for r, b in zip(results, brute_results, strict=False):
+        if not r.get("pass") and b.get("status") == "OK" and not b.get("matches_expected"):
+            idx = r.get("index", "?")
+            arch_expected = (r.get("expected") or "")[:60].replace("\n", " ")
+            brute_out = (b.get("output") or "")[:60].replace("\n", " ")
+            mismatches.append(
+                f"idx={idx}: architect expected={arch_expected!r} "
+                f"but brute oracle gave {brute_out!r}"
+            )
+    if not mismatches:
+        return base
+    suffix = " | brute oracle disagrees: [" + " ; ".join(mismatches) + "]"
+    return base + suffix
+
+
+def _run_brute_on_samples(
+    *,
+    brute_code: str,
+    samples: list[dict[str, Any]],
+    runner: SandboxedRunner,
+    workdir: Path,
+    language: str,
+    time_limit: int,
+    memory_limit: int,
+) -> list[dict[str, Any]] | None:
+    """R5 (Round 19): brute solution을 각 sample stdin에 실행 → architect expected
+    와 비교한 결과 list 반환.
+
+    Phase A 실패 시 호출. brute가 모든 sample을 OK로 통과 + 모두 expected와 일치
+    하면 architect가 정확하다는 신호 (`_decide_phase_a_route`가 coder로 강제).
+
+    Returns:
+        각 sample에 대해 ``{index, status, output, matches_expected}``.
+        brute compile fail이면 None (호출자 fallback).
+
+    workdir 안에 별도 ``brute_oracle/`` subdir 만들어 컴파일/실행.
+    """
+    brute_dir = workdir / "brute_oracle"
+    brute_dir.mkdir(parents=True, exist_ok=True)
+    _write_source(brute_dir, language, brute_code)
+    ok, _ = _compile(runner, brute_dir, language)
+    if not ok:
+        return None
+
+    out: list[dict[str, Any]] = []
+    for idx, tc in enumerate(samples):
+        stdin_text = str(tc.get("input", ""))
+        expected = _normalize(str(tc.get("expected_output", "")))
+        res = _execute_solution(
+            runner, brute_dir, language, stdin_text,
+            time_limit_ms=time_limit, memory_limit_mb=memory_limit,
+        )
+        actual = _normalize(res.stdout)
+        out.append({
+            "index": idx,
+            "status": res.status,
+            "output": actual,
+            "matches_expected": res.status == "OK" and actual == expected,
+        })
+    return out
 
 
 def _pick_best_candidate(
