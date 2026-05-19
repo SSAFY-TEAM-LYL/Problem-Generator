@@ -173,8 +173,8 @@ def run(
             next_iter=next_iter,
         )
 
-    # P4 — Phase A 3-way 휴리스틱 라우팅 (REVIEW W3)
-    target = _decide_phase_a_route(results)
+    # P4 — Phase A 3-way 휴리스틱 라우팅 (REVIEW W3) + R-phase-a-osc-break (Round 17)
+    target = _decide_phase_a_route(results, state)
     feedback_msg = _build_phase_a_feedback(results, target)
     return {
         **state,
@@ -185,7 +185,9 @@ def run(
     }
 
 
-def _decide_phase_a_route(results: list[dict[str, Any]]) -> str:
+def _decide_phase_a_route(
+    results: list[dict[str, Any]], state: ProblemState
+) -> str:
     """Phase A failure 결과로부터 라우팅 결정.
 
     - (a) 다수 통과 + 소수 실패 + 크래시 없음 → architect (sample expected_output 의심)
@@ -195,6 +197,11 @@ def _decide_phase_a_route(results: list[dict[str, Any]]) -> str:
 
     sample 1개일 때 unique check는 자동 충족 (vacuously true)되므로,
     분기 (b)는 ``n_total >= 2``인 경우에만 적용한다.
+
+    **R-phase-a-osc-break (Round 17)**: base="architect" 결정 후, 같은 sig로
+    architect 라우팅이 history에 2회+ 누적되면 (이번 포함 3회+) coder로 강제 전환.
+    R-osc-break의 swap이 1 cycle만 유효하고 executor가 다시 architect로 라우팅하는
+    무한 패턴 (BFS "sample wrong" 측정에서 발견) 결정적 차단.
     """
     n_total = len(results)
     if n_total == 0:
@@ -203,18 +210,36 @@ def _decide_phase_a_route(results: list[dict[str, Any]]) -> str:
     n_pass = sum(1 for r in results if r["pass"])
     has_crash = any(r["status"] in ("RTE", "TLE", "MLE") for r in results)
 
+    base: str
     # (a) 다수 통과 + 소수 실패 + 크래시 없음
     if 0 < n_pass < n_total and not has_crash:
-        return "architect"
+        base = "architect"
+    else:
+        # (b) 전체 실패 + 컴파일 OK + 일관된 unique 출력 (>=2 samples)
+        all_ok = all(r["status"] == "OK" for r in results)
+        unique_outputs = len({r["actual"] for r in results}) == n_total
+        if n_pass == 0 and all_ok and unique_outputs and n_total >= 2:
+            base = "architect"
+        else:
+            # (c) 그 외 — 솔루션 버그 의심
+            return "coder"
 
-    # (b) 전체 실패 + 컴파일 OK + 일관된 unique 출력 (>=2 samples)
-    all_ok = all(r["status"] == "OK" for r in results)
-    unique_outputs = len({r["actual"] for r in results}) == n_total
-    if n_pass == 0 and all_ok and unique_outputs and n_total >= 2:
-        return "architect"
+    # R-phase-a-osc-break (Round 17): 같은 sig로 architect 라우팅 반복 시 coder 강제.
+    # history에 (node=architect, sig=current_sig) 2회+ 누적 → 이번 포함 3회+ → coder.
+    # R-osc-break과 보완: R-osc-break은 swap (1 cycle 효과), 본 fix는 라우팅 자체 변경.
+    from ipe.graph import _error_signature  # 순환 import 회피용 lazy import
+    feedback_msg = _build_phase_a_feedback(results, base)
+    sig = _error_signature(feedback_msg)
+    history = state.get("iteration_history") or []
+    prior_arch_same_sig = sum(
+        1
+        for h in history
+        if h.get("node") == "architect" and h.get("error_signature") == sig
+    )
+    if prior_arch_same_sig >= 2:
+        return "coder"
 
-    # (c) 그 외 — 솔루션 버그 의심
-    return "coder"
+    return base
 
 
 # R-sig-detail (Round 13): coder routing feedback에 포함되는 expected/actual
