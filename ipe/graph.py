@@ -35,6 +35,7 @@ from typing import Any, cast
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
+from ipe.hooks import wrap_with_pre_hooks
 from ipe.nodes import architect, auditor, coder, evaluator, executor, generator
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.runner import SandboxedRunner
@@ -226,17 +227,23 @@ def build_graph(
     ``--resume`` 가능. None이면 in-memory만.
     """
     g = StateGraph(ProblemState)
+    # M2 (v0.3.0 RFC): coder/executor 진입 직전 pre-hook 적용.
+    # hook reject 시 노드 실행 skip + self-loop (LLM call 비용 절약).
+    # langgraph add_node의 NodeInputT generic이 wrap된 Callable과 직접 매칭 못 함 —
+    # cast(Any)로 우회 (partial은 mypy가 추론 못 해 우연히 통과하지만 동일 문제).
+    coder_node = cast(Any, wrap_with_pre_hooks("coder", partial(coder.run, tracker=tracker)))
+    executor_node = cast(Any, wrap_with_pre_hooks(
+        "executor",
+        partial(executor.run, runner=runner, workdir_root=workdir_root),
+    ))
     g.add_node("architect", partial(architect.run, tracker=tracker))
-    g.add_node("coder", partial(coder.run, tracker=tracker))
+    g.add_node("coder", coder_node)
     g.add_node("auditor", partial(auditor.run, tracker=tracker))
     g.add_node(
         "generator",
         partial(generator.run, tracker=tracker, runner=runner, workdir_root=workdir_root),
     )
-    g.add_node(
-        "executor",
-        partial(executor.run, runner=runner, workdir_root=workdir_root),
-    )
+    g.add_node("executor", executor_node)
     g.add_node("decision", _decision)
     g.add_node("evaluator", partial(evaluator.run, tracker=tracker))
 

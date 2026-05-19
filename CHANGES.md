@@ -1629,3 +1629,82 @@ e2e 측정 (Round 11~19 measure-fix loop 패턴 유지).
 | Multi-lang / FastAPI | C++/Go/Rust, web UI | v0.3.x / v0.4.0 |
 
 ---
+
+## 26. Round 20 — M2 Pre-Hook Infrastructure (v0.3.0 RFC §M2, 2026-05-19)
+
+### 26.1 v0.3.0 RFC 첫 PR
+
+RFC sequencing 따라 M2 (Hook-driven pre-verification) 우선. ECC ``PreToolUse``
+hook 패턴을 LangGraph 노드 진입 직전에 적용 — mandatory 정적 check가 LLM
+call 비용 지불 전에 invalid state를 reject.
+
+### 26.2 구조
+
+**`ipe/hooks.py`** 신규 모듈:
+
+```python
+@register_pre_hook("coder")
+def check_problem_complete(state) -> str | None:
+    # architect 출력 (problem_description / constraints / samples) 완전성 검증
+    ...
+
+def wrap_with_pre_hooks(node_name, fn):
+    def wrapped(state):
+        reason = run_pre_hooks(node_name, state)
+        if reason:
+            return {**state, "feedback_message": f"pre-hook[{node_name}]: {reason}",
+                    "last_failed_node": state.get("last_failed_node") or node_name}
+        return fn(state)
+    return wrapped
+```
+
+**graph.py 통합**:
+
+```python
+g.add_node("coder", cast(Any, wrap_with_pre_hooks("coder", partial(coder.run, ...))))
+g.add_node("executor", cast(Any, wrap_with_pre_hooks("executor", partial(executor.run, ...))))
+```
+
+architect/auditor/generator/evaluator는 wrap 없음 (M3/M4에서 추가 예정).
+
+### 26.3 첫 3 hook
+
+| Hook | Node | 목적 |
+|---|---|---|
+| `check_problem_complete` | coder | architect 출력 (problem_description / constraints / samples) 완전성 |
+| `check_solution_code_present` | executor | coder가 빈 solution 반환한 edge case 차단 |
+| `check_solution_imports` | executor | 표준 라이브러리 외 import (numpy/scipy 등) 사전 reject — sandbox에 없으니 무조건 RTE |
+
+### 26.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/hooks.py` | 신규 — registry + run + wrap + 3 builtin hook (+170 lines) |
+| `ipe/graph.py` | `wrap_with_pre_hooks` import + coder/executor wrap (+ cast 우회) |
+| `tests/test_hooks.py` | 신규 — 24 unit tests (registry/runner/wrapper/3 hooks) |
+
+### 26.5 검증
+
+- 전체 pytest **366 passed + 3 skipped** (회귀 0, +24)
+- ruff 0 / mypy --strict 0
+- LangGraph node signature compatibility 확인
+
+### 26.6 ECC mapping
+
+| ECC primitive | IPE 구현 |
+|---|---|
+| `PreToolUse` hook | `register_pre_hook("node_name")` decorator |
+| Hook block reason | `pre-hook[node_name]: <reason>` feedback string |
+| Multiple hooks per surface | `_PRE_HOOKS[node_name]` list (등록 순서 short-circuit) |
+
+### 26.7 다음 단계 (RFC §3 sequencing)
+
+| PR | 메커니즘 | 상태 |
+|---|---|---|
+| ~~M2~~ | Hook pre-verification | ✅ Round 20 (§26) |
+| M1 | Sub-agent (Coder 분해) | 다음 — 그래프 topology 변경 큼 |
+| M3 | Multi-model consensus (Architect) | M1 후 |
+| M4 | Adversarial review (Reviewer gate) | M1 후 |
+| v0.3.0 release | e2e ≥80% success rate | M1~M4 모두 완료 후 |
+
+---

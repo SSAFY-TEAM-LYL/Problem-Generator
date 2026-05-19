@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.2 (Round 19) + v0.3.0 RFC",
+    version: "v0.3.0-dev (Round 20 M2 Hook)",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "635d819",
+    mainCommit: "1aba053",
     updated: "2026-05-19",
-    e2eSuccess: "Round 19 BFS Docker success 직접 확인 (R5 brute oracle). v0.3.0 RFC: 4종 multi-mechanism (Hook + Sub-agent + Multi-model + Adversarial-review)",
-    tests: 342,
+    e2eSuccess: "v0.3.0 RFC PR #1 완료 — M2 Hook infrastructure (PreToolUse 패턴). LLM call 비용 지불 전 정적 reject. Next: M1 Sub-agent (Coder 분해)",
+    tests: 366,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -135,9 +135,8 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.3.0 RFC 진입) — Round 19 R5 완료 + RFC 4종 메커니즘 계획
+  // Backlog (v0.3.0 진행 중) — M2 완료, M1/M3/M4 남음
   backlog: [
-    { id: "M2 Hook pre-verification", title: "Phase 진입 전 정적 분석 hook", priority: "v0.3.0 PR #1", desc: "ECC PreToolUse 패턴 — pre_phase_b complexity 추정, pre_executor import 검증" },
     { id: "M1 Sub-agent (Coder)", title: "Coder = AlgorithmDesigner + Implementer 분해", priority: "v0.3.0 PR #2", desc: "ECC subagent 패턴 — 책임 분리로 quality 개선" },
     { id: "M3 Multi-model consensus", title: "Architect Opus + Sonnet voting", priority: "v0.3.0 PR #3", desc: "santa-loop generator 측 — hallucination 차단" },
     { id: "M4 Adversarial review", title: "Solution → Reviewer gate", priority: "v0.3.0 PR #4", desc: "santa-loop reviewer 측 — complexity/edge case 검증" },
@@ -247,6 +246,16 @@ window.IPE_DATA = {
       target: "BFS sample-wrong 오진단 첫 cycle에 차단 (R-phase-a-osc-break의 3 cycle threshold 보다 빠름)",
       tests: 9,
       doc: "docs/improvements/2026-05-19_r5-brute-oracle-phase-a.md",
+    },
+    {
+      id: "M2",
+      round: "Round 20 (v0.3.0 RFC PR #1)",
+      date: "2026-05-19",
+      title: "Pre-Hook Infrastructure",
+      desc: "ECC PreToolUse 패턴을 LangGraph 노드 진입 직전 적용 — registry + decorator + wrap. 첫 3 builtin hook: check_problem_complete (coder), check_solution_code_present (executor), check_solution_imports (executor, stdlib 외 reject).",
+      target: "LLM call 비용 지불 전에 invalid state reject — coder가 빈 solution / numpy import 등 명백한 실패 사전 차단",
+      tests: 24,
+      doc: "docs/improvements/2026-05-19_m2-pre-hook.md",
     },
   ],
 };
