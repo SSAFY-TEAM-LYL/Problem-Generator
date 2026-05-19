@@ -335,11 +335,13 @@ ipe --sandbox rlimit --strict-sandbox         # 격리 강제
 - LLM 비용 — 운영 시 사용량 모니터링 필수
 - 생성 문제의 라이선스는 사용자 책임 (LLM 출력물에 대한 일반적 면책)
 
-### 5.3 알려진 한계 (v0.2.0-rc 시점)
-- e2e success rate: 3/5 (Run 9 실측) — 4/5 DoD 진행 중
-- LLM 비결정성: 동일 알고리즘이 run마다 다른 결과 가능 (variance) — R14 Best-of-N으로 완화
-- Java integration test: Linux CI에서 RLIMIT_AS + JVM 불안정으로 skip (macOS만 검증)
-- ChatAnthropic hang resilience: 외부 API 503/timeout 시 e2e 전체 lose 가능 (R12 backlog)
+### 5.3 알려진 한계 (v0.2.1 시점)
+- e2e success rate: 4/5 stable (v0.2.0 Run 11/12) + SegTree 0/4 → success 1회 직접 확인 (v0.2.1 Round 16). 결정적 fix 9종 적용했지만 LLM 응답 variance는 본질적 한계 — 단일 run 결과 보장 X (분포 개선).
+- LLM 비결정성: 동일 알고리즘이 run마다 다른 fail mode 가능 — R14 Best-of-N + R-osc-break + R-coder-osc + R-phase-a-osc-break 등 결정적 차단 메커니즘으로 무한 반복은 boundary된 budget으로 종료 보장.
+- Java integration test: Linux CI에서 RLIMIT_AS + JVM 불안정으로 skip (macOS만 검증).
+- ~~ChatAnthropic hang resilience~~: ✅ v0.2.1 R12 — 529/429/timeout 자동 retry (2/4/8s exp backoff, max 3).
+- Docker tier `-v` bind mount 사용 (v0.2.1 R-docker-mount) — host의 workdir이 컨테이너에 readwrite으로 보임. `--read-only` rootfs 유지로 격리 보장. macOS Docker Desktop은 default `/Users/` sharing path 사용 — 다른 경로 workdir 시 user가 Docker Desktop file sharing 설정 필요.
+- BFS variance: Round 16~17 실측에서 다양한 fail mode 관찰 (sample-wrong oscillation / oracle slow / coder Traceback). LLM quality 한계로 deterministic fix만으로 5/5 보장 어려움. R5 brute oracle Phase B 확장이 근본 해결 후보 (v0.2.2 candidate).
 
 ---
 
