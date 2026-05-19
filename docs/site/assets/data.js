@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.0 + Round 11~17",
+    version: "v0.2.0 + Round 11~18",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "6fff8ec",
+    mainCommit: "7011b06",
     updated: "2026-05-19",
-    e2eSuccess: "SegTree success 확인 (v0.2.0 0/4 → success). BFS는 Round 17 R-phase-a-osc-break 적용 후 재실측 예정",
-    tests: 331,
+    e2eSuccess: "SegTree success 1회 확인 (v0.2.0 0/4 → success). LLM variance 큼 — 결정적 fix 9종 누적 + crash 방지 강화",
+    tests: 333,
     coverage: 93,
     nodes: 6,
     deps: 11,
@@ -131,10 +131,9 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.2+) — Round 11~17에서 결정적 fix 8종 완료
+  // Backlog (v0.2.2+) — Round 11~18에서 결정적 fix 9종 완료
   backlog: [
-    { id: "R-coder-parse", title: "Coder fenced block 누락 graceful fallback", priority: "P1", desc: "BFS run 2 (Round 16)에서 발견된 새 crash 패턴" },
-    { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑" },
+    { id: "R5+", title: "Brute oracle Phase B 활용", priority: "P1", desc: "architect ↔ coder 라우팅 정확도 ↑ (sample-wrong 근본 해결)" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
     { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
     { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.0", desc: "_write_source 분기 추가" },
@@ -222,6 +221,16 @@ window.IPE_DATA = {
       target: "Round 16 BFS run 1: 4/5 mismatch 무한 반복 (R-osc-break 발동했지만 swap 1 cycle만 유효)",
       tests: 9,
       doc: "docs/improvements/2026-05-19_phase-a-osc-break.md",
+    },
+    {
+      id: "R-coder-parse",
+      round: "Round 18",
+      date: "2026-05-19",
+      title: "Coder fenced block 누락 graceful fallback",
+      desc: "ValueError raise → coder self-loop with explicit feedback. fanout candidate 중 일부만 fail해도 나머지로 진행. crash 1종 방지.",
+      target: "Round 16 BFS variance run 2: LLM이 fenced block 없이 응답 → 프로세스 crash",
+      tests: 2,
+      doc: "docs/improvements/2026-05-19_coder-parse-fallback.md",
     },
   ],
 };
