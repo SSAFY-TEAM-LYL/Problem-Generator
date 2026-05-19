@@ -5,11 +5,11 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.2.2-dev (Round 19 R5)",
+    version: "v0.2.2 (Round 19) + v0.3.0 RFC",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "adb406c",
+    mainCommit: "635d819",
     updated: "2026-05-19",
-    e2eSuccess: "v0.2.1 release 완료 (9종 결정적 fix). Round 19: R5 brute oracle Phase A — sample-wrong 진단 결정적화 (BFS 측정 예정)",
+    e2eSuccess: "Round 19 BFS Docker success 직접 확인 (R5 brute oracle). v0.3.0 RFC: 4종 multi-mechanism (Hook + Sub-agent + Multi-model + Adversarial-review)",
     tests: 342,
     coverage: 93,
     nodes: 6,
@@ -135,12 +135,14 @@ window.IPE_DATA = {
     { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
   ],
 
-  // Backlog (v0.2.2+) — Round 19 R5 완료, 결정적 fix 10종 누적
+  // Backlog (v0.3.0 RFC 진입) — Round 19 R5 완료 + RFC 4종 메커니즘 계획
   backlog: [
+    { id: "M2 Hook pre-verification", title: "Phase 진입 전 정적 분석 hook", priority: "v0.3.0 PR #1", desc: "ECC PreToolUse 패턴 — pre_phase_b complexity 추정, pre_executor import 검증" },
+    { id: "M1 Sub-agent (Coder)", title: "Coder = AlgorithmDesigner + Implementer 분해", priority: "v0.3.0 PR #2", desc: "ECC subagent 패턴 — 책임 분리로 quality 개선" },
+    { id: "M3 Multi-model consensus", title: "Architect Opus + Sonnet voting", priority: "v0.3.0 PR #3", desc: "santa-loop generator 측 — hallucination 차단" },
+    { id: "M4 Adversarial review", title: "Solution → Reviewer gate", priority: "v0.3.0 PR #4", desc: "santa-loop reviewer 측 — complexity/edge case 검증" },
     { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
-    { id: "Sub-agent", title: "Coder 분해 (Algorithm + Implementation)", priority: "v0.2.2", desc: "quality 미세 조정" },
-    { id: "Multi-model consensus", title: "Architect Opus+Sonnet voting", priority: "v0.3.0 RFC", desc: "ECC-style multi-mechanism" },
-    { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.0", desc: "_write_source 분기 추가" },
+    { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.x", desc: "_write_source 분기 추가" },
     { id: "FastAPI", title: "API화 + web UI", priority: "v0.4.0", desc: "다중 사용자" },
   ],
 
