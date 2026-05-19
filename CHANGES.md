@@ -1575,4 +1575,57 @@ R5가 brute 있을 때 더 빠르고 정확. R-phase-a-osc-break는 brute 없을
 
 **다음 측정**: BFS Docker 재실측 → R5가 sample-wrong oscillation을 첫 cycle부터 차단하는지 확인.
 
+**Round 19 e2e 측정 결과** (BFS Docker, run_id `e450d03e4a11`, 2026-05-19):
+- final_status: **success** (iter 7)
+- 핵심: iter 3에서 architect feedback에 `"brute oracle disagrees: [idx=3: architect expected='2'..."` enrichment 명시 → architect가 sample 수정 후 진행
+- R-coder-osc (iter 2) + R5 (iter 3) 결정적 fix 함께 작동
+- v0.2.0 baseline에서 budget_exhausted 패턴 깨짐 — 첫 측정에서 BFS Docker success 달성
+
+---
+
+## 25. RFC v0.3.0 — Multi-Mechanism Architecture (Stochastic → Deterministic-like, 2026-05-19)
+
+### 25.1 동기 (Round 19 R5 효과 검증 후)
+
+R5 BFS Docker success로 brute oracle cross-check 패턴 효과 직접 확인. 그러나
+single-run success ≠ 결정적 — 매 round 새 fail mode 발견하는 long tail이 본질.
+
+ECC (Everything Claude Code) 같이 **여러 메커니즘이 layer로 협력**하는 architecture
+로 single-LLM-call의 single point of failure를 보완할 필요.
+
+### 25.2 RFC 문서
+
+**Location**: `docs/rfc/v0.3.0_multi-mechanism.md`
+**Status**: Draft (2026-05-19)
+
+**4종 메커니즘 + sequencing**:
+
+| 순서 | ID | 메커니즘 | ECC mapping |
+|---|---|---|---|
+| 1 | M2 | Hook-driven pre-verification | `PreToolUse` hook |
+| 2 | M1 | Sub-agent 분해 (Coder = AlgorithmDesigner + Implementer) | `code-explorer` + `coder` agents |
+| 3 | M3 | Multi-model consensus (Architect Opus+Sonnet voting) | `santa-loop` generator 측 |
+| 4 | M4 | Adversarial dual-review (Solution → Reviewer gate) | `santa-loop` reviewer 측 / `code-reviewer` |
+
+**v0.3.0 DoD**:
+- e2e success rate ≥80% (5 cases × 3 runs = 15 중 12+ success)
+- 회귀 0, ruff/mypy 0, 신규 tests +50
+
+### 25.3 다음 단계
+
+RFC 머지 후 M2 (Hook infra) PR부터 incremental 진행. 매 PR 머지 후 즉시 BFS+SegTree
+e2e 측정 (Round 11~19 measure-fix loop 패턴 유지).
+
+### 25.4 잔존 backlog (v0.3.0 진입)
+
+| ID | 항목 | 상태 |
+|---|---|---|
+| ~~R5~~ ~ ~~R-osc-break~~ | Round 11~19 결정적 10종 | ✅ v0.2.1 + Round 19 완료 |
+| **M2 Hook pre-verification** | Phase 진입 전 정적 분석 | v0.3.0 RFC PR #1 |
+| **M1 Sub-agent (Coder)** | AlgorithmDesigner + Implementer 분해 | v0.3.0 RFC PR #2 |
+| **M3 Multi-model consensus** | Architect Opus+Sonnet voting | v0.3.0 RFC PR #3 |
+| **M4 Adversarial review** | Solution → Reviewer gate | v0.3.0 RFC PR #4 |
+| R-sandbox v2 | ulimit wrapper로 PHASE_C_WORKERS=4 복귀 | P3 (선택) |
+| Multi-lang / FastAPI | C++/Go/Rust, web UI | v0.3.x / v0.4.0 |
+
 ---
