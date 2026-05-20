@@ -1963,3 +1963,89 @@ After:  ... → coder → reviewer ─approve─→ executor → decision → ..
 | **v0.3.0 release** | e2e DoD 측정 (5 algorithm × 3 run, ≥80%) | 진행 |
 
 ---
+
+## 30. Problem Catalog 영속화 (사람 review + 웹 백엔드 활용, 2026-05-20)
+
+### 30.1 동기
+
+IPE가 생성한 문제 (`outputs/<run_id>/`) 는 1 run 1 문제로 산재 — 사람이 review
+하거나 웹 백엔드가 활용하기 어려움. 별도 **catalog layer** 가 필요:
+- 어떤 문제가 success / draft / approved / rejected 상태인지 indexed
+- 백엔드는 JSONL → DB seed 또는 파일 시스템 mount로 활용 가능
+- 사람 review가 quality 최종 gate (M4 Reviewer는 솔루션 quality, 사람 review는
+  문제 적합도)
+
+### 30.2 설계
+
+**파일 시스템 레이아웃**:
+```
+outputs/
+├── <run_id>/                       ← 기존 run 산출물 (불변)
+└── catalog/
+    ├── problems.jsonl              ← 1 row/problem (JSON-Lines index)
+    └── problems/
+        └── <id>/                   ← symlink → ../../<run_id>/
+```
+
+**CatalogEntry schema** (JSONL row): `id` (deterministic `p_<12hex>`), `run_id`,
+`algorithm`, `language`, `title`, `difficulty_label`, `time_limit_ms`,
+`memory_limit_mb`, `sample_count`, `testcase_count`, `created_at` (ISO-8601 UTC `Z`),
+`status` ("draft" | "approved" | "rejected"), `reviewed_by`, `reviewed_at`,
+`review_note`, `tags`. 자세한 내용 `docs/catalog/SCHEMA.md`.
+
+**진입점** (`ipe/catalog/store.py`):
+- `promote_run(state, run_dir, run_id)` — Idempotent. 같은 run_id 두 번 promote
+  → 1 row만. status 보존.
+- `list_entries(status=None)` — JSONL 읽기 + 필터링.
+- `find(problem_id)` — 단일 entry 조회.
+- `set_status(problem_id, new_status, by, note)` — review status 갱신.
+
+**자동 promote** (`ipe/io.py`):
+- `save_result(..., promote_to_catalog=True, catalog_root=...)` — `final_status="success"`
+  일 때만 promote. 실패 (`budget_exhausted` 등) 는 skip — quality bar 유지.
+- `main.py --promote-to-catalog` CLI flag (default off).
+
+**CLI** (`python -m ipe.catalog ...`):
+| 명령 | 동작 |
+|---|---|
+| `list [--status draft\|approved\|rejected] [--json]` | 목록 |
+| `show <id> [--meta]` | problem.md 또는 entry JSON |
+| `approve <id> [--by NAME] [--note NOTE]` | status='approved' |
+| `reject <id> [--by NAME] [--note NOTE]` | status='rejected' |
+| `promote <run_id> [--outputs-root DIR]` | 기존 run 수동 promote |
+
+### 30.3 백엔드 활용
+
+3가지 옵션 (자세한 코드 예시는 `docs/catalog/SCHEMA.md` §6):
+
+1. **JSONL 직접 사용** — 정적 사이트 / 작은 백엔드.
+2. **JSONL → DB seed** — Postgres/SQLite/MongoDB. 1 line = 1 row, bulk insert.
+3. **Hybrid** — metadata DB + 본문 (problem.md / solution.py / tests/) 파일 시스템.
+
+### 30.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/catalog/__init__.py` | 신규 — 모듈 re-exports |
+| `ipe/catalog/store.py` | 신규 (~220 lines) — `promote_run` / `list_entries` / `find` / `set_status` + helpers |
+| `ipe/catalog/__main__.py` | 신규 (~190 lines) — argparse CLI subcommands |
+| `ipe/io.py` | `save_result` 에 `promote_to_catalog: bool` + `catalog_root: Path` kwargs (opt-in) |
+| `main.py` | `--promote-to-catalog` CLI flag |
+| `docs/catalog/SCHEMA.md` | 신규 — JSONL schema + workflow + 백엔드 활용 가이드 |
+| `tests/test_catalog.py` | 신규 (+22) — promote / list / find / set_status / idempotency / save_result integration |
+| `tests/test_catalog_cli.py` | 신규 (+13) — CLI list / show / approve / reject / promote |
+
+### 30.5 검증
+
+- 전체 pytest **452 passed + 3 skipped** (회귀 0, +35 신규)
+- ruff 0 / mypy --strict 0
+- save_result 기존 caller 영향 0 (kwarg default False)
+
+### 30.6 후속 개선
+
+- `tags` 활용 (algorithm 외 sub-category)
+- M3 `architect_consensus` / M4 `review_status` 를 CatalogEntry에 추가 (백엔드가
+  quality signal로 활용)
+- export 포맷 (Polygon / Codeforces)
+
+---

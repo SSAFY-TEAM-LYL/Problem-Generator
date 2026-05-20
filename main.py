@@ -62,6 +62,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # R14: Coder Best-of-N — opt-in. N>1 시 N 솔루션 (temperature 변동)
     ap.add_argument("--coder-fanout", type=int, default=1,
                     help="R14 Best-of-N candidates (default 1, opt-in)")
+    # Catalog 영속화: success run을 outputs/catalog/ 에 promote (사람 review + 백엔드용)
+    ap.add_argument("--promote-to-catalog", action="store_true",
+                    help="success run을 outputs/catalog/ 에 promote (사람 review용)")
     args = ap.parse_args(argv)
     if args.resume and args.replay:
         ap.error("--resume and --replay are mutually exclusive")
@@ -161,7 +164,11 @@ def main(argv: list[str] | None = None) -> int:
     final_status = final_state.get("final_status")
     print(f"\n=== final_status={final_status} ===", file=sys.stderr)
 
-    save_result(cast(ProblemState, final_state), run_dir)  # P10 — outputs/<run_id>/
+    save_result(
+        cast(ProblemState, final_state),
+        run_dir,
+        promote_to_catalog=args.promote_to_catalog,
+    )  # P10 — outputs/<run_id>/, Catalog promote (opt-in)
 
     summary = {
         "run_id": run_id,

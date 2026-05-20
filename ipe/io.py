@@ -205,6 +205,8 @@ def save_result(
     run_dir: Path,
     *,
     by_name_root: Path = BY_NAME_ROOT,
+    promote_to_catalog: bool = False,
+    catalog_root: Path | None = None,
 ) -> dict[str, Any]:
     """final_state를 ``run_dir`` 에 SPEC §6 Polygon 스타일로 저장.
 
@@ -212,6 +214,9 @@ def save_result(
         state: 최종 ProblemState (final_status='success' 또는 halt 모두 가능)
         run_dir: ``outputs/<run_id>/`` 디렉토리. main.py가 이미 생성.
         by_name_root: by-name symlink root (테스트용 override).
+        promote_to_catalog: ``final_status="success"`` 일 때 ``outputs/catalog/``
+            에 자동 promote (JSONL row + symlink). 기본 False — opt-in.
+        catalog_root: catalog root (None → ``ipe.catalog.DEFAULT_CATALOG_ROOT``).
 
     Returns:
         problem.json의 dict 본문 (확인용).
@@ -263,5 +268,14 @@ def save_result(
         timestamp=timestamp,
         by_name_root=by_name_root,
     )
+
+    # 5. Catalog auto-promote (success run만, opt-in).
+    # 백엔드/사람 review용 catalog. 실패는 promote 안 함 — quality bar 유지.
+    if promote_to_catalog and state.get("final_status") == "success":
+        # Lazy import: catalog가 io에 의존하지 않도록 (circular risk 회피).
+        from ipe.catalog import DEFAULT_CATALOG_ROOT, promote_run
+        run_id = str(state.get("run_id") or run_dir.name)
+        root = catalog_root or DEFAULT_CATALOG_ROOT
+        promote_run(state, run_dir, run_id, catalog_root=root)
 
     return problem_doc
