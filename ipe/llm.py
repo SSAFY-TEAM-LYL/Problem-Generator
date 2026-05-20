@@ -32,6 +32,9 @@ CODER_MODEL = "claude-sonnet-4-6"
 AUDITOR_MODEL = "claude-opus-4-7"
 GENERATOR_MODEL = "claude-opus-4-7"
 EVALUATOR_MODEL = "claude-opus-4-7"
+# M4 (v0.3.0 RFC §M4): Reviewer는 solution의 약점/edge case 미처리를 adversarial하게
+# 찾아야 함 — 깊은 reasoning 필요. Opus가 적합.
+REVIEWER_MODEL = "claude-opus-4-7"
 
 # Opus 4.7은 temperature 인자를 거부 (extended thinking 모델 특성).
 # Sonnet 4.6 등 standard 모델만 temperature 지원.

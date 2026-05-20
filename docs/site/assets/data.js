@@ -5,14 +5,14 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v0.3.0-dev (Round 22 M3 Multi-Model Consensus)",
+    version: "v0.3.0-dev (Round 23 M4 Adversarial Review)",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "63dbf38",
-    updated: "2026-05-19",
-    e2eSuccess: "v0.3.0 RFC PR #3 완료 — M3 Architect dual-model (Opus + Sonnet) structural consensus voting. graph 무변경, architect 노드 내부만 교체. Next: M4 Adversarial review",
-    tests: 401,
+    mainCommit: "ed6c5b8",
+    updated: "2026-05-20",
+    e2eSuccess: "v0.3.0 RFC PR #4 완료 — M4 Reviewer 노드 (Coder solution adversarial gate). graph: coder → reviewer → {approve→executor | reject→coder retry with weaknesses}. Next: v0.3.0 release e2e DoD 측정 (5 algorithm × 3 run, ≥80%)",
+    tests: 417,
     coverage: 93,
-    nodes: 6,
+    nodes: 7,
     deps: 11,
   },
 
@@ -275,6 +275,16 @@ window.IPE_DATA = {
       target: "단일 모델 비결정성 완화 — 두 family 독립 호출 후 구조 합의 시 채택. 한쪽 fail 시 graceful degradation. 둘 다 valid인데 구조 갈리면 명세 모호 신호 → retry feedback에 양쪽 구조 요약.",
       tests: 23,
       doc: "docs/improvements/2026-05-19_m3-multi-model.md",
+    },
+    {
+      id: "M4",
+      round: "Round 23 (v0.3.0 RFC PR #4)",
+      date: "2026-05-20",
+      title: "Adversarial Review (Coder ↔ Reviewer gate)",
+      desc: "ECC santa-loop / code-reviewer adversarial 패턴 — Coder가 만든 solution을 별도 Reviewer LLM (Opus)가 검토. approve → executor 진입, reject → coder retry feedback에 weaknesses 동봉. state.review_status / review_reasoning / review_weaknesses 신규. graph: coder → reviewer → {executor | decision (coder retry)}. graceful approve fallback (parse 실패 시) 으로 budget 보호.",
+      target: "Executor sample run으로 안 잡히는 약점 (complexity, edge case, IO 최적화) 사전 차단. Round 22 BFS smoke의 sample wrong-answer 같은 패턴이 reviewer reject으로 1 cycle 빠르게 회복 기대.",
+      tests: 16,
+      doc: "docs/improvements/2026-05-20_m4-adversarial-review.md",
     },
   ],
 };

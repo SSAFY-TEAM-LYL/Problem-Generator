@@ -100,6 +100,15 @@ class ProblemState(TypedDict, total=False):
     architect_candidates: list[dict[str, Any]]
     architect_consensus: str
 
+    # M4 (v0.3.0 RFC §M4) — Adversarial review on Coder solution.
+    # ``review_status``: "approved" | "rejected" — Reviewer 판정.
+    # ``review_reasoning``: 한 문장 요약 (분석/관측용).
+    # ``review_weaknesses``: list[str] — reject 시 coder feedback에 동봉되는 약점들.
+    # approve → executor 진입, reject → coder retry (last_failed_node="coder").
+    review_status: str
+    review_reasoning: str
+    review_weaknesses: list[str]
+
     # Coder output
     solution_code: str
     # R13 (Sprint 3): Coder가 매 cycle 응답 시작 시 출력하는 1-line "LESSON"

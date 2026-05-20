@@ -44,6 +44,7 @@ from ipe.nodes import (
     evaluator,
     executor,
     generator,
+    reviewer,
 )
 from ipe.observability import LLMCallTracker
 from ipe.sandbox.runner import SandboxedRunner
@@ -218,6 +219,17 @@ def _route_after_decision(state: ProblemState) -> str:
     return END
 
 
+def _route_after_review(state: ProblemState) -> str:
+    """M4 reviewer 분기 — approve → executor, reject → decision (coder retry).
+
+    Reviewer는 reject 시 ``last_failed_node="coder"``를 set. decision이 그 신호로
+    budget 차감 + iteration_history 추가 + coder 라우팅 (기존 swap 로직과 호환).
+    """
+    if state.get("last_failed_node") == "coder":
+        return "decision"
+    return "executor"
+
+
 def build_graph(
     *,
     tracker: LLMCallTracker,
@@ -249,6 +261,9 @@ def build_graph(
     # ECC subagent 패턴: problem → algorithm name + pseudocode + complexity + edge_cases.
     g.add_node("algorithm_designer", partial(algorithm_designer.run, tracker=tracker))
     g.add_node("coder", coder_node)
+    # M4 (v0.3.0 RFC §M4): Reviewer 노드 — Coder solution adversarial 검토.
+    # approve → executor, reject → decision → coder retry (feedback에 weaknesses).
+    g.add_node("reviewer", partial(reviewer.run, tracker=tracker))
     g.add_node("auditor", partial(auditor.run, tracker=tracker))
     g.add_node(
         "generator",
@@ -258,12 +273,20 @@ def build_graph(
     g.add_node("decision", _decision)
     g.add_node("evaluator", partial(evaluator.run, tracker=tracker))
 
-    # 직선 entry — M1 후: architect → algorithm_designer → coder → executor → decision
+    # 직선 entry — M4 후:
+    #   architect → algorithm_designer → coder → reviewer → {executor|decision} → ...
     g.add_edge(START, "architect")
     g.add_edge("architect", "algorithm_designer")
     g.add_edge("algorithm_designer", "coder")
-    g.add_edge("coder", "executor")
+    g.add_edge("coder", "reviewer")
+    # M4: reviewer conditional — approve(executor) vs reject(decision → coder retry)
+    g.add_conditional_edges(
+        "reviewer",
+        _route_after_review,
+        {"executor": "executor", "decision": "decision"},
+    )
     # auditor/generator는 decision으로부터만 진입 → executor로 다시
+    # (이미 review 통과한 solution을 재실행하므로 reviewer 우회)
     g.add_edge("auditor", "executor")
     g.add_edge("generator", "executor")
     g.add_edge("executor", "decision")

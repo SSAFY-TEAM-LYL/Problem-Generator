@@ -1871,7 +1871,95 @@ graph.py 변경 **없음** — architect 노드만 내부 구현 교체. 외부 
 | ~~M2~~ Hook pre-verification | | ✅ Round 20 |
 | ~~M1~~ Sub-agent | | ✅ Round 21 (§27) |
 | ~~M3~~ Multi-model consensus | | ✅ Round 22 (§28) |
-| M4 Adversarial review | Reviewer gate | 다음 |
-| v0.3.0 release | e2e ≥80% success rate (5 algorithm × 3 runs) | M4 후 |
+| ~~M4~~ Adversarial review | Reviewer gate | ✅ Round 23 (§29) |
+| v0.3.0 release | e2e ≥80% success rate (5 algorithm × 3 runs) | 다음 |
+
+---
+
+## 29. Round 23 — M4 Adversarial Review (v0.3.0 RFC §M4, 2026-05-20)
+
+### 29.1 동기
+
+RFC §M4 — Coder가 만든 solution을 Executor의 sample 실행만으로 검증하는 한계.
+complexity / edge case 누락 / IO 최적화 부족 등 **코드 자체의 약점**이 sample
+런으로는 안 잡힘 (예: Round 22 BFS smoke의 sample 2 wrong answer).
+
+해결: Coder ↔ Executor 사이에 **Reviewer 노드** 추가. solution code를 별도 LLM
+call (Opus)이 adversarial 관점에서 검토 → reject 시 weaknesses를 coder feedback에
+동봉하여 retry. ECC `santa-loop` adversarial pattern의 reviewer 측.
+
+### 29.2 설계
+
+**그래프 topology 변화**:
+```
+Before: ... → coder → executor → decision → ...
+After:  ... → coder → reviewer ─approve─→ executor → decision → ...
+                          └─reject─→ decision (last_failed_node="coder") → coder retry
+```
+
+**신규 노드 `reviewer`** (`ipe/nodes/reviewer.py`):
+- 입력: `problem_description`, `constraints`, `sample_testcases`, `solution_code`,
+  `algorithm_design` (선택, M1 산출물), `target_language`
+- LLM call (Opus, default temperature)
+- 출력 JSON: `{verdict: "approve"|"reject", reasoning: str, weaknesses: list[str]}`
+- **approve** → `review_status="approved"`, `last_failed_node=None`, executor 진입
+- **reject** → `review_status="rejected"`, `feedback_message`에 weaknesses 동봉,
+  `last_failed_node="coder"`, decision → coder retry
+- **graceful fallback**:
+  - parse 실패 → graceful approve (executor가 잡음, budget 보호)
+  - solution_code 없음 → 보수적 reject (state invariant 깨짐)
+  - 알 수 없는 verdict → graceful approve
+
+**state 신규 필드** (`ipe/state.py`):
+- `review_status: str` ("approved" | "rejected")
+- `review_reasoning: str`
+- `review_weaknesses: list[str]`
+
+**llm.py**: `REVIEWER_MODEL = "claude-opus-4-7"` 신규.
+
+**graph.py**:
+- `reviewer` 노드 등록
+- `coder → reviewer` edge (unconditional)
+- `reviewer → {executor (approve) | decision (reject)}` conditional via
+  `_route_after_review(state)`
+- `coder → executor` 직선 edge 제거
+- `_RETRY_TARGETS` **불변** — reviewer는 self-loop 안 함 (reject 시 coder로 가므로)
+
+### 29.3 ECC mapping
+
+| ECC primitive | IPE M4 구현 |
+|---|---|
+| `santa-loop` adversarial | Coder (generator) ↔ Reviewer (discriminator) |
+| `code-reviewer` agent | Reviewer 노드 (LLM-as-adversary) |
+| Cross-validation | sample run + reviewer feedback 둘 다 거쳐야 진짜 통과 |
+
+### 29.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/reviewer.py` | 신규 노드 (+~220 lines) — _approve/_reject helpers + run |
+| `ipe/llm.py` | `REVIEWER_MODEL` 상수 |
+| `ipe/state.py` | `review_status` + `review_reasoning` + `review_weaknesses` |
+| `ipe/graph.py` | reviewer 노드 + edge 추가 + `_route_after_review` |
+| `tests/test_reviewer.py` | 신규 unit tests (+16) — format / approve/reject / 5 run paths |
+| `tests/integration/_helpers.py` | `REVIEWER_APPROVE_RESPONSE` + `REVIEWER_REJECT_RESPONSE` mock + wire 업데이트 (6→7 노드) |
+
+### 29.5 검증
+
+- 전체 pytest **417 passed + 3 skipped** (회귀 0, +16 신규)
+- ruff 0 / mypy --strict 0
+- 통합 테스트 5개 (`test_routing`, `test_evaluator`, `test_replay`, `test_resume`,
+  `test_save_result`) 영향 0 — `wire_all_chats_normal` / `wire_all_chats_forbid_invoke`
+  helpers 가 reviewer mock 자동 포함하므로 caller 변경 불필요.
+
+### 29.6 다음 단계
+
+| PR | 메커니즘 | 상태 |
+|---|---|---|
+| ~~M2~~ Hook pre-verification | | ✅ Round 20 |
+| ~~M1~~ Sub-agent | | ✅ Round 21 (§27) |
+| ~~M3~~ Multi-model consensus | | ✅ Round 22 (§28) |
+| ~~M4~~ Adversarial review | | ✅ Round 23 (§29) |
+| **v0.3.0 release** | e2e DoD 측정 (5 algorithm × 3 run, ≥80%) | 진행 |
 
 ---
