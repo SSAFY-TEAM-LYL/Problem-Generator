@@ -186,6 +186,26 @@ DESIGNER_RESPONSE = """```json
 ```"""
 
 
+# M4 (v0.3.0 RFC §M4): Reviewer mock 응답 — A+B solution을 approve.
+# 통합 테스트는 happy path 위주이므로 default는 approve.
+REVIEWER_APPROVE_RESPONSE = """```json
+{
+  "verdict": "approve",
+  "reasoning": "Trivial A+B solution — correct algorithm, no edge cases at risk for two int sums.",
+  "weaknesses": []
+}
+```"""
+
+
+REVIEWER_REJECT_RESPONSE = """```json
+{
+  "verdict": "reject",
+  "reasoning": "Hypothetical reject for testing reject path.",
+  "weaknesses": ["missing newline handling", "integer overflow risk"]
+}
+```"""
+
+
 def default_budget() -> dict[str, int]:
     """SPEC §5 default node_retry_budget. M1 (Round 21): algorithm_designer 추가."""
     return {
@@ -223,13 +243,15 @@ def wire_all_chats_normal(
     in_tok: int = 0,
     out_tok: int = 0,
 ) -> None:
-    """모든 LLM 노드 정상 응답 mock — M1 (Round 21) 후 algorithm_designer 포함 6 노드."""
+    """모든 LLM 노드 정상 응답 mock — M4 (Round 23) 후 reviewer 포함 7 노드."""
     patch_chat(monkeypatch, "ipe.nodes.architect.get_chat",
                arch_response(VALID_SAMPLES), in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.algorithm_designer.get_chat",
                DESIGNER_RESPONSE, in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.coder.get_chat", coder_response,
                in_tok=in_tok, out_tok=out_tok)
+    patch_chat(monkeypatch, "ipe.nodes.reviewer.get_chat",
+               REVIEWER_APPROVE_RESPONSE, in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.auditor.get_chat",
                adv_response(VALID_ADV), in_tok=in_tok, out_tok=out_tok)
     patch_chat(monkeypatch, "ipe.nodes.generator.get_chat", GEN_RESPONSE,
@@ -240,6 +262,9 @@ def wire_all_chats_normal(
 
 def wire_all_chats_forbid_invoke(monkeypatch: pytest.MonkeyPatch) -> None:
     """모든 노드의 chat.invoke를 금지 — ReplayTracker가 우회해야 PASS.
-    M1 (Round 21): algorithm_designer 포함 6 노드."""
-    for node in ("architect", "algorithm_designer", "coder", "auditor", "generator", "evaluator"):
+    M4 (Round 23): reviewer 포함 7 노드."""
+    for node in (
+        "architect", "algorithm_designer", "coder", "reviewer",
+        "auditor", "generator", "evaluator",
+    ):
         patch_forbid(monkeypatch, f"ipe.nodes.{node}.get_chat")
