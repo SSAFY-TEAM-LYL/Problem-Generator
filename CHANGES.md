@@ -2049,3 +2049,42 @@ outputs/
 - export 포맷 (Polygon / Codeforces)
 
 ---
+
+## 31. Engineering Principles + measurement policy (2026-05-20)
+
+### 31.1 동기
+
+v0.3.0 Phase 1 DoD 측정 (5 algo × 1 run) = **1/5 success (20%)**. 80% 목표 미달.
+
+추가 분석: Round 11~23 누적 패턴 보면 N=1 measurement 기반 fix → cross-algorithm
+regression → 또 fix → 새 edge case... 의 over-correction cycle. 누적 7 노드 + 10
+safety mechanism 도달.
+
+**핵심 인식**: 단일 LLM 은 한 call 안에서 architect+coder 를 self-consistent 하게
+처리 (자기가 풀 수 있는 문제만 설계). 우리는 그걸 노드로 쪼개고 단계 간 자연어
+통신을 만들어 **information bottleneck** 도입. multi-mechanism 의 가치가 실제로
+quality 향상인지, 아니면 over-engineering 인지 baseline 비교 없이는 검증 불가.
+
+### 31.2 신규: `docs/PRINCIPLES.md`
+
+5 운영 룰 명시 (SSOT):
+1. **N≥3 measurement gate** — 1 run 결과로 fix 도입 금지
+2. **Cross-algorithm regression check** — 5 algorithm anchor 모두 측정 후 머지
+3. **Baseline anchor 영구화** — 매 release 단일 LLM baseline 측정
+4. **Complexity budget** — 노드 ≤ 8, safety ≤ 12. 초과 시 기존 1개 simplify/remove
+5. **RCA 에 rollback trigger 명시** — 효과 없는 fix 자동 회수
+
+### 31.3 적용 일정
+
+- 즉시: 머지 후 신규 PR 이 룰 1~5 적용
+- 다음 PR: `ipe/baseline/` 모듈 + CLI + `docs/baseline/v0.3.0-rc1.md` 측정 보고
+- v0.3.0 release tag: baseline vs IPE 비교 후 판정 (tag 보류 가능성 ↑)
+
+### 31.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `docs/PRINCIPLES.md` | 신규 — 정책 SSOT |
+| `CHANGES.md` §31 | 본 entry |
+
+---
