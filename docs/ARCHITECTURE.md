@@ -254,7 +254,7 @@ class ProblemState(TypedDict, total=False):
 
 #### 3.3.0 모델명 ↔ API ID 표준 매핑 (SSOT)
 
-> **이 표가 IPE 전체에서 사용하는 모델 식별자의 단일 진실원이다.** 다른 문서(`PROJECT_SPEC.md` 등)에서 마케팅명을 사용하더라도 코드는 반드시 API ID를 사용해야 한다 (REVIEW_REPORT M2).
+> **이 표가 IPE 전체에서 사용하는 모델 식별자의 단일 진실원이다.** 다른 문서(`SPEC.md` 등)에서 마케팅명을 사용하더라도 코드는 반드시 API ID를 사용해야 한다 (REVIEW_REPORT M2).
 
 | 마케팅명 (사람용) | API ID (코드용) | 용도 | 주요 노드 |
 |---|---|---|---|
@@ -1334,7 +1334,7 @@ class ReplayTracker(LLMCallTracker):
 
 ## 6. 산출물 구조 (DB 인서트 관점)
 
-> **스키마 SSOT:** `problem.json`의 전체 필드 정의는 [`PROJECT_SPEC.md §6`](PROJECT_SPEC.md#6-산출물-구조-polygon-style)에 단일 정의됨. 이 섹션은 그 스키마를 **DB 인서트 관점**에서 어떻게 매핑할지만 다룬다. 필드를 추가/변경하려면 SPEC을 먼저 수정한다.
+> **스키마 SSOT:** `problem.json`의 전체 필드 정의는 본 문서 §6 자체이다 (이전엔 PROJECT_SPEC.md §6 에서 정의했으나, v0.3.0 정리에서 ARCHITECTURE.md 가 schema SSOT). 이 섹션은 그 스키마를 **DB 인서트 관점**에서 어떻게 매핑할지만 다룬다. 필드 변경 시 본 섹션 + `ipe/state.py` + `ipe/io.py:save_result` 동기화.
 
 ### 6.1 디스크 레이아웃 → DB 테이블 매핑
 
@@ -1373,7 +1373,7 @@ class ReplayTracker(LLMCallTracker):
 
 ## 8. 확장 포인트
 
-향후 작업 시 손볼 위치 (P-priority는 PROJECT_SPEC.md §8 참조):
+향후 작업 시 손볼 위치 (P-priority 는 SPEC.md §6.2 참조):
 
 1. **Sub-agent 분해 (P2)** — `ipe/nodes/architect.py` 의 `SYSTEM_PROMPT` 상수를 `Story_Agent` / `Constraint_Agent` 프롬프트로 분리. `architect.run()` 을 두 단계 호출로 바꾸기.
 2. **새 언어 지원 (C++, Rust, Go) (P2)** — `executor.py` 의 `_write_source` / `_compile` / `_run_cmd` 의 if/elif 체인을 dict 기반 핸들러로 리팩토링:
