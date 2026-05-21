@@ -2274,3 +2274,90 @@ oscillation hypothesis 와 multi-mechanism cost-effectiveness 정량 검증.
 코드 변경 없음 — 기존 측정 데이터 (outputs/by-name/*/problem.json) 재분석만.
 
 ---
+
+## 35. SSOT 문서 통합 + cruft 청소 (Strategic Review B 우선, 2026-05-21)
+
+### 35.1 동기
+
+`docs/STRATEGIC_REVIEW_2026-05-21.md` §2.4.5 진단: ~40 markdown 산재, 같은 사실
+다른 버전 (README v0.2.1 / REQUIREMENTS v0.2.0-rc / baseline v0.3.0-rc1).
+
+### 35.2 결과
+
+- SSOT 5개 확립: `docs/SPEC.md` (신규, REQUIREMENTS + TECH_STACK + PROJECT_SPEC 통합)
+  / `docs/ARCHITECTURE.md` (이동) / `docs/PRINCIPLES.md` (그대로) /
+  `docs/catalog/SCHEMA.md` (그대로) / `CHANGES.md` (version anchor 추가)
+- 통합 RCA: 17 → 5 통합 + 3 단독 (원본 14개 archive)
+- README: 208 → 96 줄 (54% 슬림), narrative "verification + catalog + observability"
+- 23 머지 branch 일괄 삭제, workdir/* 274 stale 삭제
+- Makefile: clean-workdir / clean-outputs target
+
+자세한 내용: PR #73, `CHANGES.md` 부분 (본 §35 entry).
+
+---
+
+## 36. M3 Multi-Model Consensus rollback (2026-05-21)
+
+### 36.1 동기
+
+A/B 측정 (`docs/baseline/data/ipe-no-m3-n3-detailed.jsonl` 15 runs +
+`ipe-n3-detailed.jsonl` 15 runs) 결과:
+
+| Metric | with-M3 | without-M3 | Δ |
+|---|---|---|---|
+| Run-level success | 3/15 (20%) | 3/15 (20%) | ±0 |
+| Sample-level pass | 87.7% | **92.9%** | **+5.2pp** |
+| Total cost | $14.97 | $15.14 | +$0.17 |
+| Total LLM calls | 245 | 212 | **-14%** |
+| **oscillation_break** | **34** | **0** | **-100%** |
+| Dijkstra (anchor) | **0/3** | **0/3** | 같음 (baseline 3/3) |
+
+**M3 의 net effect 가 0 ~ 음(-)**. PRINCIPLES.md §3 결정 트리 + 룰 5 (RCA rollback
+trigger) 충족.
+
+### 36.2 변경 내용
+
+- `ipe/nodes/architect.py`: dual-call 제거 → single Opus call. `_structural_match`,
+  `_summarize` 헬퍼 제거. `_route_back` 의 `candidates` 파라미터 제거.
+- `ipe/llm.py`: `CONSENSUS_MODEL` 상수 제거.
+- `ipe/state.py`: `architect_candidates`, `architect_consensus` 필드는 backward
+  compat 위해 schema 에 보존 (기존 problem.json read 가능, 신규 run 은 미채움).
+- `tests/test_architect_consensus.py` → `tests/test_architect_run.py` rename:
+  - `TestParseAndValidate` 유지 (single call 도 동일 검증 사용)
+  - `TestStructuralMatch` (9), `TestSummarize` (2), `TestRunConsensus` (6) 제거
+  - 신규 `TestRunArchitect` (3): single call 검증
+
+### 36.3 Complexity budget 영향 (PRINCIPLES.md 룰 4)
+
+- 노드: 7 (변경 없음 — architect 노드 자체는 유지)
+- safety mechanism: 10 → **9** (M3 dual-call consensus voting 제거)
+- 룰 4 cap (safety ≤ 12) 까지 여유 +1 회복
+
+### 36.4 검증
+
+- 전체 pytest **453 passed** (467 - 14 M3 specific = 453, 회귀 0)
+- ruff 0 / mypy --strict 0
+- `docs/improvements/multi-mechanism.md` 갱신 — M3 status "운영" → "✅ rolled back"
+
+### 36.5 다음 단계 후보
+
+PRINCIPLES.md §3 결정 트리 + 본 rollback 데이터:
+- baseline ≈ IPE (run-level 동일) → 추가 multi-mechanism rollback / budget tune /
+  skill library M5 검토
+- coder budget 6 + max-iter 12 재측정 (coder 65% retry bottleneck)
+- M1 / M4 단독 A/B (M3 이외 mechanism net effect 측정)
+- v0.3.0 release 판정 — 위 변경 후 재측정
+
+### 36.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/nodes/architect.py` | dual-call → single Opus, helper 제거 |
+| `ipe/llm.py` | `CONSENSUS_MODEL` 제거 |
+| `ipe/state.py` | M3 필드 backward-compat 표시 |
+| `tests/test_architect_consensus.py` → `test_architect_run.py` | rename + 단순화 (-14 net tests) |
+| `docs/baseline/data/ipe-no-m3-n3-detailed.jsonl` | measurement raw data 보존 |
+| `docs/improvements/multi-mechanism.md` | M3 status 갱신 |
+| `CHANGES.md` §36 | 본 entry |
+
+---

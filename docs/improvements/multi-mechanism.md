@@ -3,8 +3,8 @@
 **Last updated**: 2026-05-21
 **Scope**: v0.3.0 RFC 의 4 mechanism (M1 sub-agent / M2 pre-hook / M3 multi-model
 consensus / M4 adversarial review) 통합 + N=3 baseline 비교 + rollback 검토 상태.
-**Status**: M1/M2 운영, **M3 rollback A/B 측정 완료 (net effect 0)**, M4 단독
-A/B 미측정.
+**Status**: M1/M2 운영, **M3 ROLLED BACK (2026-05-21)** — A/B 측정 후 net effect
+0~음 확인 → single Opus call 로 복귀 (CHANGES §36), M4 단독 A/B 미측정.
 
 RFC: [`docs/rfc/v0.3.0_multi-mechanism.md`](../rfc/v0.3.0_multi-mechanism.md)
 원본 RCA 4 개는 [`docs/archive/improvements/`](../archive/improvements/) 에 보존.
@@ -32,7 +32,7 @@ IPE 가 sample-level +9pp 우위는 있지만 generation quality 가치 X.
 |---|---|---|---|---|
 | 20 | **M2 Pre-Hook** | [`2026-05-19_m2-pre-hook.md`](../archive/improvements/2026-05-19_m2-pre-hook.md) | cost saving (LLM call 전 invalid state reject) | 운영 |
 | 21 | **M1 Sub-agent** | [`2026-05-19_m1-sub-agent.md`](../archive/improvements/2026-05-19_m1-sub-agent.md) | quality 측정 안 됨 (단독 A/B 미진행) | 운영 |
-| 22 | **M3 Multi-model consensus** | [`2026-05-19_m3-multi-model.md`](../archive/improvements/2026-05-19_m3-multi-model.md) | **net effect 0** (Dijkstra baseline 3/3 vs IPE 0/3) | **rollback 검토** |
+| 22 | **M3 Multi-model consensus** | [`2026-05-19_m3-multi-model.md`](../archive/improvements/2026-05-19_m3-multi-model.md) | **net effect 0** (Dijkstra baseline 3/3 vs IPE 0/3) | **✅ rolled back (2026-05-21, CHANGES §36)** |
 | 23 | **M4 Adversarial review** | [`2026-05-20_m4-adversarial-review.md`](../archive/improvements/2026-05-20_m4-adversarial-review.md) | 단독 측정 안 됨 (M3 와 묶여있음) | 운영 |
 
 ---

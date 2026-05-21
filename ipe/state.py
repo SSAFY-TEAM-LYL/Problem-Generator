@@ -93,10 +93,11 @@ class ProblemState(TypedDict, total=False):
     # 없으면 (legacy path) Coder는 problem만 보고 implementation.
     algorithm_design: dict[str, Any]
 
-    # M3 (v0.3.0 RFC §M3) — Multi-model consensus for Architect.
-    # Opus + Sonnet 두 모델 순차 호출 후 structural voting. 분석용으로 둘 다 저장.
-    # ``architect_candidates``: 2 LLM 응답 dict (parsed). 둘 다 valid면 [opus, sonnet].
-    # ``architect_consensus``: "match" | "opus_only" | "sonnet_only" — 채택 경로 표시.
+    # M3 (v0.3.0 RFC §M3) — Multi-model consensus for Architect. **ROLLED BACK
+    # 2026-05-21** — A/B 측정 결과 net effect 0 ~ 음 (Dijkstra baseline 3/3 vs
+    # IPE 0/3). architect 가 single Opus call 로 복귀. 본 필드는 backward compat
+    # 위해 schema 에 보존 (기존 problem.json 직렬화 데이터 read 가능). 신규 run
+    # 에서는 더 이상 채워지지 않음.
     architect_candidates: list[dict[str, Any]]
     architect_consensus: str
 
