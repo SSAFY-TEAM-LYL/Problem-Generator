@@ -1,0 +1,15 @@
+{"system": "ipe", "run": "r1", "algorithm": "Two Sum", "final": "fail", "fail_mode": "generator_budget_exhausted", "sample_pass": 5, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r1", "algorithm": "BFS", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 4, "sample_count": 5, "iter": 6}
+{"system": "ipe", "run": "r1", "algorithm": "Dijkstra", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 4, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r1", "algorithm": "LIS", "final": "fail", "fail_mode": "architect_budget_exhausted", "sample_pass": 0, "sample_count": 0, "iter": 0}
+{"system": "ipe", "run": "r1", "algorithm": "Segment Tree", "final": "success", "fail_mode": null, "sample_pass": 5, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r2", "algorithm": "Two Sum", "final": "fail", "fail_mode": "M2_hook_numpy_reject", "sample_pass": 5, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r2", "algorithm": "BFS", "final": "fail", "fail_mode": "architect_budget_exhausted", "sample_pass": 4, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r2", "algorithm": "Dijkstra", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 5, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r2", "algorithm": "LIS", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 0, "sample_count": 0, "iter": 0}
+{"system": "ipe", "run": "r2", "algorithm": "Segment Tree", "final": "success", "fail_mode": null, "sample_pass": 4, "sample_count": 4, "iter": null}
+{"system": "ipe", "run": "r3", "algorithm": "Two Sum", "final": "success", "fail_mode": null, "sample_pass": 4, "sample_count": 4, "iter": null}
+{"system": "ipe", "run": "r3", "algorithm": "BFS", "final": "fail", "fail_mode": "generator_budget_exhausted", "sample_pass": 4, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r3", "algorithm": "Dijkstra", "final": "fail", "fail_mode": "architect_budget_exhausted", "sample_pass": 0, "sample_count": 0, "iter": 0}
+{"system": "ipe", "run": "r3", "algorithm": "LIS", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 4, "sample_count": 5, "iter": null}
+{"system": "ipe", "run": "r3", "algorithm": "Segment Tree", "final": "fail", "fail_mode": "coder_budget_exhausted", "sample_pass": 2, "sample_count": 4, "iter": 5}

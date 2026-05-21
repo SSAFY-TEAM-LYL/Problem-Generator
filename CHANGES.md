@@ -2145,3 +2145,56 @@ multi-mechanism 의 quality 가치 **명확히 입증 안 됨**:
 - v0.3.0 release 판정 (baseline vs IPE 비교 후 tag / rollback / budget tune)
 
 ---
+
+## 33. v0.3.0-rc1 N=3 최종 측정 + release 판정 보류 (2026-05-21)
+
+### 33.1 동기
+
+PRINCIPLES.md 룰 1 (N≥3 measurement gate) 적용. baseline 과 IPE 모두 5
+algorithm × 3 runs = 15 runs 측정 → 통계적으로 의미 있는 비교.
+
+### 33.2 측정 결과
+
+| Metric | baseline N=3 | IPE N=3 | Δ |
+|---|---|---|---|
+| Run-level success | **27%** (4/15) | 20% (3/15) | **-7pp** |
+| Sample-level pass | 78.7% (48/61) | **87.7%** (50/57) | **+9.0pp** |
+| 안정적 algorithm | Dijkstra 3/3 | Segment Tree 2/3 | — |
+
+자세한 분석: `docs/baseline/v0.3.0-rc1-N3.md`. raw data:
+`docs/baseline/data/baseline-run{1,2,3}.jsonl` + `ipe-n3-summary.jsonl`.
+
+### 33.3 핵심 인사이트
+
+1. **IPE detection +9pp 효과 입증** (sample-level) — multi-stage verification 이
+   wrong sample 발견 능력 ↑.
+2. **IPE recovery -7pp 한계** (run-level) — 발견은 하지만 budget 안에 fix 못 함.
+3. **M3 dual-call 명백한 부작용** — Dijkstra baseline 3/3 vs IPE 0/3. 잘 정의된
+   algorithm 까지 두 모델 disagreement 로 architect budget 빠르게 소진.
+4. ECC subagent / multi-mechanism hypothesis 의 정당성 의문. **information
+   bottleneck** (PRINCIPLES.md §1) 가 데이터로 부분 입증.
+
+### 33.4 v0.3.0 release 판정
+
+PRINCIPLES.md §3 결정 트리 적용:
+- |Δ run-level| = 7pp < 20pp → **baseline ≈ IPE**
+- 결론: **v0.3.0 tag 보류 + multi-mechanism 일부 rollback 검토 PR**
+
+### 33.5 다음 단계 권장
+
+| 우선순위 | 작업 | 근거 |
+|---|---|---|
+| 1 | M3 dual-call rollback A/B 측정 | Dijkstra 3/3 vs 0/3 차이 강한 신호 |
+| 2 | IPE-without-M3 > IPE-with-M3 일 시 rollback 머지 | PRINCIPLES.md 룰 3 |
+| 3 | 그 후 v0.3.0 재측정 + tag | DoD 도달 여부 |
+
+### 33.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `docs/baseline/v0.3.0-rc1-N3.md` | 신규 — N=3 최종 보고서 |
+| `docs/baseline/data/baseline-run{1,2,3}.jsonl` | run2/3 신규 (run1 은 N=1 PR에서) |
+| `docs/baseline/data/ipe-n3-summary.jsonl` | 신규 — IPE 15 runs summary |
+| `CHANGES.md` §33 | 본 entry |
+
+---
