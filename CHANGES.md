@@ -2198,3 +2198,60 @@ PRINCIPLES.md §3 결정 트리 적용:
 | `CHANGES.md` §33 | 본 entry |
 
 ---
+
+## 34. Wider analysis A — IPE N=3 deeper data analysis (2026-05-21)
+
+### 34.1 동기
+
+§33 의 N=3 측정 데이터를 추가 측정 없이 deeper 분석. PRINCIPLES.md §1 의
+oscillation hypothesis 와 multi-mechanism cost-effectiveness 정량 검증.
+
+### 34.2 핵심 발견
+
+**1. coder 가 진짜 bottleneck (65% retry)**:
+- iteration_history 91 entries 중 coder retry 59 (65%)
+- 모든 algorithm 의 top-retry-node = coder
+- M1 algorithm_designer 추가했지만 coder fail 패턴 못 막음 — M1 ROI 의문
+
+**2. oscillation_break 37% 발동**:
+- 91 iter 중 oscillation_break 34 (37%)
+- 누적 안전장치가 빈번하게 트리거 — over-correction 패턴 데이터 입증
+
+**3. Cost per success 7.3x**:
+- baseline: $0.69 / success
+- IPE: $4.99 / success (5.5x total cost, -25% success rate)
+- 사용 비용은 5.5x, 산출 success 는 줄어들어 **per-success 7.3x**
+
+**4. M3 의 net effect 음(-) 강한 신호**:
+- architect = 92 LLM calls (38% of all) — M3 dual-call 영향
+- Dijkstra: baseline 3/3 vs IPE 0/3 (가장 명백한 음효과)
+- architect 9 retry — 90% consensus 통과지만 fail 10% 가 fatal
+
+**5. evaluator 도달률 20% (3/15)**:
+- Phase B/C + evaluator 가 IPE 만의 가치 layer 인데 80% 가 도달 못 함
+- 대부분 Phase A 의 coder retry 에서 budget 소진
+
+**6. Success vs Failure profile**:
+- success runs: avg 13.3 calls, 5.3 iter, $0.94
+- failure runs: avg 17.1 calls, 6.2 iter, $1.01
+- "많이 retry 하면 풀린다" 가설 데이터로 반박 — 짧은 cycle 안에 풀리는 경우만 success
+
+### 34.3 권장 후속 작업
+
+| 우선순위 | PR | 근거 (데이터) |
+|---|---|---|
+| 1 | **M3 rollback A/B 측정** | Dijkstra 3/3 vs 0/3, architect 38% calls |
+| 2 | coder budget 6 + max-iter 12 재측정 | coder 65% retry, fail runs avg iter 6.2 |
+| 3 | M1 designer ROI A/B | 효과 데이터 없음, cost 19% 차지 |
+
+### 34.4 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `docs/baseline/analysis-N3-deeper.md` | 신규 — Wider analysis A 보고서 |
+| `docs/baseline/data/ipe-n3-detailed.jsonl` | 신규 — 15 runs full profile (iteration_history / LLM calls / token cost 포함) |
+| `CHANGES.md` §34 | 본 entry |
+
+코드 변경 없음 — 기존 측정 데이터 (outputs/by-name/*/problem.json) 재분석만.
+
+---
