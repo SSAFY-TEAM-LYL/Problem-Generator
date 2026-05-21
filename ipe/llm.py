@@ -21,10 +21,6 @@ from langchain_anthropic import ChatAnthropic
 # ============================================================================
 
 ARCHITECT_MODEL = "claude-opus-4-7"
-# M3 (v0.3.0 RFC §M3): Architect multi-model consensus의 2번째 호출. Opus와 다른
-# 모델 family를 써서 model-specific 편향을 상쇄 — Sonnet이 빠르고 cost ↓이면서도
-# 충분한 design 능력 보유. 둘 다 valid + structural match면 Opus 채택.
-CONSENSUS_MODEL = "claude-sonnet-4-6"
 # M1 (v0.3.0 RFC §M1): AlgorithmDesigner는 algorithm 선택 + pseudocode만 — Sonnet으로
 # 충분 (빠르고 cost ↓). Opus만큼 깊은 reasoning 필요 없음.
 DESIGNER_MODEL = "claude-sonnet-4-6"
