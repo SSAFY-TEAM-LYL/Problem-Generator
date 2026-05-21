@@ -1,4 +1,23 @@
-# IPE 명세 보강 변경 내역 (Architect Review, 2026-05-07)
+# IPE 변경 이력 (CHANGES)
+
+> 2026-05-07 부터 누적된 변경. PR 머지 시마다 새 section 추가. 본 문서는 단일
+> append-only log. v0.4.0 release 시 v0.1.x / v0.2.x 는 archive 로 분리 예정.
+
+## Version 별 jump anchor
+
+| 버전 | 범위 | 시작 line | 주요 내용 |
+|---|---|---|---|
+| **v0.1.x** | §0 ~ §13 (Round 1~6) | line 1~617 | architect review + REVIEW_REPORT + Polish + roadmap 신설 + 12-phase 구현 완료 |
+| **v0.2.x** | §14 ~ §24 (Round 9~19) | line 617~1586 | Sprint 1~3 + R-* 결정적 차단 시리즈 + R5 brute oracle |
+| **v0.3.x-rc1** | §25 ~ §34 (Round 20~23 + 후속) | line 1586~end | M1~M4 Multi-Mechanism + Catalog + PRINCIPLES.md + Baseline measurement + Wider analysis |
+
+**Split 정책** (PRINCIPLES.md 룰 5 의 변형): v0.3.0 release tag 후, v0.1.x 와
+v0.2.x section 을 `docs/archive/CHANGES-v0.1.md` + `docs/archive/CHANGES-v0.2.md`
+로 분리. 본 파일은 v0.3.x 이후만 유지. v0.4.0 부터 동일 정책 반복.
+
+---
+
+## Round 1 — 명세 보강 (Architect Review, 2026-05-07)
 
 > 기존 `PROJECT_SPEC.md` (264줄) / `ARCHITECTURE.md` (1081줄)를 architect 관점에서 검토하여 누락된 기술 세부사항·병목·확장성 이슈를 식별하고 두 문서에 반영한 변경 요약. 이 문서는 **무엇이 새로 들어왔는지**만 정리합니다 (기존 본문 재기술 X).
 
