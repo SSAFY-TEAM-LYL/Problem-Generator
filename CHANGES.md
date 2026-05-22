@@ -2797,3 +2797,116 @@ iters). PR-A5 N=3 = ~$3~5.
 | `CHANGES.md` §40 | 본 entry |
 
 ---
+
+## 41. v1.0 D안 Phase 1 — PR-A5: N=3 measurement + Gate 판정 **PASS** (2026-05-22)
+
+### 41.1 동기
+
+D안 Phase 1 마지막 PR — kill-switch 판정 anchor. PRINCIPLES.md 룰 1 (N≥3) +
+룰 3 (baseline anchor) 적용. baseline v0 N=3 Dijkstra = 3/3 / IPE v0 N=3
+Dijkstra = 0/3 대비 v1 의 회복 여부 측정.
+
+### 41.2 변경 내용
+
+**measurement infra** (`ipe/v1/measurement/`):
+- `n3_runner.py`: `RunOutcome` dataclass + `run_n_measurements()` +
+  `write_jsonl()` + `print_summary()`. graph_factory DI 로 test mock 가능.
+- `__main__.py`: `python -m ipe.v1.measurement` CLI (--algorithm/--n/--max-iter/
+  --output).
+- `tests/v1/measurement/test_n3_runner.py`: 10 단위 테스트 (mock graph + JSONL
+  round-trip + capsys summary).
+
+**bug fix** (측정 1차 fail 에서 발견):
+- Opus 4.7 / Sonnet 4.6 가 `temperature` 인자 deprecated.
+  `AnthropicArchitectLLM` / `AnthropicDesignerLLM` / `AnthropicCoderLLM` 에서
+  `temperature=...` 제거 (model default 사용).
+
+**측정 데이터**:
+- `docs/baseline/data/v1-pr-a5-detailed.jsonl` (3 lines, raw).
+- `docs/baseline/v1-pr-a5-N3.md` (narrative 보고서 + Gate 판정).
+
+### 41.3 측정 결과
+
+| Metric | IPE v1 N=3 Dijkstra |
+|---|---|
+| **Run-level success** | **3/3 (100%)** |
+| Sample-level pass | 12/12 (100%) |
+| `samples_engaged` | 12/12 (verifier 100% 실효) |
+| Iterations per run | 1 (모든 run 1-shot success) |
+| Mean elapsed | ~48.8s |
+
+**비교**:
+
+| Setup | Run-level |
+|---|---|
+| baseline v0 N=3 Dijkstra | 3/3 (100%) |
+| IPE v0 N=3 Dijkstra | **0/3 (0%)** |
+| **IPE v1 N=3 Dijkstra** | **3/3 (100%)** ✅ |
+
+### 41.4 Gate 판정
+
+| 시나리오 | 판정 | 본 측정 |
+|---|---|---|
+| ≥ 2/3 success | **Phase 2 진입** | ✓ **3/3** |
+| 1/3 | 회색지대, 추가 N=3 | — |
+| 0/3 | kill-switch (`ipe/v1/` archive) | — |
+
+### **판정: Phase 2 진입 ✅** (kill-switch 미발동)
+
+### 41.5 D안 H1/H2/H3 검증 (요약)
+
+- ✅ **H1 정성적**: v0 (0/3 fail) → v1 (3/3 1-shot success) — typed structured
+  artifacts 가 fix loop budget 소진 패턴 차단.
+- ✅ **H2 engagement**: verifier 100% 실효 (samples_engaged 12/12). silent skip
+  0건.
+- ⚠ **H1 정량 / H2 명료성 / H3 누적**: fail case 부재 (all 1-shot success) 로
+  본 측정에선 측정 불가. Phase 2 의 LIS/SegmentTree 같은 더 어려운 algo 에서
+  fix loop 발동 시 정량 측정 가능.
+
+자세한 분석: `docs/baseline/v1-pr-a5-N3.md` §4.
+
+### 41.6 검증
+
+- ruff 0 / mypy --strict 0 (43 source files, +3 measurement)
+- pytest tests/v1 (non-e2e): **133 passed** (123 + 10 measurement)
+- pytest full (non-e2e): **571 passed** (regression 0)
+- **실측정 N=3 Dijkstra: 3/3 success** (raw JSONL + 보고서 첨부)
+
+### 41.7 Phase 1 deliverable 요약 (PR-A1~A5)
+
+| PR | 스코프 | 결과 |
+|---|---|---|
+| PR-A1 (#75) | typed schema 5 Pydantic | merged |
+| PR-A2 (#76) | DijkstraVerifier 4 invariants | merged |
+| PR-A3 (#77) | nodes + graph + structured feedback | merged |
+| PR-A4 (#78) | CLI + manual e2e | merged |
+| **PR-A5 (본)** | measurement + Gate 판정 | **PASS** |
+
+총 신규 코드: ~3000 LOC (ipe/v1/ + tests). v0 영향 0 (격리 격리 유지).
+
+### 41.8 Phase 2 후보 (PR-A5 머지 후)
+
+1. **LIS verifier** + measurement (`feat/v2-lis-verifier`).
+2. **SegmentTree verifier** + measurement.
+3. **`TargetAlgorithm` enum 확장** (LIS / SEGMENT_TREE).
+4. **multi-iter fix loop 측정** — fail case 발생하는 algo 에서 H1/H2/H3 정량.
+5. **observability 강화** — v0 `LLMCallTracker` v1 통합 (cost 추적).
+6. **v0 catalog → v1 통합** (Phase 3 candidate).
+
+### 41.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/measurement/__init__.py` | 신규 — re-export |
+| `ipe/v1/measurement/n3_runner.py` | 신규 — `run_n_measurements()` + `write_jsonl()` + `print_summary()` + `RunOutcome` |
+| `ipe/v1/measurement/__main__.py` | 신규 — `python -m ipe.v1.measurement` CLI |
+| `ipe/v1/nodes/architect.py` | bug fix — `temperature` 제거 (Opus 4.7 deprecation) |
+| `ipe/v1/nodes/designer.py` | bug fix — `temperature` 제거 (Sonnet 4.6 동일) |
+| `ipe/v1/nodes/coder.py` | bug fix — `temperature` 제거 |
+| `tests/v1/measurement/__init__.py` | pytest discovery |
+| `tests/v1/measurement/test_n3_runner.py` | 10 단위 테스트 |
+| `docs/baseline/data/v1-pr-a5-detailed.jsonl` | 신규 — 측정 raw data (3 lines) |
+| `docs/baseline/v1-pr-a5-N3.md` | 신규 — 측정 narrative 보고서 + Gate 판정 |
+| `CHANGES.md` §41 | 본 entry |
+
+---
