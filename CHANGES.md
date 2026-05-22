@@ -2721,3 +2721,79 @@ anchor.
 | `CHANGES.md` §39 | 본 entry |
 
 ---
+
+## 40. v1.0 D안 Phase 1 — PR-A4: CLI entrypoint + real-LLM e2e (2026-05-22)
+
+### 40.1 동기
+
+PR-A1~A3 으로 mock-level Dijkstra MVR 완성. PR-A4 = real Anthropic API + 실제
+sandbox 통합 path 가 crash 없이 동작하는지 확인하는 **smoke gate**. Quality
+측정 (success rate, samples_engaged 분포) 은 PR-A5 의 N=3 측정에서.
+
+### 40.2 변경 내용
+
+- `ipe/v1/main_v1.py`: CLI entrypoint. argparse: `--algorithm` / `--run-id` /
+  `--max-iter`. `load_dotenv()` → `build_graph()` → `invoke()` →
+  `_print_summary()` (stdout minimal observability). exit 0 = success, 1 = fail.
+- `pyproject.toml`: `[project.scripts] ipe-v1 = "ipe.v1.main_v1:main"` —
+  `pip install -e .` 후 `ipe-v1 --algorithm dijkstra` 가능.
+- `tests/v1/test_main_cli.py`: 12 단위 테스트 (argparse + main mock graph).
+- `tests/v1/test_e2e_real_llm.py`: 1 manual e2e (`@pytest.mark.e2e` +
+  `skipif(not ANTHROPIC_API_KEY)`). Gate: final_status ∈ 4 enum 중 하나면 통과
+  (smoke 만, quality 아님).
+
+### 40.3 Phase 1 단순화 (Phase 2 deferred)
+
+- observability: stdout print 만. LangSmith / OTel hook / cost tracker 통합은
+  Phase 2 (v0 의 `ipe.observability` 모듈 재사용 검토).
+- output 영속화 없음 — V1State in-memory only. catalog 통합은 Phase 3.
+- 단일 algorithm (Dijkstra). LIS / SegmentTree 추가는 Phase 2.
+
+### 40.4 검증
+
+- ruff 0 / mypy --strict 0 (38 source files, +3 PR-A4)
+- pytest tests/v1 (non-e2e): **123 passed** (111 + 12 main_cli)
+- pytest full (non-e2e): **561 passed** (regression 0)
+- e2e 1 deselected (manual trigger 만)
+
+### 40.5 Manual e2e 실행 방법
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+.venv/bin/pytest -m e2e tests/v1/test_e2e_real_llm.py -v
+# 또는 직접 CLI:
+ipe-v1 --algorithm dijkstra --max-iter 4
+```
+
+예상 cost: 1 run = approx $0.3~1 (Opus architect/coder + Sonnet designer + retry
+iters). PR-A5 N=3 = ~$3~5.
+
+### 40.6 Complexity budget 영향
+
+| | 변경 전 | 변경 후 (PR-A4) |
+|---|---|---|
+| 노드 | v0 7 + v1 4 | 변경 없음 (CLI 추가, 노드 X) |
+| Safety | v0 10 + v1 ≈ 14 | 변경 없음 |
+
+### 40.7 다음 단계
+
+- **PR-A5 (Phase 1 마지막)**: Dijkstra N=3 측정 + Gate 판정.
+  - baseline v0 N=3 Dijkstra: 3/3 success (PR #71 산출 `docs/baseline/data/
+    baseline-run{1,2,3}.jsonl`)
+  - IPE v0 N=3 Dijkstra: 0/3 (`docs/baseline/v0.3.0-rc1-N3.md`)
+  - **Gate**: IPE v1 N=3 Dijkstra ≥ 2/3 → Phase 2 진입. 1/3 → 회색지대
+    (추가 N=3). 0/3 → kill-switch 발동 (`ipe/v1/` archive).
+  - `samples_engaged` 분포 + iteration_history depth 도 함께 측정 (H1/H3
+    secondary signals).
+
+### 40.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/main_v1.py` | 신규 — CLI entrypoint |
+| `pyproject.toml` | `[project.scripts] ipe-v1` 추가 |
+| `tests/v1/test_main_cli.py` | 신규 — 12 단위 테스트 |
+| `tests/v1/test_e2e_real_llm.py` | 신규 — 1 manual e2e |
+| `CHANGES.md` §40 | 본 entry |
+
+---
