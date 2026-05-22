@@ -381,7 +381,7 @@ Core 6 + Dev 5 = **11** (의도적 최소화)
 | FastAPI / Flask | CLI tool 로 web layer 불필요 |
 | Celery / Redis | 단일 사용자 / 단일 run — 큐 불필요 |
 | PostgreSQL | JSON 파일 (DB-insertable schema 만) |
-| Pydantic | TypedDict + jsonschema 로 충분 |
+| Pydantic (v0 layer) | TypedDict + jsonschema 로 충분. v1 (`ipe/v1/`) 는 D안 H1 (structured artifacts) 검증 위해 Pydantic v2 도입 — PR-A1 (`CHANGES.md` §37) 참조 |
 | Black + isort | ruff 통합 |
 | pre-commit | Makefile + CI 로 enforce |
 | Poetry / Hatch | setuptools + requirements.txt 로 충분 |
