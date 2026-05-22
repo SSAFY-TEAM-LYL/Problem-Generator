@@ -10,6 +10,7 @@ from ipe.v1.schema import (
     InvariantViolation,
     SampleResult,
     StructuredFeedback,
+    TargetNode,
     VerificationResult,
 )
 
@@ -39,7 +40,7 @@ def test_verification_result_pass_path() -> None:
 
 def test_verification_result_fail_with_feedback() -> None:
     feedback = StructuredFeedback(
-        target_node="coder",
+        target_node=TargetNode.CODER,
         actionable_hint="Reset dist[s]=0 before pushing to heap.",
         blocking_signature="dijkstra-init-bug",
     )
@@ -60,7 +61,7 @@ def test_verification_result_fail_with_feedback() -> None:
     )
     assert result.overall_pass is False
     assert result.feedback is not None
-    assert result.feedback.target_node == "coder"
+    assert result.feedback.target_node is TargetNode.CODER
 
 
 def test_failure_mode_string_values() -> None:
@@ -76,13 +77,26 @@ def test_verification_result_is_frozen() -> None:
         result.overall_pass = False
 
 
-def test_structured_feedback_rejects_empty_target_node() -> None:
+def test_structured_feedback_rejects_unknown_target_node() -> None:
     with pytest.raises(ValidationError):
-        StructuredFeedback(
-            target_node="",
-            actionable_hint="hint",
-            blocking_signature="sig",
+        StructuredFeedback.model_validate(
+            {
+                "target_node": "executor",  # v1 graph 에 없는 노드
+                "actionable_hint": "hint",
+                "blocking_signature": "sig",
+            }
         )
+
+
+def test_target_node_enum_value_round_trip() -> None:
+    feedback = StructuredFeedback.model_validate(
+        {
+            "target_node": "designer",
+            "actionable_hint": "Tighten complexity bound.",
+            "blocking_signature": "sig",
+        }
+    )
+    assert feedback.target_node is TargetNode.DESIGNER
 
 
 def test_invariant_violation_evidence_is_string_dict() -> None:

@@ -10,6 +10,7 @@ from ipe.v1.schema import (
     IOContract,
     ProblemSpec,
     SampleTestCase,
+    TargetAlgorithm,
 )
 
 
@@ -30,7 +31,7 @@ def _valid_samples() -> list[SampleTestCase]:
 
 def _valid_spec() -> ProblemSpec:
     return ProblemSpec(
-        target_algorithm="Dijkstra",
+        target_algorithm=TargetAlgorithm.DIJKSTRA,
         title="Shortest path on weighted DAG",
         description="Given V vertices and E edges, find shortest path from s to t.",
         constraints=[
@@ -44,7 +45,8 @@ def _valid_spec() -> ProblemSpec:
 
 def test_problem_spec_constructs_with_minimal_valid_input() -> None:
     spec = _valid_spec()
-    assert spec.target_algorithm == "Dijkstra"
+    assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA
+    assert spec.target_algorithm == "dijkstra"  # StrEnum string equality
     assert len(spec.sample_testcases) == 3
     assert spec.time_limit_ms == 2000
     assert spec.memory_limit_mb == 256
@@ -60,7 +62,7 @@ def test_problem_spec_rejects_extra_fields() -> None:
     with pytest.raises(ValidationError):
         ProblemSpec.model_validate(
             {
-                "target_algorithm": "X",
+                "target_algorithm": "dijkstra",
                 "title": "t",
                 "description": "d",
                 "io_contract": _valid_io_contract().model_dump(),
@@ -112,8 +114,16 @@ def test_problem_spec_requires_positive_time_limit() -> None:
         ProblemSpec.model_validate(base)
 
 
-def test_problem_spec_requires_non_empty_target_algorithm() -> None:
+def test_problem_spec_rejects_unsupported_target_algorithm() -> None:
     base = _valid_spec().model_dump()
-    base["target_algorithm"] = ""
+    base["target_algorithm"] = "bfs"  # Phase 2 까지는 enum 에 없음
     with pytest.raises(ValidationError):
         ProblemSpec.model_validate(base)
+
+
+def test_problem_spec_target_algorithm_accepts_enum_value_str() -> None:
+    """StrEnum 이라 model_validate 가 string value 로도 coerce 가능."""
+    base = _valid_spec().model_dump()
+    base["target_algorithm"] = "dijkstra"
+    spec = ProblemSpec.model_validate(base)
+    assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA

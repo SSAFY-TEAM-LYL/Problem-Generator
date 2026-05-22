@@ -2458,4 +2458,34 @@ v1 layer 완성 후 (Phase 4) legacy 제거 시 노드 4/8 로 회복 예정.
 | `docs/SPEC.md` §4.10 | Pydantic 정책 행 갱신 (v0/v1 layer 분리 표기) |
 | `CHANGES.md` §37 | 본 entry |
 
+### 37.10 Follow-up: watchdog (다른 Claude agent) HIGH finding fix
+
+PR-A1 push 직후 `docs/WATCH.md` (자동 감시자 로그, local-only) 가 같은 PR 안에서
+fix 권장하는 HIGH 2건 제기. CHANGES §37.2 narrative (H1/H2) 와 schema 강도 일치
+위해 같은 PR 에 추가 commit 으로 반영.
+
+**HIGH-1**: `StructuredFeedback.target_node: str` 는 H1 "fix loop 결정론적
+routing" 약속과 강도 불일치 → 5-노드 `StrEnum` (`TargetNode`) 도입.
+
+**HIGH-2**: `ProblemSpec.target_algorithm` / `IterationContext.target_algorithm`
+가 free str 이라 H2 "algorithm-specific symbolic verifier dispatch" 가 silent
+fallback 위험 → Phase 1 한정 `StrEnum` (`TargetAlgorithm`) 도입 (Phase 2 에서
+LIS, Segment Tree 등 enum value 확장).
+
+| 변경 | 의도 |
+|---|---|
+| `ipe/v1/schema/verification_result.py`: `class TargetNode(StrEnum)` 추가, `StructuredFeedback.target_node` 타입 `TargetNode` 로 좁힘 | H1 정합 |
+| `ipe/v1/schema/problem_spec.py`: `class TargetAlgorithm(StrEnum)` (Phase 1 = `DIJKSTRA`) 추가, `ProblemSpec.target_algorithm` 타입 `TargetAlgorithm` 로 좁힘 | H2 정합 |
+| `ipe/v1/schema/iteration_context.py`: `IterationContext.target_algorithm` 타입 `TargetAlgorithm` 로 좁힘 (`from .problem_spec import TargetAlgorithm`) | H2 정합 |
+| `ipe/v1/schema/__init__.py`: `TargetAlgorithm`, `TargetNode` re-export 추가 | public API |
+| `tests/v1/schema/test_problem_spec.py` | enum 사용 + `bfs` (unsupported) reject 테스트 + StrEnum value round-trip 테스트 |
+| `tests/v1/schema/test_verification_result.py` | enum 사용 + `executor` (없는 노드) reject 테스트 + StrEnum value round-trip 테스트 |
+| `tests/v1/schema/test_iteration_context.py` | enum 사용 + `lis` (Phase 2 예정 algo) reject 테스트 |
+
+**재검증**: ruff 0 / mypy --strict 0 / pytest tests/v1 **43/43** (+3 새 test) /
+pytest full **481/481** (regression 0).
+
+감시자의 MEDIUM (`InvariantViolation.evidence` 타입 완화) + LOW (`v1/__init__.py`
+re-export, mypy/ruff trace) 는 PR-A2 이후 또는 nodes/verifiers PR 진입 시 처리.
+
 ---

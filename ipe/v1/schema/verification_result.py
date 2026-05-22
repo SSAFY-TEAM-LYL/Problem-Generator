@@ -15,6 +15,20 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TargetNode(StrEnum):
+    """v1 graph 노드 이름. fix loop routing key (D안 H1).
+
+    free str 대신 enum 으로 좁혀서 typo/drift 차단 — H1 의 "결정론적 routing"
+    약속과 schema 강도 일치.
+    """
+
+    ARCHITECT = "architect"
+    DESIGNER = "designer"
+    CODER = "coder"
+    AUDITOR = "auditor"
+    GENERATOR = "generator"
+
+
 class FailureMode(StrEnum):
     """v1 실패 분류. 노드 routing 의 결정론적 key.
 
@@ -68,10 +82,8 @@ class StructuredFeedback(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    target_node: str = Field(
-        ...,
-        min_length=1,
-        description="다음 fix 시도 노드 (architect/designer/coder/auditor/generator)",
+    target_node: TargetNode = Field(
+        ..., description="다음 fix 시도 노드 — TargetNode enum 으로 strict"
     )
     actionable_hint: str = Field(..., min_length=1, description="구체적 수정 방향")
     blocking_signature: str = Field(

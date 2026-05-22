@@ -12,11 +12,14 @@ from ipe.v1.schema import (
     IterationContext,
     IterationRecord,
     Lesson,
+    TargetAlgorithm,
 )
 
 
 def _empty_ctx() -> IterationContext:
-    return IterationContext(run_id="run-001", target_algorithm="Dijkstra")
+    return IterationContext(
+        run_id="run-001", target_algorithm=TargetAlgorithm.DIJKSTRA
+    )
 
 
 def _record(idx: int = 0, node: str = "coder") -> IterationRecord:
@@ -105,7 +108,16 @@ def test_iteration_record_default_failure_mode_is_none() -> None:
 def test_learned_invariants_can_be_passed_in() -> None:
     inv = Invariant(kind="non_negative_distance", description="d >= 0")
     ctx = IterationContext(
-        run_id="r1", target_algorithm="Dijkstra", learned_invariants=[inv]
+        run_id="r1",
+        target_algorithm=TargetAlgorithm.DIJKSTRA,
+        learned_invariants=[inv],
     )
     assert len(ctx.learned_invariants) == 1
     assert ctx.learned_invariants[0].kind == "non_negative_distance"
+
+
+def test_iteration_context_rejects_unsupported_target_algorithm() -> None:
+    with pytest.raises(ValidationError):
+        IterationContext.model_validate(
+            {"run_id": "r1", "target_algorithm": "lis"}
+        )

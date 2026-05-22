@@ -14,6 +14,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from .algorithm_design import Invariant
+from .problem_spec import TargetAlgorithm
 from .solution_attempt import Lesson
 from .verification_result import FailureMode
 
@@ -51,7 +52,7 @@ class IterationContext(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     run_id: str = Field(..., min_length=1)
-    target_algorithm: str = Field(..., min_length=1)
+    target_algorithm: TargetAlgorithm
     iterations: list[IterationRecord] = Field(default_factory=list)
     accumulated_lessons: list[Lesson] = Field(
         default_factory=list, description="signature 기준 dedup"

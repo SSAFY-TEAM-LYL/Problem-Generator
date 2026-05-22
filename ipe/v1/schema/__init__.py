@@ -7,13 +7,20 @@ from __future__ import annotations
 
 from .algorithm_design import AlgorithmDesign, ComplexityBound, EdgeCase, Invariant
 from .iteration_context import FailedStrategy, IterationContext, IterationRecord
-from .problem_spec import ConstraintRange, IOContract, ProblemSpec, SampleTestCase
+from .problem_spec import (
+    ConstraintRange,
+    IOContract,
+    ProblemSpec,
+    SampleTestCase,
+    TargetAlgorithm,
+)
 from .solution_attempt import Lesson, SolutionAttempt
 from .verification_result import (
     FailureMode,
     InvariantViolation,
     SampleResult,
     StructuredFeedback,
+    TargetNode,
     VerificationResult,
 )
 
@@ -35,5 +42,7 @@ __all__ = [
     "SampleTestCase",
     "SolutionAttempt",
     "StructuredFeedback",
+    "TargetAlgorithm",
+    "TargetNode",
     "VerificationResult",
 ]

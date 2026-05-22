@@ -10,9 +10,20 @@ v1: 단일 immutable Pydantic 모델. 노드 간 통신을 typed structured arti
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class TargetAlgorithm(StrEnum):
+    """v1 graph 가 지원하는 algorithm. Phase 1 = Dijkstra MVR.
+
+    Phase 2 에서 ``LIS``, ``SEGMENT_TREE`` 등 enum value 확장 예정. free str 대신
+    enum 으로 좁혀서 symbolic verifier dispatch (D안 H2) 의 silent fallback 회피.
+    """
+
+    DIJKSTRA = "dijkstra"
 
 
 class ConstraintRange(BaseModel):
@@ -64,7 +75,7 @@ class ProblemSpec(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    target_algorithm: str = Field(..., min_length=1)
+    target_algorithm: TargetAlgorithm
     title: str = Field(..., min_length=1)
     description: str = Field(
         ..., min_length=1, description="사람용 자연어 설명. LLM 은 structured 필드 우선"
