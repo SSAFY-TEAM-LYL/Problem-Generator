@@ -104,3 +104,13 @@ class VerificationResult(BaseModel):
         default=None, description="``overall_pass=False`` 일 때만 set"
     )
     iteration: int = Field(..., ge=0)
+    samples_engaged: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "symbolic verifier 가 실제로 invariants 강제한 sample 수. "
+            "0 == verifier silent skip (parse 실패 등) — H1 측정 시 v0 sample "
+            "match 와 동일 효과. > 0 == verifier 가 의미 있는 검증. "
+            "WATCH.md 12:00 MEDIUM finding 반영 (engagement signal 분리)."
+        ),
+    )

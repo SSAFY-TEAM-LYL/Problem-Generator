@@ -169,6 +169,18 @@ class DijkstraVerifier:
                 violations.append(sample_violation)
         return violations
 
+    def count_engaged_samples(self, spec: ProblemSpec) -> int:
+        """parse 가능한 sample 수 — verifier 가 실제로 invariants 강제할 대상.
+
+        executor 가 ``VerificationResult.samples_engaged`` 채울 때 호출. H1
+        측정 시 verifier 의 실효성 (silent skip 비율) 추적 anchor.
+        """
+        return sum(
+            1
+            for sample in spec.sample_testcases
+            if _parse_sample_input(sample.input_text) is not None
+        )
+
     def _check_sample(
         self, i: int, graph: _ParsedGraph, actual: int
     ) -> InvariantViolation | None:
