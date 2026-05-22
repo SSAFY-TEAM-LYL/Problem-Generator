@@ -32,6 +32,10 @@ env/
 *.swo
 *~
 
+# Claude Code workspace + session artifacts (local only)
+.claude/
+docs/WATCH.md
+
 # OS
 .DS_Store
 Thumbs.db

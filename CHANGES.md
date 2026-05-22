@@ -2361,3 +2361,131 @@ PRINCIPLES.md §3 결정 트리 + 본 rollback 데이터:
 | `CHANGES.md` §36 | 본 entry |
 
 ---
+
+## 37. v1.0 D안 Phase 1 — PR-A1: typed structured artifacts (2026-05-22)
+
+### 37.1 동기
+
+`docs/baseline/v0.3.0-rc1-N3.md` §4.2 (recovery 한계 — IPE failure 의 93% 가
+`budget_exhausted`) + §4.4 (subagent 패턴 정당성 의문 — Dijkstra baseline 3/3 vs
+IPE 0/3) + `PRINCIPLES.md` §1 마지막 단락 (information bottleneck 가설) 이
+**80% 천장의 진짜 원인** 으로 "노드 간 자연어 통신 + stateless LLM call" 을 지목.
+
+사용자 결정 (2026-05-22): mechanism 추가가 아닌 **architecture 자체 재설계**. 4
+옵션 중 D안 (Detection Backbone + State Refactor) 선택. Phase 1 MVR 스코프: 단일
+Dijkstra anchor, baseline 27% gate.
+
+### 37.2 D안 핵심 가설 (Phase 1 에서 검증)
+
+| ID | 가설 | 검증 방법 |
+|---|---|---|
+| **H1** | 노드 간 prose → typed structured artifacts 로 fix loop `budget_exhausted` 비율 ≥30pp 감소 | IPE v0 vs v1 Dijkstra N=3 failure mode 분포 비교 (PR-A5) |
+| **H2** | algorithm-specific symbolic verifier 가 retry feedback 명료성 ↑ → success rate ↑ | Dijkstra run-level 0/3 → 2/3+ (PR-A5) |
+| **H3** | IterationContext 누적이 skill amnesia 완화 | iteration_history depth 감소 (PR-A5) |
+
+### 37.3 PR-A1 변경 내용
+
+`ipe/v1/` 새 layer 생성 (legacy `ipe/` 와 완전 격리 — kill-switch 발동 시 v1
+디렉토리만 archive 가능).
+
+**Schema 5 + 부속 모델** (Pydantic v2, all `frozen=True, extra="forbid"`):
+- `ipe/v1/schema/problem_spec.py`: `ProblemSpec` + `ConstraintRange` + `IOContract` + `SampleTestCase`
+- `ipe/v1/schema/algorithm_design.py`: `AlgorithmDesign` + `ComplexityBound` + `Invariant` + `EdgeCase`
+- `ipe/v1/schema/solution_attempt.py`: `SolutionAttempt` + `Lesson`
+- `ipe/v1/schema/verification_result.py`: `VerificationResult` + `SampleResult` + `InvariantViolation` + `StructuredFeedback` + `FailureMode` (StrEnum)
+- `ipe/v1/schema/iteration_context.py`: `IterationContext` (+ `IterationRecord` + `FailedStrategy`, immutable `append_*` 메서드)
+
+**핵심 의도** (v0 와의 대비):
+- v0 노드 간 통신: `ProblemState` TypedDict 안에 prose 필드 흩어짐 → semantic drift 누적
+- v1: 단일 immutable Pydantic 모델 per concern. `extra="forbid"` 로 LLM 의
+  hallucinated 필드 reject. routing key 는 `FailureMode` enum +
+  `StructuredFeedback.blocking_signature` 로 결정론화
+
+### 37.4 검증
+
+- pytest **478 passed** (453 기존 + 25 net, regression 0)
+  - 신규 v1 schema 단위 40 tests (frozen 강제, `extra="forbid"`, min/max 검증,
+    dedup append, immutable 반환 등)
+- ruff 0 / mypy --strict 0
+- pydantic 2.13.4 (`.venv` 에 이미 설치되어 있음 확인)
+
+### 37.5 Complexity budget 영향 (PRINCIPLES.md 룰 4)
+
+| | 변경 전 | 변경 후 (PR-A1) |
+|---|---|---|
+| 노드 | 7/8 | 7/8 (변경 없음 — 노드는 PR-A3 에서) |
+| Safety | 9/12 | 9/12 (변경 없음 — symbolic verifier 는 PR-A2 에서 +1 예정) |
+
+v1 layer 완성 후 (Phase 4) legacy 제거 시 노드 4/8 로 회복 예정.
+
+### 37.6 SPEC §4.10 정책 변경
+
+`Pydantic | TypedDict + jsonschema 로 충분` →
+`Pydantic (v0 layer) | … . v1 (ipe/v1/) 는 D안 H1 검증 위해 Pydantic v2 도입`.
+정책 자체 업데이트 (PRINCIPLES.md 룰 위반 회피).
+
+### 37.7 다음 단계 (D안 Phase 1 PR breakdown)
+
+| PR | 스코프 | Gate |
+|---|---|---|
+| **PR-A1** (본) | schema 5 + tests | ruff/mypy/pytest green ✅ |
+| PR-A2 | `ipe/v1/verifiers/dijkstra.py` symbolic verifier | invariant fixture 100% |
+| PR-A3 | v1 nodes 4 + graph + structured feedback | integration test (LLM mock) green |
+| PR-A4 | CLI v1 entrypoint + 첫 e2e (1 run, real LLM) | end-to-end 동작 |
+| PR-A5 | **N=3 측정 + Gate 판정** | Dijkstra ≥ 2/3 → Phase 2, 0/3 → kill-switch |
+
+### 37.8 Kill-switch 조건 (사전 정의)
+
+- PR-A5 측정에서 IPE v1 Dijkstra N=3 = 0/3 → v1 rewrite 가설 자체 실패로 판정 →
+  `ipe/v1/` 전체 archive + retrospective doc 작성 + 다른 후보 (Skill library M5
+  등) 재검토.
+- PR-A5 측정에서 1/3 (회색지대) → N=3 추가 측정으로 noise/signal 판정.
+
+### 37.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/__init__.py` | D안 layer 패키지 docstring (가설 H1~H3, kill-switch 조건) |
+| `ipe/v1/schema/__init__.py` | 5 schema 모듈 re-export |
+| `ipe/v1/schema/problem_spec.py` | 신규 — Architect 출력 typed contract |
+| `ipe/v1/schema/algorithm_design.py` | 신규 — Designer 출력 + symbolic verifier 가 쓸 Invariants |
+| `ipe/v1/schema/solution_attempt.py` | 신규 — Coder 출력 + Lesson dedup signature |
+| `ipe/v1/schema/verification_result.py` | 신규 — `FailureMode` StrEnum + StructuredFeedback |
+| `ipe/v1/schema/iteration_context.py` | 신규 — immutable append + signature dedup |
+| `tests/v1/__init__.py`, `tests/v1/schema/__init__.py` | pytest discovery |
+| `tests/v1/schema/test_*.py` (5) | 40 단위 테스트 |
+| `requirements.txt`, `pyproject.toml` | `pydantic>=2.0.0` 추가 |
+| `docs/SPEC.md` §4.10 | Pydantic 정책 행 갱신 (v0/v1 layer 분리 표기) |
+| `CHANGES.md` §37 | 본 entry |
+
+### 37.10 Follow-up: watchdog (다른 Claude agent) HIGH finding fix
+
+PR-A1 push 직후 `docs/WATCH.md` (자동 감시자 로그, local-only) 가 같은 PR 안에서
+fix 권장하는 HIGH 2건 제기. CHANGES §37.2 narrative (H1/H2) 와 schema 강도 일치
+위해 같은 PR 에 추가 commit 으로 반영.
+
+**HIGH-1**: `StructuredFeedback.target_node: str` 는 H1 "fix loop 결정론적
+routing" 약속과 강도 불일치 → 5-노드 `StrEnum` (`TargetNode`) 도입.
+
+**HIGH-2**: `ProblemSpec.target_algorithm` / `IterationContext.target_algorithm`
+가 free str 이라 H2 "algorithm-specific symbolic verifier dispatch" 가 silent
+fallback 위험 → Phase 1 한정 `StrEnum` (`TargetAlgorithm`) 도입 (Phase 2 에서
+LIS, Segment Tree 등 enum value 확장).
+
+| 변경 | 의도 |
+|---|---|
+| `ipe/v1/schema/verification_result.py`: `class TargetNode(StrEnum)` 추가, `StructuredFeedback.target_node` 타입 `TargetNode` 로 좁힘 | H1 정합 |
+| `ipe/v1/schema/problem_spec.py`: `class TargetAlgorithm(StrEnum)` (Phase 1 = `DIJKSTRA`) 추가, `ProblemSpec.target_algorithm` 타입 `TargetAlgorithm` 로 좁힘 | H2 정합 |
+| `ipe/v1/schema/iteration_context.py`: `IterationContext.target_algorithm` 타입 `TargetAlgorithm` 로 좁힘 (`from .problem_spec import TargetAlgorithm`) | H2 정합 |
+| `ipe/v1/schema/__init__.py`: `TargetAlgorithm`, `TargetNode` re-export 추가 | public API |
+| `tests/v1/schema/test_problem_spec.py` | enum 사용 + `bfs` (unsupported) reject 테스트 + StrEnum value round-trip 테스트 |
+| `tests/v1/schema/test_verification_result.py` | enum 사용 + `executor` (없는 노드) reject 테스트 + StrEnum value round-trip 테스트 |
+| `tests/v1/schema/test_iteration_context.py` | enum 사용 + `lis` (Phase 2 예정 algo) reject 테스트 |
+
+**재검증**: ruff 0 / mypy --strict 0 / pytest tests/v1 **43/43** (+3 새 test) /
+pytest full **481/481** (regression 0).
+
+감시자의 MEDIUM (`InvariantViolation.evidence` 타입 완화) + LOW (`v1/__init__.py`
+re-export, mypy/ruff trace) 는 PR-A2 이후 또는 nodes/verifiers PR 진입 시 처리.
+
+---
