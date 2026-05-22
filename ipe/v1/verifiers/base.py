@@ -41,6 +41,14 @@ class SymbolicVerifier(Protocol):
         """
         ...
 
+    def count_engaged_samples(self, spec: ProblemSpec) -> int:
+        """parse 가능한 sample 수 — verifier 가 실제로 invariants 강제할 대상.
+
+        executor 가 ``VerificationResult.samples_engaged`` 채울 때 호출 (H1
+        측정의 verifier 실효성 신호 — WATCH.md 12:00 MEDIUM finding 반영).
+        """
+        ...
+
 
 _REGISTRY: dict[TargetAlgorithm, SymbolicVerifier] = {}
 

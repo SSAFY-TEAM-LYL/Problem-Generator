@@ -209,6 +209,44 @@ def test_register_verifier_round_trip() -> None:
     register_verifier(DijkstraVerifier())
 
 
+def test_count_engaged_samples_all_parseable() -> None:
+    v = DijkstraVerifier()
+    assert v.count_engaged_samples(_spec_three_samples()) == 3
+
+
+def test_count_engaged_samples_some_unparseable() -> None:
+    spec = ProblemSpec(
+        target_algorithm=TargetAlgorithm.DIJKSTRA,
+        title="t",
+        description="d",
+        io_contract=_io(),
+        sample_testcases=[
+            SampleTestCase(input_text="garbage non-numeric", expected_output="0"),
+            SampleTestCase(input_text="2 1 0 1\n0 1 5", expected_output="5"),
+            SampleTestCase(input_text="not a graph", expected_output="x"),
+        ],
+    )
+    v = DijkstraVerifier()
+    assert v.count_engaged_samples(spec) == 1
+
+
+def test_count_engaged_samples_zero_when_all_unparseable() -> None:
+    spec = ProblemSpec(
+        target_algorithm=TargetAlgorithm.DIJKSTRA,
+        title="t",
+        description="d",
+        io_contract=_io(),
+        sample_testcases=[
+            SampleTestCase(input_text="g1", expected_output="x"),
+            SampleTestCase(input_text="g2", expected_output="x"),
+            SampleTestCase(input_text="g3", expected_output="x"),
+        ],
+    )
+    v = DijkstraVerifier()
+    # verifier silent skip 전체 — H1 측정 시 v0 sample match 와 동일 효과 signal
+    assert v.count_engaged_samples(spec) == 0
+
+
 def test_register_verifier_replaces_existing() -> None:
     clear_registry()
     a = DijkstraVerifier()

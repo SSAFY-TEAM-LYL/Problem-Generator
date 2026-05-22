@@ -118,3 +118,31 @@ def test_sample_result_rejects_negative_elapsed() -> None:
             actual_output="",
             elapsed_ms=-1,
         )
+
+
+def test_verification_result_samples_engaged_default_zero() -> None:
+    """default 0 — BC 안전 (기존 caller 가 안 채워도 통과)."""
+    result = VerificationResult(
+        overall_pass=True, failure_mode=FailureMode.NONE, iteration=0
+    )
+    assert result.samples_engaged == 0
+
+
+def test_verification_result_samples_engaged_accepts_positive() -> None:
+    result = VerificationResult(
+        overall_pass=True,
+        failure_mode=FailureMode.NONE,
+        iteration=0,
+        samples_engaged=3,
+    )
+    assert result.samples_engaged == 3
+
+
+def test_verification_result_samples_engaged_rejects_negative() -> None:
+    with pytest.raises(ValidationError):
+        VerificationResult(
+            overall_pass=True,
+            failure_mode=FailureMode.NONE,
+            iteration=0,
+            samples_engaged=-1,
+        )
