@@ -2489,3 +2489,98 @@ pytest full **481/481** (regression 0).
 re-export, mypy/ruff trace) 는 PR-A2 이후 또는 nodes/verifiers PR 진입 시 처리.
 
 ---
+
+## 38. v1.0 D안 Phase 1 — PR-A2: Dijkstra symbolic verifier (2026-05-22)
+
+### 38.1 동기
+
+PR-A1 (§37) 의 typed schema 위에 algorithm-specific 결정론적 verifier 도입.
+D안 H2 ("algorithm-specific symbolic verifier 가 retry feedback 명료성 ↑ →
+success rate ↑") 의 핵심 구현. v0 에서는 sample exact match + brute oracle 만으로
+generation correctness 를 LLM judgment 에 의존했지만, v1 verifier 는 algorithm
+의 수학적 invariants 를 코드로 직접 강제.
+
+### 38.2 변경 내용
+
+`ipe/v1/verifiers/` 새 layer (PR-A1 의 schema 위에).
+
+**3 모듈**:
+- `ipe/v1/verifiers/base.py`: `SymbolicVerifier` Protocol + module-level
+  `register_verifier()` / `get_verifier()` dispatch registry. PR-A3 의 executor
+  가 `get_verifier(spec.target_algorithm)` 로 dispatch.
+- `ipe/v1/verifiers/dijkstra.py`: `DijkstraVerifier` — 4 invariants 결정론적
+  검증.
+- `ipe/v1/verifiers/__init__.py`: re-export + import 시 `DijkstraVerifier` 자동
+  등록.
+
+**Dijkstra 4 invariants**:
+1. `non_negative_distance`: 결과 거리 ≥ 0 또는 ``UNREACHABLE`` marker.
+2. `source_zero`: ``s == t`` 일 때 결과 = 0.
+3. `reachability_consistent`: BFS 로 검증한 도달가능성과 결과의 ``UNREACHABLE``
+   여부 일치.
+4. `shortest_distance_optimal`: Bellman-Ford golden 과 결과 일치.
+
+**Bellman-Ford 를 golden 으로 쓰는 이유**: Dijkstra 와 독립된 알고리즘이라야
+self-cross-check 가 의미. non-negative weight 가정 시 두 알고리즘 결과 동일해야
+하므로, 불일치는 LLM 의 Dijkstra 구현 오류 시그널.
+
+**Phase 1 단순화 가정**:
+- input format: `V E s t\n u_1 v_1 w_1\n …` (E lines)
+- output: 단일 정수 (s→t 최단 거리, unreachable 시 `-1`)
+- 다른 format 은 verifier silent skip — PR-A4 executor 의 sample exact match 로
+  fallback 처리. Phase 2 에서 `IOContract` 기반 generic parser 도입.
+
+### 38.3 검증
+
+- ruff 0 / mypy --strict 0 (19 source files)
+- pytest tests/v1: **56 passed** (43 PR-A1 + 13 PR-A2 = pass/non_negative/
+  source_zero/reachability×2/optimal×2/parse-skip×2/dispatch×3)
+- pytest full: **494 passed** (481 + 13 새, regression 0)
+- 13 tests fixture-based — golden + 각 invariant 위반 fixture + parse-fail skip
+  + register/get round-trip + replace existing
+
+### 38.4 Complexity budget 영향 (PRINCIPLES.md 룰 4)
+
+| | 변경 전 | 변경 후 (PR-A2) |
+|---|---|---|
+| 노드 | 7/8 | 7/8 (변경 없음 — 노드는 PR-A3 에서) |
+| Safety | 9/12 | 10/12 (`DijkstraVerifier` 결정론적 invariants 1개로 carry) |
+
+`DijkstraVerifier` 는 single verifier 라 safety carry +1 만. Phase 2 의 LIS/
+SegmentTree verifier 들은 같은 Protocol 안에서 algorithm-specific 추가라 safety
+선언 budget 신중 검토 (algorithm 별 plug-in 형태는 safety 1개로 묶을지 별도 가산할
+지 결정 필요 — 결정 시 PR 본문 명시).
+
+### 38.5 다음 단계 (D안 Phase 1)
+
+| PR | 스코프 | Gate |
+|---|---|---|
+| PR-A1 ✅ | schema 5 + tests | ruff/mypy/pytest green |
+| **PR-A2 (본)** ✅ | base.py + dijkstra.py + tests | invariant fixture 100% |
+| PR-A3 | v1 nodes 4 (architect/designer/coder/executor) + graph + structured feedback | integration test (LLM mock) green |
+| PR-A4 | CLI v1 entrypoint + 첫 e2e (1 run, real LLM) | end-to-end 동작 |
+| PR-A5 | N=3 측정 + Gate 판정 | Dijkstra ≥ 2/3 → Phase 2, 0/3 → kill-switch |
+
+### 38.6 알려진 한계 / 향후 처리
+
+- `evidence: dict[str, str]` (감시자 §37.10 MEDIUM) — 모든 값 string. PR-A3 의
+  executor → LLM prompt rendering 단계에서 다시 parse 부담. Phase 2 에서 `dict[
+  str, str | int | float]` 또는 `JsonValue` 로 완화 검토.
+- `_parse_sample_input` 의 Dijkstra-specific 가정 (V E s t format). 다른 algorithm
+  은 자체 parse 함수 (`_parse_sequence`, `_parse_segment_tree_input` 등) 필요.
+- Bellman-Ford golden 은 negative weight 가 있으면 negative cycle detection 필요
+  — 현재 Phase 1 은 non-negative weight 만 가정 (constraints 에서 강제 — Phase
+  2 에서 verifier 가 직접 reject 처리).
+
+### 38.7 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/verifiers/__init__.py` | 신규 — re-export + 자동 register |
+| `ipe/v1/verifiers/base.py` | 신규 — `SymbolicVerifier` Protocol + register/get/clear |
+| `ipe/v1/verifiers/dijkstra.py` | 신규 — `DijkstraVerifier` 4 invariants + parse helpers |
+| `tests/v1/verifiers/__init__.py` | pytest discovery |
+| `tests/v1/verifiers/test_dijkstra.py` | 13 단위 테스트 |
+| `CHANGES.md` §38 | 본 entry |
+
+---
