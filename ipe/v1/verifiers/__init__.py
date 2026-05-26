@@ -10,12 +10,16 @@ from __future__ import annotations
 
 from .base import SymbolicVerifier, get_verifier, register_verifier
 from .dijkstra import DijkstraVerifier
+from .lis import LISVerifier
 
-# Phase 1: 시작 시 DijkstraVerifier 자동 등록.
+# Phase 1: DijkstraVerifier 자동 등록.
+# Phase 2a (PR-B1): LISVerifier 자동 등록.
 register_verifier(DijkstraVerifier())
+register_verifier(LISVerifier())
 
 __all__ = [
     "DijkstraVerifier",
+    "LISVerifier",
     "SymbolicVerifier",
     "get_verifier",
     "register_verifier",
