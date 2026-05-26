@@ -27,6 +27,7 @@ class TargetAlgorithm(StrEnum):
     DIJKSTRA = "dijkstra"
     LIS = "lis"
     SEGTREE = "segtree"
+    TWO_SUM = "two_sum"
 
 
 class ConstraintRange(BaseModel):

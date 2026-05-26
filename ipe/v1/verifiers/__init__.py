@@ -12,19 +12,23 @@ from .base import SymbolicVerifier, get_verifier, register_verifier
 from .dijkstra import DijkstraVerifier
 from .lis import LISVerifier
 from .segtree import SegmentTreeVerifier
+from .twosum import TwoSumVerifier
 
 # Phase 1: DijkstraVerifier 자동 등록.
 # Phase 2a (PR-B1): LISVerifier 자동 등록.
 # Phase 2a (PR-B2): SegmentTreeVerifier 자동 등록.
+# Phase 2a (PR-B3): TwoSumVerifier 자동 등록.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
+register_verifier(TwoSumVerifier())
 
 __all__ = [
     "DijkstraVerifier",
     "LISVerifier",
     "SegmentTreeVerifier",
     "SymbolicVerifier",
+    "TwoSumVerifier",
     "get_verifier",
     "register_verifier",
 ]

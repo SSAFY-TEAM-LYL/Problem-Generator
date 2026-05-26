@@ -3180,3 +3180,87 @@ algo 모두 smoke green.
 | `CHANGES.md` §44 | 본 entry |
 
 ---
+
+## 45. v1.0 D안 Phase 2a — PR-B3: Two Sum verifier + smoke green (2026-05-26)
+
+### 45.1 동기
+
+Phase 2a 세 번째 PR — baseline 5 algo 완성 plan 의 3/5. PR-B2.1 의 narrative
+인사이트 ("LLM op format variance, prompt 강화 + verifier alignment 둘 다 필요")
+를 처음부터 적용. **verifier unit + smoke 1 run + green 확인** 패턴.
+
+### 45.2 변경 내용
+
+- `ipe/v1/schema/problem_spec.py`: `TargetAlgorithm.TWO_SUM = "two_sum"` 추가.
+- `ipe/v1/verifiers/twosum.py`: `TwoSumVerifier` — 4 invariants:
+  - `output_format_valid`: "-1" 단독 또는 "i j" 두 정수
+  - `indices_in_range_and_ordered`: 1 ≤ i < j ≤ N
+  - `sum_equals_target`: a[i] + a[j] == T (1-indexed)
+  - `existence_consistent`: brute O(N²) golden 으로 해 존재 여부 일치 검증
+- `ipe/v1/verifiers/__init__.py`: `TwoSumVerifier` 자동 register.
+- `ipe/v1/nodes/designer.py`: `TWO_SUM_DEFAULT_INVARIANTS` + dispatch + system
+  prompt 의 Two Sum format guide.
+- `ipe/v1/nodes/architect.py`: system prompt 에 Two Sum format guide 추가.
+- `tests/v1/verifiers/test_twosum.py`: 17 단위 테스트.
+
+### 45.3 검증
+
+- ruff 0 / mypy --strict 0 (49 source files, +2 PR-B3)
+- pytest tests/v1 (non-e2e): **183 passed** (+18 net since PR-B2.1)
+- **smoke (real LLM, cost ~$1)**: Two Sum 1-shot success, **samples_engaged=4**
+  (verifier 100% 실효, PR-B2.1 패턴 첫 적용 성공)
+
+### 45.4 LLM 의 자연 출력 (verbose smoke 발췌)
+
+```
+sample 0: 4 9\n2 7 11 15\n → 1 2 (a[1]+a[2]=2+7=9)
+sample 1: 5 6\n3 3 1 4 2\n → 1 2 (a[1]+a[2]=3+3=6)
+sample 2: 3 100\n1 2 3\n → -1 (no pair)
+sample 3: 5 0\n-3 1 4 3 -1\n → 1 4 (a[1]+a[4]=-3+3=0, 음수 허용)
+```
+
+PR-B2.1 패턴 (architect prompt 의 algorithm 별 format guide) 덕분에 첫 시도부터
+verifier 의 strict format (1-indexed, N T 한 줄, i j 또는 -1) 과 정합. format
+fix iteration 0회.
+
+### 45.5 Complexity budget 영향
+
+| | 변경 전 | PR-B3 후 |
+|---|---|---|
+| 노드 | v0 7 + v1 4 | 동일 |
+| Safety | v0 10 + v1 13 (Dijkstra+LIS+SegTree) | +TwoSum 1 = 14 |
+| `TargetAlgorithm` enum | 3 | 4 (+TWO_SUM) |
+
+### 45.6 다음 단계 (PR-B 시리즈)
+
+| PR | 스코프 | 상태 |
+|---|---|---|
+| B1 LIS | merged | ✅ |
+| B2 SegTree | merged | ✅ |
+| B2.1 fix | merged (format 정합) | ✅ |
+| **B3 Two Sum (본)** | unit + smoke green | ✅ |
+| B4 BFS | distance ≤ 1-step + reachability + smoke | 다음 |
+| B5 5-algo N=3 measurement + Gate | baseline 5 deliverable | |
+
+### 45.7 알려진 한계
+
+- "여러 valid pair 가 있을 때 어느 하나만 OK" — verifier 가 LLM 출력의 특정
+  pair 만 검증 (다른 valid pair 가능성 무시). brute golden 도 first lex pair 만
+  반환. existence_consistent 의 양방향성 (no false positive of "-1") 만 보장.
+- N=1 케이스 reject (verifier `n <= 0` 만 reject, n=1 은 valid pair 불가능 →
+  "-1" 만 valid). LLM 이 n=1 spec 만들면 designer 단계에서 trivial.
+- Two Sum 의 variant (sorted array, all distinct values 등) 미고려.
+
+### 45.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.TWO_SUM` 추가 |
+| `ipe/v1/verifiers/twosum.py` | 신규 — `TwoSumVerifier` + brute O(N²) golden |
+| `ipe/v1/verifiers/__init__.py` | `TwoSumVerifier` import + auto-register |
+| `ipe/v1/nodes/designer.py` | `TWO_SUM_DEFAULT_INVARIANTS` + dispatch + system prompt |
+| `ipe/v1/nodes/architect.py` | system prompt 에 Two Sum format guide 추가 |
+| `tests/v1/verifiers/test_twosum.py` | 17 단위 테스트 |
+| `CHANGES.md` §45 | 본 entry |
+
+---
