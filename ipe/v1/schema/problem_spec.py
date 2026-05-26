@@ -26,6 +26,7 @@ class TargetAlgorithm(StrEnum):
 
     DIJKSTRA = "dijkstra"
     LIS = "lis"
+    SEGTREE = "segtree"
 
 
 class ConstraintRange(BaseModel):
