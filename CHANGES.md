@@ -3092,3 +3092,91 @@ return. 이후 invariants 는 line-aligned 비교.
 | `CHANGES.md` §43 | 본 entry |
 
 ---
+
+## 44. v1.0 D안 Phase 2a — PR-B2.1: SegTree format 정합 + smoke test 발견 (2026-05-26)
+
+### 44.1 동기
+
+PR-B2 (#81) 머지 후 smoke test (`python -m ipe.v1.main_v1 --algorithm segtree
+--max-iter 4`) 에서 발견: **`samples_engaged=0`** (verifier silent skip 전체).
+sample exact match 만으로 통과 = baseline (single Opus call) 과 동등.
+**H2 (algorithm-specific symbolic verifier) narrative 가 SegTree 에서 깨짐**.
+
+이건 사용자 질문 "segtree 문제 생성 테스팅도 해본건가?" 의 정확한 답: 단위만
+했고 e2e 안 했음. e2e 가 narrative-critical 임이 드러남 — Phase 2a/2b 의
+PR-B3/B4 도 같은 risk.
+
+### 44.2 진단 (3 round smoke + verbose)
+
+`main_v1 --verbose` 임시 flag 로 spec/design/attempt 전체 dump 한 결과:
+
+| Round | samples_engaged | 발견 |
+|---|---|---|
+| 1차 (PR-B2 그대로) | 0/4 | verifier: `N` / array / `Q` / 0-indexed ops. LLM: `N Q` 한 줄 / 1-indexed |
+| 2차 (verifier rewrite: N Q + 1-indexed) | 0/4 | verifier: `U`/`Q` keyword. LLM 이 다른 run 에서 `1`/`2` op code 사용 (variance) |
+| **3차 (architect/designer prompt 의 op keyword 강제)** | **4/4** ✅ | LLM 이 `U`/`Q` 사용 (success 1-shot) |
+
+### 44.3 변경 내용
+
+- `ipe/v1/verifiers/segtree.py`: `_parse_sample_input` rewrite. `N Q` 첫 줄 +
+  1-indexed (internal 0-indexed 변환). docstring 도 format 갱신.
+- `ipe/v1/nodes/designer.py`: SegTree system prompt 의 format guide 강화
+  ("op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자", 숫자/풀워드 금지).
+- `ipe/v1/nodes/architect.py`: system prompt 에 algorithm 별 input/output
+  format 가이드 추가 (Dijkstra/SegTree/LIS). architect 가 sample_testcases 만들
+  때 verifier parse 와 정합.
+- `ipe/v1/main_v1.py`: `--verbose` flag 추가 + `_print_verbose()` (spec /
+  design / attempt 전체 dump). diagnosis tool 영구 보존.
+- `tests/v1/verifiers/test_segtree.py`: 모든 fixture 1-indexed + `N Q` format
+  으로 update. zero-indexed 거부 test 추가, 음수 update 통과 test 추가.
+
+### 44.4 검증
+
+- ruff 0 / mypy --strict 0 (47 source files, +1 main_v1 line)
+- pytest tests/v1 (non-e2e): **165 passed** (+18 net since PR-B2)
+- **smoke (real LLM)**: SegTree 1-shot success, **samples_engaged=4** (verifier
+  100% 실효, Phase 1 Dijkstra 패턴과 동일)
+- cost ~$3 (3 smoke run = ~$1 each)
+
+### 44.5 narrative 인사이트 (Phase 2b 적용 권장)
+
+**LLM 의 op format variance 가 큼** — 같은 prompt 라도 run 마다 다른 keyword
+선택. 정합성 보장을 위해서는:
+1. designer 가 invariants 만 명시하면 부족 — 구체 format 도 explicit.
+2. architect 가 spec 만들 때 verifier 와 정합한 format 사용 강제.
+3. verifier 가 LLM 의 자연스러운 표준 (1-indexed, 첫 줄에 N Q) 따라야.
+
+이 패턴이 PR-B3 (Two Sum), PR-B4 (BFS) 에도 적용 — **verifier 작성 → smoke 1
+run → format mismatch 발견 시 즉시 fix** sequence. PR-B5 measurement 전에 4
+algo 모두 smoke green.
+
+### 44.6 알려진 한계
+
+- LLM 이 또 다른 variance (예: `+`/`?` op 또는 multi-char keyword) 만들 가능성
+  남음 — N=3 measurement 에서 검증.
+- variant 제한 여전히 Range Sum + Point Update.
+- IOContract 의 op_format 필드 (architect 가 명시적 약속) 도입은 Phase 3.
+
+### 44.7 다음 단계
+
+| PR | 스코프 | 패턴 |
+|---|---|---|
+| B1 LIS | merged | unit only (단순 format) |
+| B2 SegTree | merged | unit only |
+| **B2.1 fix (본)** | format 정합 + smoke green | **smoke 도 추가** |
+| B3 Two Sum | brute pair check + smoke green | unit + smoke |
+| B4 BFS | distance ≤ 1-step + smoke green | unit + smoke |
+| B5 5-algo N=3 measurement + Gate | baseline 5 deliverable | full measurement |
+
+### 44.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/verifiers/segtree.py` | `_parse_sample_input` rewrite (N Q + 1-indexed) + docstring |
+| `ipe/v1/nodes/designer.py` | SegTree prompt format guide 강화 (op keyword 강제) |
+| `ipe/v1/nodes/architect.py` | system prompt 에 algorithm 별 input/output format 가이드 추가 |
+| `ipe/v1/main_v1.py` | `--verbose` flag + `_print_verbose()` |
+| `tests/v1/verifiers/test_segtree.py` | 모든 fixture 1-indexed + N Q format, 신규 negative-update / zero-indexed-reject test |
+| `CHANGES.md` §44 | 본 entry |
+
+---
