@@ -66,7 +66,35 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MAX_ITERATIONS,
         help=f"max iterations (default: {DEFAULT_MAX_ITERATIONS})",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="dump spec/design/attempt for diagnosis (verifier engagement debug)",
+    )
     return parser
+
+
+def _print_verbose(final: V1State) -> None:
+    """spec/design/attempt 전체 출력 — verifier engagement 디버그."""
+    print("\n=== VERBOSE DUMP ===")
+    if final.spec is not None:
+        print(f"\n[spec.target_algorithm] {final.spec.target_algorithm.value}")
+        print(f"[spec.title] {final.spec.title}")
+        print(f"[spec.io_contract.input_format]\n{final.spec.io_contract.input_format}")
+        print(f"[spec.io_contract.output_format]\n{final.spec.io_contract.output_format}")
+        for i, s in enumerate(final.spec.sample_testcases):
+            print(f"\n--- sample {i} input_text ---")
+            print(repr(s.input_text))
+            print(f"--- sample {i} expected_output ---")
+            print(repr(s.expected_output))
+    if final.design is not None:
+        print("\n[design.invariants]")
+        for inv in final.design.invariants:
+            print(f"  - {inv.kind}: {inv.description}")
+    if final.attempt is not None:
+        print("\n[attempt.code (first 1000 chars)]")
+        print(final.attempt.code[:1000])
+    print("\n=== END VERBOSE ===\n")
 
 
 def _print_summary(final: V1State) -> None:
@@ -123,6 +151,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     final = _normalize_final_state(raw)
 
     _print_summary(final)
+    if args.verbose:
+        _print_verbose(final)
 
     return 0 if final.final_status == "success" else 1
 

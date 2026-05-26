@@ -37,6 +37,18 @@ Dijkstra 가 target 이면:
 - output: 단일 정수 — d[s][t] (unreachable 이면 -1)
 - non-negative weight 만 (Dijkstra 정의역)
 
+Segment Tree (segtree) 가 target 이면:
+- input format: 첫 줄 "N Q", 둘째 줄 "A_1 ... A_N" (1-indexed),
+  그 다음 Q줄 각각 "U i v" (point update, 1-indexed) 또는 "Q l r" (range sum,
+  1-indexed inclusive). **op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자**
+  (숫자 코드 1/2 금지, 풀워드 update/query 금지).
+- output: 각 "Q" op 마다 한 줄, 단일 정수.
+- 음수 update 값 허용. variant = Range Sum + Point Update (Phase 2a).
+
+LIS 가 target 이면:
+- input format: 첫 줄 N, 둘째 줄 a_1 ... a_N
+- output: 단일 정수 — strictly increasing LIS 길이
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

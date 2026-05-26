@@ -89,6 +89,19 @@ target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - range_sum_optimal
 - single_element_query_consistency
 
+segtree 의 input/output format 은 다음 표준을 **반드시** 따른다 (PR-B2.1 format
+정합 — verifier parse 와 1:1 매칭 의무):
+- 첫 줄: "N Q" (N=array 크기, Q=op 갯수, 공백 구분)
+- 둘째 줄: A_1 A_2 ... A_N (1-indexed array, 공백 구분)
+- 그 다음 Q 줄: 각 줄에 op. **op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자**:
+  - "U i v" : A[i] = v (point update, 1<=i<=N, v 는 음수 허용)
+  - "Q l r" : sum(A[l..r]) 출력 (inclusive, 1<=l<=r<=N)
+- **금지**: 숫자 코드 (1, 2 등), 풀워드 (update, query), 다른 약자.
+output: 각 "Q" op 마다 한 줄, 단일 정수.
+
+architect 가 sample_testcases 만들 때 위 format 을 엄격히 따라야 verifier
+engagement (samples_engaged > 0) 가 보장됨.
+
 위 kind 들은 verifier dispatch key 이므로 정확한 spelling 필수.
 
 - data_structures: 사용할 자료구조 list (예: ["priority_queue", "adjacency_list"])

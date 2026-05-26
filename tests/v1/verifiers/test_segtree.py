@@ -1,6 +1,7 @@
-"""SegmentTreeVerifier 단위 테스트 (D안 Phase 2a PR-B2).
+"""SegmentTreeVerifier 단위 테스트 (D안 Phase 2a PR-B2 + PR-B2.1 format fix).
 
 variant: Range Sum + Point Update.
+Input format: "N Q" first line + array + Q ops (1-indexed).
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from ipe.v1.verifiers import SegmentTreeVerifier, get_verifier, register_verifie
 
 def _io() -> IOContract:
     return IOContract(
-        input_format="N, array, Q, ops (U i v | Q l r)",
+        input_format="N Q on first line, array, Q ops (U i v | Q l r) 1-indexed",
         output_format="one integer per Q op",
     )
 
@@ -39,7 +40,10 @@ def _attempt() -> SolutionAttempt:
 
 
 def _spec_basic() -> ProblemSpec:
-    """N=5, arr=[1,2,3,4,5], 3 ops: Q 0 4, U 2 10, Q 0 4 → outputs 15, 22."""
+    """N=5, arr=[1,2,3,4,5], 3 ops: Q 1 5, U 3 10, Q 1 5 → outputs 15, 22.
+
+    1-indexed: U 3 10 means A[3]=10 (third element). Q 1 5 means sum(A[1..5]).
+    """
     return ProblemSpec(
         target_algorithm=TargetAlgorithm.SEGTREE,
         title="Range sum with point updates",
@@ -47,15 +51,15 @@ def _spec_basic() -> ProblemSpec:
         io_contract=_io(),
         sample_testcases=[
             SampleTestCase(
-                input_text="5\n1 2 3 4 5\n3\nQ 0 4\nU 2 10\nQ 0 4",
+                input_text="5 3\n1 2 3 4 5\nQ 1 5\nU 3 10\nQ 1 5",
                 expected_output="15\n22",
             ),
             SampleTestCase(
-                input_text="3\n10 20 30\n2\nQ 1 2\nQ 0 0",
+                input_text="3 2\n10 20 30\nQ 2 3\nQ 1 1",
                 expected_output="50\n10",
             ),
             SampleTestCase(
-                input_text="4\n0 0 0 0\n3\nU 0 5\nU 3 7\nQ 0 3",
+                input_text="4 3\n0 0 0 0\nU 1 5\nU 4 7\nQ 1 4",
                 expected_output="12",
             ),
         ],
@@ -85,7 +89,6 @@ def test_target_algorithm_constant() -> None:
 
 
 def test_catches_output_count_too_few() -> None:
-    """sample 0 expects 2 query outputs but only 1 given."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(), _design(), _attempt(), sample_outputs=["15", "50\n10", "12"]
@@ -96,7 +99,6 @@ def test_catches_output_count_too_few() -> None:
 
 
 def test_catches_output_count_too_many() -> None:
-    """sample 1 expects 2 outputs but 3 given."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(),
@@ -112,7 +114,6 @@ def test_catches_output_count_too_many() -> None:
 
 
 def test_catches_negative_sum_with_non_negative_input() -> None:
-    """all input >= 0, but LLM 이 negative sum 출력."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(),
@@ -128,7 +129,6 @@ def test_catches_negative_sum_with_non_negative_input() -> None:
 
 
 def test_catches_wrong_sum() -> None:
-    """sample 0 의 첫 query golden=15 인데 99 출력."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(),
@@ -142,7 +142,6 @@ def test_catches_wrong_sum() -> None:
 
 
 def test_catches_wrong_sum_after_update() -> None:
-    """sample 0 의 두 번째 query (update 후) golden=22 인데 17 출력."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(),
@@ -159,7 +158,7 @@ def test_catches_wrong_sum_after_update() -> None:
 
 
 def test_single_element_consistency() -> None:
-    """sample 1 의 Q 0 0 (l==r) 가 array[0]=10 인데 99 출력 → range_sum 가 먼저 catch."""
+    """sample 1 의 Q 1 1 (l==r) — array[0]=10 인데 99 출력 → range_sum 가 먼저 catch."""
     v = SegmentTreeVerifier()
     violations = v.verify(
         _spec_basic(),
@@ -167,7 +166,6 @@ def test_single_element_consistency() -> None:
         _attempt(),
         sample_outputs=["15\n22", "50\n99", "12"],
     )
-    # range_sum_optimal 이 먼저 priority (naive 와 다름 → 즉시 catch).
     assert len(violations) == 1
     assert violations[0].invariant_kind == "range_sum_optimal"
 
@@ -183,13 +181,44 @@ def test_empty_query_no_outputs() -> None:
         description="d",
         io_contract=_io(),
         sample_testcases=[
-            SampleTestCase(input_text="3\n1 2 3\n2\nU 0 9\nU 1 8", expected_output=""),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
+            SampleTestCase(
+                input_text="3 2\n1 2 3\nU 1 9\nU 2 8", expected_output=""
+            ),
+            SampleTestCase(
+                input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"
+            ),
+            SampleTestCase(
+                input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"
+            ),
         ],
     )
     v = SegmentTreeVerifier()
     violations = v.verify(spec, _design(), _attempt(), sample_outputs=["", "6", "6"])
+    assert violations == []
+
+
+def test_negative_update_value_passes_when_golden_matches() -> None:
+    """LLM 의 자연 format 은 음수 update 허용 (U 1 -5)."""
+    spec = ProblemSpec(
+        target_algorithm=TargetAlgorithm.SEGTREE,
+        title="t",
+        description="d",
+        io_contract=_io(),
+        sample_testcases=[
+            SampleTestCase(
+                input_text="1 3\n7\nQ 1 1\nU 1 -5\nQ 1 1",
+                expected_output="7\n-5",
+            ),
+            SampleTestCase(
+                input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"
+            ),
+            SampleTestCase(
+                input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"
+            ),
+        ],
+    )
+    v = SegmentTreeVerifier()
+    violations = v.verify(spec, _design(), _attempt(), sample_outputs=["7\n-5", "6", "6"])
     assert violations == []
 
 
@@ -204,8 +233,8 @@ def test_unparseable_input_silent_skip() -> None:
         io_contract=_io(),
         sample_testcases=[
             SampleTestCase(input_text="garbage", expected_output="x"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
         ],
     )
     v = SegmentTreeVerifier()
@@ -215,16 +244,15 @@ def test_unparseable_input_silent_skip() -> None:
 
 
 def test_invalid_op_kind_silent_skip() -> None:
-    """unknown op kind 'X' → parse fail → skip."""
     spec = ProblemSpec(
         target_algorithm=TargetAlgorithm.SEGTREE,
         title="t",
         description="d",
         io_contract=_io(),
         sample_testcases=[
-            SampleTestCase(input_text="3\n1 2 3\n1\nX 0 2", expected_output="x"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nX 1 3", expected_output="x"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
         ],
     )
     v = SegmentTreeVerifier()
@@ -233,16 +261,34 @@ def test_invalid_op_kind_silent_skip() -> None:
 
 
 def test_query_out_of_bounds_silent_skip() -> None:
-    """Q 0 5 with N=3 → l<=r<N fail → parse skip."""
+    """Q 1 6 with N=3 → r>N fail → parse skip."""
     spec = ProblemSpec(
         target_algorithm=TargetAlgorithm.SEGTREE,
         title="t",
         description="d",
         io_contract=_io(),
         sample_testcases=[
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 5", expected_output="x"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 6", expected_output="x"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
+        ],
+    )
+    v = SegmentTreeVerifier()
+    violations = v.verify(spec, _design(), _attempt(), sample_outputs=["x", "6", "6"])
+    assert violations == []
+
+
+def test_zero_indexed_input_rejected_as_out_of_range() -> None:
+    """0-indexed input (i=0 또는 l=0) 는 1<=i<=N 위반 → parse skip."""
+    spec = ProblemSpec(
+        target_algorithm=TargetAlgorithm.SEGTREE,
+        title="t",
+        description="d",
+        io_contract=_io(),
+        sample_testcases=[
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 0 2", expected_output="x"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
         ],
     )
     v = SegmentTreeVerifier()
@@ -265,7 +311,7 @@ def test_count_engaged_partial() -> None:
         io_contract=_io(),
         sample_testcases=[
             SampleTestCase(input_text="garbage", expected_output="x"),
-            SampleTestCase(input_text="3\n1 2 3\n1\nQ 0 2", expected_output="6"),
+            SampleTestCase(input_text="3 1\n1 2 3\nQ 1 3", expected_output="6"),
             SampleTestCase(input_text="X 0 2", expected_output="x"),
         ],
     )

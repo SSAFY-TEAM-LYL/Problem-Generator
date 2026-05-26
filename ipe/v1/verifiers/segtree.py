@@ -14,21 +14,25 @@ Invariants (4):
 4. ``single_element_query_consistency``: ``l == r`` 일 때 결과 == 그 시점
    ``array[l]``.
 
-Input format (Phase 2a 단순화)::
+Input format (Phase 2a 단순화 — competitive programming 표준 따라 **1-indexed**)::
 
-    N
+    N Q
     a_1 a_2 ... a_N
-    Q
     op_1
     op_2
     ...
     op_Q
 
-각 op_i 형식:
-- ``U i v`` : ``array[i] = v`` (point update, 0-indexed)
-- ``Q l r`` : sum(array[l..r]) 출력 (inclusive)
+각 op_i 형식 (모두 1-indexed):
+- ``U i v`` : ``A[i] = v`` (point update, 1<=i<=N)
+- ``Q l r`` : sum(A[l..r]) 출력 (inclusive, 1<=l<=r<=N)
 
 Output format: ``Q l r`` 마다 한 줄, 단일 정수. ``U`` 는 출력 없음.
+
+PR-B2.1 fix: 첫 smoke run 에서 LLM 의 자연 format (1-indexed, "N Q" 한 줄)
+과 verifier 의 strict 0-indexed format mismatch 로 ``samples_engaged=0``
+관측됨. verifier 가 LLM 자연 format 따르도록 rewrite (internal 은 0-indexed 로
+변환).
 
 format mismatch / parse 실패 시 verifier silent skip — executor sample exact
 match fallback.
@@ -67,15 +71,25 @@ class _ParsedInput:
 
 
 def _parse_sample_input(text: str) -> _ParsedInput | None:
-    """N + array + Q + Q ops 형식 parse. 실패 시 None."""
+    """"N Q" first line + array + Q ops (1-indexed). 실패 시 None.
+
+    Internal storage 는 0-indexed (op.a, op.b) — verifier 의 simulation 단순화.
+    1→0 변환은 본 함수에서만.
+    """
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
-    if len(lines) < 3:
+    if len(lines) < 2:
+        return None
+    first = lines[0].split()
+    if len(first) != 2:
         return None
     try:
-        n = int(lines[0])
+        n = int(first[0])
+        q = int(first[1])
     except ValueError:
         return None
-    if n < 0:
+    if n <= 0 or q < 0:
+        return None
+    if len(lines) != 2 + q:
         return None
     try:
         values = tuple(int(x) for x in lines[1].split())
@@ -83,16 +97,8 @@ def _parse_sample_input(text: str) -> _ParsedInput | None:
         return None
     if len(values) != n:
         return None
-    try:
-        q = int(lines[2])
-    except ValueError:
-        return None
-    if q < 0:
-        return None
-    if len(lines) - 3 != q:
-        return None
     ops: list[_Op] = []
-    for line in lines[3:]:
+    for line in lines[2 : 2 + q]:
         parts = line.split()
         if len(parts) != 3:
             return None
@@ -100,18 +106,21 @@ def _parse_sample_input(text: str) -> _ParsedInput | None:
         if kind not in ("U", "Q"):
             return None
         try:
-            a = int(parts[1])
-            b = int(parts[2])
+            a_raw = int(parts[1])
+            b_raw = int(parts[2])
         except ValueError:
             return None
         if kind == "U":
-            if not (0 <= a < n):
+            i_0 = a_raw - 1
+            if not (0 <= i_0 < n):
                 return None
+            ops.append(_Op(kind="U", a=i_0, b=b_raw))
         else:  # Q
-            if not (0 <= a <= b < n):
+            l_0 = a_raw - 1
+            r_0 = b_raw - 1
+            if not (0 <= l_0 <= r_0 < n):
                 return None
-        op_kind: OpKind = "U" if kind == "U" else "Q"
-        ops.append(_Op(kind=op_kind, a=a, b=b))
+            ops.append(_Op(kind="Q", a=l_0, b=r_0))
     return _ParsedInput(n=n, arr=values, ops=tuple(ops))
 
 
