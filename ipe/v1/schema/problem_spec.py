@@ -17,13 +17,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TargetAlgorithm(StrEnum):
-    """v1 graph 가 지원하는 algorithm. Phase 1 = Dijkstra MVR.
+    """v1 graph 가 지원하는 algorithm.
 
-    Phase 2 에서 ``LIS``, ``SEGMENT_TREE`` 등 enum value 확장 예정. free str 대신
-    enum 으로 좁혀서 symbolic verifier dispatch (D안 H2) 의 silent fallback 회피.
+    Phase 1 = Dijkstra MVR. Phase 2a = + LIS / Segment Tree / Two Sum / BFS
+    (baseline 5 완성). free str 대신 enum 으로 좁혀서 symbolic verifier
+    dispatch (D안 H2) 의 silent fallback 회피.
     """
 
     DIJKSTRA = "dijkstra"
+    LIS = "lis"
 
 
 class ConstraintRange(BaseModel):

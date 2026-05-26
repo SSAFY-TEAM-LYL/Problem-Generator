@@ -2910,3 +2910,94 @@ Dijkstra = 0/3 대비 v1 의 회복 여부 측정.
 | `CHANGES.md` §41 | 본 entry |
 
 ---
+
+## 42. v1.0 D안 Phase 2a — PR-B1: LIS verifier (patience sort golden) (2026-05-26)
+
+### 42.1 동기
+
+D안 Phase 1 (Dijkstra MVR) Gate PASS (§41) 후 Phase 2a 진입. 사용자 지시: "겨우
+5종류가 아니라 다른 수많은 알고리즘들에 대해서도 검증". 단순 algo 갯수 확장은
+H2 (algorithm-specific symbolic verifier) narrative 약화 risk 라 baseline 5
+algo (Two Sum / BFS / Dijkstra / LIS / Segment Tree) 부터 hand-written verifier
+로 완성 → v0 baseline N=3 와 직접 비교. PR-B 시리즈 (B1~B5) 의 첫 PR.
+
+### 42.2 변경 내용
+
+- `ipe/v1/schema/problem_spec.py`: `TargetAlgorithm` enum 에 `LIS = "lis"` 추가.
+  Phase 1 의 단일 enum 에서 첫 확장.
+- `ipe/v1/verifiers/lis.py`: `LISVerifier` — 3 invariants:
+  - `non_negative_length`: 출력 ≥ 0
+  - `length_le_input_size`: 출력 ≤ N
+  - `length_optimal`: O(N log N) patience sort golden 과 cross-check
+- `ipe/v1/verifiers/__init__.py`: `LISVerifier` 자동 register (Dijkstra 와 함께).
+- `ipe/v1/nodes/designer.py`: `LIS_DEFAULT_INVARIANTS` tuple + `_default_invariants_for("lis")` dispatch + system prompt 에 LIS 가이드 추가.
+- `tests/v1/verifiers/test_lis.py`: 14 단위 테스트 (golden / 각 invariant 위반 / edge cases / parse skip / dispatch).
+
+**Strictly increasing 채택** (vs non-decreasing): 더 좁은 정답이라 verifier
+강도 ↑. strict/non-strict 헷갈리는 LLM 출력은 `length_optimal` violation 으로 잡힘.
+
+### 42.3 Phase 1→2a 영향 (BC 안전)
+
+| | 변경 |
+|---|---|
+| Phase 1 dispatch | DIJKSTRA 만 → DIJKSTRA + LIS |
+| 기존 Dijkstra fixture | 영향 0 (enum 추가만, BC) |
+| test cleanup 패턴 | `clear_registry()` 사용하는 test 가 LIS register 도 포함하도록 갱신 |
+| test_iteration_context | "lis" → "segtree" (Phase 2b 까지 아직 unsupported value) |
+| test_problem_spec | `target_algorithm == "dijkstra"` → `.value == "dijkstra"` (mypy strict narrowing 통과) |
+
+### 42.4 검증
+
+- ruff 0 / mypy --strict 0 (45 source files, +2 PR-B1)
+- pytest full (non-e2e): **585 passed** (571 + 14 LIS unit tests, regression 0)
+
+### 42.5 Input/Output format (Phase 2a 단순화)
+
+```
+N
+a_1 a_2 ... a_N
+```
+output: 단일 정수 (strictly increasing LIS 길이). format mismatch → verifier
+silent skip → executor sample exact match fallback.
+
+### 42.6 Complexity budget 영향
+
+| | 변경 전 | PR-B1 후 |
+|---|---|---|
+| 노드 | v0 7 + v1 4 = 11 임시 공존 | 동일 |
+| Safety | v0 10 + v1 (Dijkstra) ≈ 11 | +LIS verifier 1 = 12 |
+| `TargetAlgorithm` enum | 1 (DIJKSTRA) | 2 (DIJKSTRA, LIS) |
+
+### 42.7 다음 단계 (PR-B 시리즈)
+
+| PR | 스코프 | 비고 |
+|---|---|---|
+| **PR-B1 (본)** | LIS verifier | ✅ |
+| PR-B2 | Segment Tree verifier (naive O(N²) golden) | data structure 복잡 |
+| PR-B3 | Two Sum verifier (brute pair check) | easy baseline |
+| PR-B4 | BFS verifier (distance ≤ 1-step + reachability) | graph 두 번째 |
+| PR-B5 | 5-algo N=3 measurement + Gate | baseline 5 deliverable |
+
+### 42.8 알려진 한계
+
+- LIS output format = length only (Phase 2a). LIS sequence 자체 출력 검증
+  (`subsequence_of_input` / `strictly_increasing` invariants) 은 Phase 2b 검토.
+- non-decreasing LIS variant 지원 X — `IOContract` 의 variant flag 도입은 Phase
+  3 (multi-format catalog).
+- N=3 measurement 는 PR-B5 통합 수행 — 본 PR 은 unit 만.
+
+### 42.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.LIS` enum value 추가 |
+| `ipe/v1/verifiers/lis.py` | 신규 — `LISVerifier` + patience sort golden + parse helper |
+| `ipe/v1/verifiers/__init__.py` | `LISVerifier` import + auto-register |
+| `ipe/v1/nodes/designer.py` | `LIS_DEFAULT_INVARIANTS` + dispatch + system prompt |
+| `tests/v1/verifiers/test_lis.py` | 14 단위 테스트 |
+| `tests/v1/verifiers/test_dijkstra.py` | cleanup 패턴에 LIS register 포함 |
+| `tests/v1/schema/test_problem_spec.py` | mypy strict 호환 fix (`.value ==`) |
+| `tests/v1/schema/test_iteration_context.py` | "lis" reject → "segtree" reject (LIS 가 이제 supported) |
+| `CHANGES.md` §42 | 본 entry |
+
+---

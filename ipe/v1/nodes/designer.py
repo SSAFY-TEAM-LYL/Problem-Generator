@@ -33,6 +33,16 @@ DIJKSTRA_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+LIS_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("non_negative_length", "출력 LIS 길이 >= 0"),
+    ("length_le_input_size", "출력 LIS 길이 <= 입력 sequence 크기 N"),
+    (
+        "length_optimal",
+        "patience sort O(N log N) golden 과 일치 (strictly increasing)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -51,6 +61,11 @@ target_algorithm = "dijkstra" 면 다음 4 invariants 를 반드시 포함:
 - reachability_consistent
 - shortest_distance_optimal
 
+target_algorithm = "lis" 면 다음 3 invariants 를 반드시 포함:
+- non_negative_length
+- length_le_input_size
+- length_optimal
+
 위 kind 들은 verifier dispatch key 이므로 정확한 spelling 필수.
 
 - data_structures: 사용할 자료구조 list (예: ["priority_queue", "adjacency_list"])
@@ -60,6 +75,8 @@ target_algorithm = "dijkstra" 면 다음 4 invariants 를 반드시 포함:
 def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
     if target_algorithm == "dijkstra":
         return list(DIJKSTRA_DEFAULT_INVARIANTS)
+    if target_algorithm == "lis":
+        return list(LIS_DEFAULT_INVARIANTS)
     return []
 
 

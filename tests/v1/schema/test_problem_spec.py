@@ -46,7 +46,7 @@ def _valid_spec() -> ProblemSpec:
 def test_problem_spec_constructs_with_minimal_valid_input() -> None:
     spec = _valid_spec()
     assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA
-    assert spec.target_algorithm == "dijkstra"  # StrEnum string equality
+    assert spec.target_algorithm.value == "dijkstra"  # StrEnum string value
     assert len(spec.sample_testcases) == 3
     assert spec.time_limit_ms == 2000
     assert spec.memory_limit_mb == 256

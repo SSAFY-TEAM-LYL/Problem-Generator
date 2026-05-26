@@ -204,9 +204,12 @@ def test_register_verifier_round_trip() -> None:
     instance = DijkstraVerifier()
     register_verifier(instance)
     assert get_verifier(TargetAlgorithm.DIJKSTRA) is instance
-    # 다른 테스트 격리 회복
+    # 다른 테스트 격리 회복 — Phase 2a 부터 LIS 도 함께 register.
+    from ipe.v1.verifiers import LISVerifier
+
     clear_registry()
     register_verifier(DijkstraVerifier())
+    register_verifier(LISVerifier())
 
 
 def test_count_engaged_samples_all_parseable() -> None:
