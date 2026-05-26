@@ -75,17 +75,11 @@ class AnthropicArchitectLLM:
     lazy import: test 는 langchain 없이 mock 만으로 가능.
     """
 
-    def __init__(
-        self,
-        model: str = ARCHITECT_MODEL,
-        temperature: float = ARCHITECT_TEMPERATURE,
-    ) -> None:
+    def __init__(self, model: str = ARCHITECT_MODEL) -> None:
         from langchain_anthropic import ChatAnthropic
         from langchain_core.prompts import ChatPromptTemplate
 
-        llm = ChatAnthropic(
-            model_name=model, temperature=temperature, timeout=60, stop=None
-        )
+        llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
         prompt = ChatPromptTemplate.from_messages(
             [("system", _SYSTEM_PROMPT), ("user", "{user}")]
         )

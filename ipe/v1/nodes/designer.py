@@ -103,17 +103,11 @@ class DesignerLLM(Protocol):
 class AnthropicDesignerLLM:
     """production impl — Sonnet + structured output."""
 
-    def __init__(
-        self,
-        model: str = DESIGNER_MODEL,
-        temperature: float = DESIGNER_TEMPERATURE,
-    ) -> None:
+    def __init__(self, model: str = DESIGNER_MODEL) -> None:
         from langchain_anthropic import ChatAnthropic
         from langchain_core.prompts import ChatPromptTemplate
 
-        llm = ChatAnthropic(
-            model_name=model, temperature=temperature, timeout=60, stop=None
-        )
+        llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
         prompt = ChatPromptTemplate.from_messages(
             [("system", _SYSTEM_PROMPT), ("user", "{user}")]
         )
