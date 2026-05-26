@@ -49,6 +49,12 @@ LIS 가 target 이면:
 - input format: 첫 줄 N, 둘째 줄 a_1 ... a_N
 - output: 단일 정수 — strictly increasing LIS 길이
 
+Two Sum (two_sum) 이 target 이면:
+- input format: 첫 줄 "N T" (N=array 크기, T=target sum, 공백 구분),
+  둘째 줄 "a_1 ... a_N" (1-indexed array, 공백 구분, 음수 허용).
+- output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair).
+  여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

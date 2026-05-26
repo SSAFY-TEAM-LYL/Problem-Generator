@@ -60,6 +60,17 @@ SEGTREE_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+TWO_SUM_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_format_valid", "출력이 '-1' 단독 또는 'i j' (두 정수) 형식"),
+    ("indices_in_range_and_ordered", "i j 출력 시 1 <= i < j <= N"),
+    ("sum_equals_target", "i j 출력 시 a[i] + a[j] == T"),
+    (
+        "existence_consistent",
+        "brute O(N^2) golden 과 해 존재 여부 일치 ('-1' vs valid pair)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -82,6 +93,18 @@ target_algorithm = "lis" 면 다음 3 invariants 를 반드시 포함:
 - non_negative_length
 - length_le_input_size
 - length_optimal
+
+target_algorithm = "two_sum" 면 다음 4 invariants 를 반드시 포함:
+- output_format_valid
+- indices_in_range_and_ordered
+- sum_equals_target
+- existence_consistent
+
+two_sum 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N T" (N=array 크기, T=target sum, 공백 구분)
+- 둘째 줄: a_1 a_2 ... a_N (1-indexed array, 공백 구분, 음수 허용)
+- output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair)
+- 출력은 한 줄. 여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
 
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
@@ -115,6 +138,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(LIS_DEFAULT_INVARIANTS)
     if target_algorithm == "segtree":
         return list(SEGTREE_DEFAULT_INVARIANTS)
+    if target_algorithm == "two_sum":
+        return list(TWO_SUM_DEFAULT_INVARIANTS)
     return []
 
 
