@@ -204,12 +204,13 @@ def test_register_verifier_round_trip() -> None:
     instance = DijkstraVerifier()
     register_verifier(instance)
     assert get_verifier(TargetAlgorithm.DIJKSTRA) is instance
-    # 다른 테스트 격리 회복 — Phase 2a 부터 LIS 도 함께 register.
-    from ipe.v1.verifiers import LISVerifier
+    # 다른 테스트 격리 회복 — Phase 2a 부터 LIS / SegmentTree 도 함께 register.
+    from ipe.v1.verifiers import LISVerifier, SegmentTreeVerifier
 
     clear_registry()
     register_verifier(DijkstraVerifier())
     register_verifier(LISVerifier())
+    register_verifier(SegmentTreeVerifier())
 
 
 def test_count_engaged_samples_all_parseable() -> None:
@@ -257,6 +258,10 @@ def test_register_verifier_replaces_existing() -> None:
     register_verifier(a)
     register_verifier(b)
     assert get_verifier(TargetAlgorithm.DIJKSTRA) is b
-    # 다른 테스트 격리 회복
+    # 다른 테스트 격리 회복 — Phase 2a 부터 LIS / SegmentTree 도 함께.
+    from ipe.v1.verifiers import LISVerifier, SegmentTreeVerifier
+
     clear_registry()
     register_verifier(DijkstraVerifier())
+    register_verifier(LISVerifier())
+    register_verifier(SegmentTreeVerifier())

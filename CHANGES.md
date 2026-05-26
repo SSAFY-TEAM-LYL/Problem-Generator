@@ -3001,3 +3001,94 @@ silent skip → executor sample exact match fallback.
 | `CHANGES.md` §42 | 본 entry |
 
 ---
+
+## 43. v1.0 D안 Phase 2a — PR-B2: Segment Tree verifier (naive O(NQ) golden) (2026-05-26)
+
+### 43.1 동기
+
+Phase 2a 두 번째 PR — baseline 5 algo 완성 plan 의 2/5. PR-B1 (LIS, length-only
+output) 보다 복잡한 multi-line input/output + state-ful operation sequence 처리
+패턴 첫 도입. variant: **Range Sum + Point Update** (가장 보편적, 다른 variant
+는 Phase 3).
+
+### 43.2 변경 내용
+
+- `ipe/v1/schema/problem_spec.py`: `TargetAlgorithm.SEGTREE = "segtree"` 추가.
+- `ipe/v1/verifiers/segtree.py`: `SegmentTreeVerifier` — 4 invariants:
+  - `output_count_matches_queries`: 출력 줄 수 == "Q" op 갯수.
+  - `non_negative_sum_for_non_negative_input`: 입력 ≥ 0 이면 결과 ≥ 0.
+  - `range_sum_optimal`: naive O(NQ) Python list simulator golden 과 일치.
+  - `single_element_query_consistency`: l==r 일 때 결과 == 그 시점 array[l].
+- `ipe/v1/verifiers/__init__.py`: `SegmentTreeVerifier` 자동 register.
+- `ipe/v1/nodes/designer.py`: `SEGTREE_DEFAULT_INVARIANTS` + dispatch + prompt.
+- `tests/v1/verifiers/test_segtree.py`: 15 단위 테스트.
+- `tests/v1/verifiers/test_dijkstra.py`: cleanup 패턴 두 곳 모두 SegmentTree
+  register 포함하도록 갱신.
+- `tests/v1/schema/test_iteration_context.py`: "segtree" → "bfs" (SEGTREE 가
+  이제 supported, BFS 는 PR-B4 까지 unsupported).
+- `tests/v1/verifiers/test_lis.py`: ruff N817 fix (`as TA` 제거).
+
+### 43.3 Multi-line I/O parse 패턴 (Phase 2 첫 사례)
+
+PR-B1 LIS 는 single-line output 이라 단순. SegmentTree 는:
+- Input: N + array + Q + Q lines of ops (`U i v` 또는 `Q l r`)
+- Output: query op 마다 한 줄, multi-line
+
+`_parse_output_lines(output_str, expected_count)` 가 line-count match 부터
+검증 → mismatch 면 `output_count_matches_queries` violation 으로 immediate
+return. 이후 invariants 는 line-aligned 비교.
+
+향후 PR-B3 (Two Sum, single line) / PR-B4 (BFS, line list) 도 본 패턴 재사용
+가능. Phase 3 의 generic IOContract parser 도입 시 본 verifier 가 anchor.
+
+### 43.4 검증
+
+- ruff 0 / mypy --strict 0 (47 source files, +2 PR-B2)
+- pytest full (non-e2e): **601 passed** (585 + 16 net, regression 0)
+  - 15 segtree unit + 1 lis cleanup-pattern test
+
+### 43.5 Complexity budget 영향
+
+| | 변경 전 | PR-B2 후 |
+|---|---|---|
+| 노드 | v0 7 + v1 4 = 11 | 동일 |
+| Safety | v0 10 + v1 12 (Dijkstra+LIS) | +SegmentTree 1 = 13 |
+| `TargetAlgorithm` enum | 2 (DIJKSTRA, LIS) | 3 (+SEGTREE) |
+
+### 43.6 다음 단계 (PR-B 시리즈)
+
+| PR | 스코프 | 상태 |
+|---|---|---|
+| PR-B1 LIS | patience sort golden | ✅ |
+| **PR-B2 SegTree (본)** | naive O(NQ) golden | ✅ |
+| PR-B3 Two Sum | brute pair check (O(N²)) | 다음 |
+| PR-B4 BFS | distance ≤ 1-step + reachability | |
+| PR-B5 5-algo N=3 measurement + Gate | baseline 5 deliverable | |
+
+### 43.7 알려진 한계
+
+- Variant 제한 — Range Sum + Point Update 만. Range Min/Max / Range Update +
+  Lazy / Persistent Segment Tree 등은 Phase 3.
+- N, Q 범위 검증 X — N=10^6 같은 large input 에서 verifier naive simulator 가
+  O(NQ) 라 느림. test fixture 는 small N (3~5). PR-B5 measurement 에서 cost
+  체크.
+- `_array_snapshot_at_query` 가 O(NQ) reconstruction — 매 single-element query
+  마다 fresh simulate. Phase 3 에서 incremental snapshot 또는 segment tree 자체
+  를 verifier 가 사용해서 cross-check 가능 (단 그러면 LLM 의 segment tree 구현
+  과 같은 algorithm 으로 비교 — verifier 의 독립성 약화).
+
+### 43.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.SEGTREE` 추가 |
+| `ipe/v1/verifiers/segtree.py` | 신규 — `SegmentTreeVerifier` + naive simulator + multi-line parse |
+| `ipe/v1/verifiers/__init__.py` | `SegmentTreeVerifier` import + auto-register |
+| `ipe/v1/nodes/designer.py` | `SEGTREE_DEFAULT_INVARIANTS` + dispatch + system prompt |
+| `tests/v1/verifiers/test_segtree.py` | 15 단위 테스트 |
+| `tests/v1/verifiers/test_dijkstra.py` | cleanup 두 곳에 SegmentTree register 추가 |
+| `tests/v1/verifiers/test_lis.py` | ruff N817 fix |
+| `tests/v1/schema/test_iteration_context.py` | "segtree" → "bfs" (SEGTREE 가 이제 supported) |
+| `CHANGES.md` §43 | 본 entry |
+
+---

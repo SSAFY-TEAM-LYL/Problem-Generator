@@ -119,5 +119,5 @@ def test_learned_invariants_can_be_passed_in() -> None:
 def test_iteration_context_rejects_unsupported_target_algorithm() -> None:
     with pytest.raises(ValidationError):
         IterationContext.model_validate(
-            {"run_id": "r1", "target_algorithm": "segtree"}
+            {"run_id": "r1", "target_algorithm": "bfs"}
         )

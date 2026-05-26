@@ -43,6 +43,23 @@ LIS_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+SEGTREE_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_count_matches_queries", "출력 줄 수 == 입력의 Q query 갯수"),
+    (
+        "non_negative_sum_for_non_negative_input",
+        "입력 a_i 및 update v 가 모두 >= 0 이면 모든 query 결과 >= 0",
+    ),
+    (
+        "range_sum_optimal",
+        "naive O(NQ) Python list 시뮬레이터 결과와 정확 일치",
+    ),
+    (
+        "single_element_query_consistency",
+        "l == r 일 때 결과 == 그 시점 array[l]",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -66,6 +83,12 @@ target_algorithm = "lis" 면 다음 3 invariants 를 반드시 포함:
 - length_le_input_size
 - length_optimal
 
+target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
+- output_count_matches_queries
+- non_negative_sum_for_non_negative_input
+- range_sum_optimal
+- single_element_query_consistency
+
 위 kind 들은 verifier dispatch key 이므로 정확한 spelling 필수.
 
 - data_structures: 사용할 자료구조 list (예: ["priority_queue", "adjacency_list"])
@@ -77,6 +100,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(DIJKSTRA_DEFAULT_INVARIANTS)
     if target_algorithm == "lis":
         return list(LIS_DEFAULT_INVARIANTS)
+    if target_algorithm == "segtree":
+        return list(SEGTREE_DEFAULT_INVARIANTS)
     return []
 
 

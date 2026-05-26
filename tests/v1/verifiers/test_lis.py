@@ -245,3 +245,11 @@ def test_get_verifier_returns_lis_after_module_import() -> None:
     verifier = get_verifier(TargetAlgorithm.LIS)
     assert verifier is not None
     assert verifier.target_algorithm is TargetAlgorithm.LIS
+
+
+def test_lis_verifier_registers_alongside_others() -> None:
+    """Phase 2a 부터 같은 registry 에 여러 verifier 공존 검증."""
+    register_verifier(LISVerifier())
+    assert get_verifier(TargetAlgorithm.LIS) is not None
+    # 다른 algo 도 registry 에 있어야 (test_dijkstra cleanup 패턴 검증).
+    assert get_verifier(TargetAlgorithm.DIJKSTRA) is not None
