@@ -37,6 +37,7 @@ class TargetAlgorithm(StrEnum):
     STRING_MATCH = "string_match"
     MAX_FLOW = "max_flow"
     SIEVE = "sieve"
+    BELLMAN_FORD = "bellman_ford"
 
 
 class ConstraintRange(BaseModel):

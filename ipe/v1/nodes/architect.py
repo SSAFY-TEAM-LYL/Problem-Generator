@@ -126,6 +126,18 @@ Sieve of Eratosthenes (sieve) 가 target 이면:
 - **중요**: sample N <= 10000 (trial division golden 안전 상한). N 이 너무
   크면 verifier silent skip.
 
+Bellman-Ford (bellman_ford) 가 target 이면:
+- input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=target,
+  모두 1-indexed), 그 다음 E줄 각각 "u v w" (directed edge u→v, **w 음수
+  허용**).
+- output: 단일 정수 d[s][t], 또는 "-1" (unreachable).
+- variant: classic Bellman-Ford (negative weight 허용, **negative cycle 금지**).
+  input 은 반드시 reachable negative cycle 없는 graph (cycle 시 verifier
+  silent skip).
+- **중요**: sample V <= 25 (Floyd-Warshall O(V^3) golden 의 안전 상한).
+- Dijkstra 와의 차이: w 음수 허용. negative weight 가 있는 sample 1개 이상
+  포함 권장 (verifier engagement narrative).
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
