@@ -172,7 +172,9 @@ class AnthropicArchitectLLM:
         prompt = ChatPromptTemplate.from_messages(
             [("system", _SYSTEM_PROMPT), ("user", "{user}")]
         )
-        self._chain = prompt | llm.with_structured_output(ProblemSpec)
+        self._chain = (prompt | llm.with_structured_output(ProblemSpec)).with_retry(
+            stop_after_attempt=3, wait_exponential_jitter=True
+        )
 
     def generate(self, state: V1State) -> ProblemSpec:
         result = self._chain.invoke({"user": _build_user_prompt(state)})
