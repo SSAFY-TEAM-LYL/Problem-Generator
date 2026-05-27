@@ -138,6 +138,17 @@ KNAPSACK_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+SORT_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_length_matches_n", "출력 정수 갯수 == N"),
+    ("output_preserves_input_multiset", "출력 multiset == 입력 multiset"),
+    ("output_is_sorted_ascending", "a[i] <= a[i+1] (non-strict ascending)"),
+    (
+        "output_matches_python_sorted",
+        "output == sorted(input) — Python sorted() golden 과 정확 일치",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -239,6 +250,20 @@ knapsack 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - **important: sample N <= 15** (brute O(2^N) golden 의 안전 상한; verifier 가
   N > 22 면 silent skip)
 
+target_algorithm = "sort" 면 다음 4 invariants 를 반드시 포함:
+- output_length_matches_n
+- output_preserves_input_multiset
+- output_is_sorted_ascending
+- output_matches_python_sorted
+
+sort 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N" (배열 크기)
+- 둘째 줄: "a_1 a_2 ... a_N" (1-indexed, 정수, 중복 허용, 음수 허용)
+- output: "b_1 b_2 ... b_N" — 입력의 ascending 정렬 (한 줄 또는 여러 줄,
+  whitespace-tolerant)
+- variant: classic comparison sort (Quicksort/Mergesort/Heapsort family,
+  algorithm 선택은 designer 자유). non-strict ascending (중복 시 stable 무관).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -283,6 +308,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(TOPOSORT_DEFAULT_INVARIANTS)
     if target_algorithm == "knapsack":
         return list(KNAPSACK_DEFAULT_INVARIANTS)
+    if target_algorithm == "sort":
+        return list(SORT_DEFAULT_INVARIANTS)
     return []
 
 
