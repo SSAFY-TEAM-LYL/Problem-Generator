@@ -138,6 +138,16 @@ Bellman-Ford (bellman_ford) 가 target 이면:
 - Dijkstra 와의 차이: w 음수 허용. negative weight 가 있는 sample 1개 이상
   포함 권장 (verifier engagement narrative).
 
+Floyd-Warshall (floyd_warshall) 가 target 이면:
+- input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
+  그 다음 E줄 각각 "u v w" (directed edge u→v, w 음수 허용).
+- output: V lines, each V space-separated 정수. d[i][j] 또는 "-1"
+  (unreachable). diagonal d[i][i] = 0.
+- variant: classic Floyd-Warshall all-pairs shortest path.
+- **중요**: sample V <= 20 (V × Bellman-Ford golden 안전 상한).
+  reachable negative cycle 금지.
+- Bellman-Ford 와의 차이: all-pairs matrix output (single value 아님).
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

@@ -202,6 +202,20 @@ BELLMAN_FORD_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+FLOYD_WARSHALL_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_v_by_v_matrix", "출력이 V x V 정수 matrix"),
+    ("diagonal_is_zero", "d[i][i] = 0 모든 i"),
+    (
+        "triangle_inequality",
+        "모든 (i,j,k) 에 대해 d[i][j] <= d[i][k] + d[k][j]",
+    ),
+    (
+        "matches_bellman_ford_golden",
+        "output[i][j] == V-times Bellman-Ford golden (cross-algorithm, V<=25)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -378,6 +392,22 @@ bellman_ford 의 input/output format 은 다음 표준을 **반드시** 따른�
 - **중요**: sample V <= 25 (Floyd-Warshall O(V^3) golden 안전 상한; V > 30 면
   verifier silent skip).
 
+target_algorithm = "floyd_warshall" 면 다음 4 invariants 를 반드시 포함:
+- output_is_v_by_v_matrix
+- diagonal_is_zero
+- triangle_inequality
+- matches_bellman_ford_golden
+
+floyd_warshall 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "V E" (V=노드 수, E=edge 수, 1-indexed)
+- 그 다음 E줄 각각 "u v w" (directed edge u→v, w 음수 허용)
+- output: V lines, each V space-separated 정수. d[i][j] 또는 "-1" (unreachable).
+  diagonal d[i][i] = 0 강제.
+- variant: classic Floyd-Warshall all-pairs shortest path.
+- **중요**: sample V <= 20 (V × Bellman-Ford golden 안전 상한; V > 25 면
+  verifier silent skip).
+- input 은 reachable negative cycle 없는 graph (cycle 시 silent skip).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -432,6 +462,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(SIEVE_DEFAULT_INVARIANTS)
     if target_algorithm == "bellman_ford":
         return list(BELLMAN_FORD_DEFAULT_INVARIANTS)
+    if target_algorithm == "floyd_warshall":
+        return list(FLOYD_WARSHALL_DEFAULT_INVARIANTS)
     return []
 
 
