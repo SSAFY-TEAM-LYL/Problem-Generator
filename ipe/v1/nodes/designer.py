@@ -71,6 +71,20 @@ TWO_SUM_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+BFS_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("non_negative_distance", "결과 거리 >= 0 또는 -1 (unreachable)"),
+    ("source_zero", "s == t 일 때 결과 = 0"),
+    (
+        "reachability_consistent",
+        "directed forward reachability 와 -1 여부 일치",
+    ),
+    (
+        "distance_optimal",
+        "Floyd-Warshall O(V^3) golden (edge weight=1) 과 일치",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -106,6 +120,18 @@ two_sum 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair)
 - 출력은 한 줄. 여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
 
+target_algorithm = "bfs" 면 다음 4 invariants 를 반드시 포함:
+- non_negative_distance
+- source_zero
+- reachability_consistent
+- distance_optimal
+
+bfs 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "V E s t" (V=노드 수, E=edge 수, s=source, t=target. 모두 1-indexed)
+- 그 다음 E줄: 각 줄 "u v" (directed edge u→v, 1-indexed, 1<=u,v<=V)
+- output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1"
+- variant: single-source single-target. directed graph. edge weight=1 가정.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -140,6 +166,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(SEGTREE_DEFAULT_INVARIANTS)
     if target_algorithm == "two_sum":
         return list(TWO_SUM_DEFAULT_INVARIANTS)
+    if target_algorithm == "bfs":
+        return list(BFS_DEFAULT_INVARIANTS)
     return []
 
 

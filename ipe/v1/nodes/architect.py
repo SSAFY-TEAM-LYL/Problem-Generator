@@ -55,6 +55,12 @@ Two Sum (two_sum) 이 target 이면:
 - output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair).
   여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
 
+BFS (bfs) 가 target 이면:
+- input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=target,
+  모두 1-indexed), 그 다음 E줄 각각 "u v" (directed edge u→v, 1-indexed).
+- output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1".
+- variant: single-source single-target. directed graph. edge weight=1 가정.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

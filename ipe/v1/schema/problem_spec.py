@@ -28,6 +28,7 @@ class TargetAlgorithm(StrEnum):
     LIS = "lis"
     SEGTREE = "segtree"
     TWO_SUM = "two_sum"
+    BFS = "bfs"
 
 
 class ConstraintRange(BaseModel):
