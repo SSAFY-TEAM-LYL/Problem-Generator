@@ -30,6 +30,7 @@ class TargetAlgorithm(StrEnum):
     TWO_SUM = "two_sum"
     BFS = "bfs"
     BINARY_SEARCH = "binary_search"
+    UNION_FIND = "union_find"
 
 
 class ConstraintRange(BaseModel):

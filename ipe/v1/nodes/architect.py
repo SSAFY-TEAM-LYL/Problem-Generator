@@ -68,6 +68,13 @@ Binary Search (binary_search) 가 target 이면:
   어느 하나만 출력해도 OK.
 - variant: classic exact match.
 
+Union-Find (union_find) 가 target 이면:
+- input format: 첫 줄 "N Q" (N=element 수, Q=op 갯수, 1-indexed),
+  그 다음 Q줄 각각 "U x y" (union) 또는 "Q x y" (same-set query, 1-indexed).
+  **op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자**.
+- output: 각 "Q" op 마다 한 줄, 0 (다른 set) 또는 1 (같은 set).
+- variant: classic same-set DSU.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
