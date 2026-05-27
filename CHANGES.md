@@ -3342,3 +3342,100 @@ baseline 5 algo × N=3 = 15 runs measurement:
 | `CHANGES.md` §46 | 본 entry |
 
 ---
+
+## 47. v1.0 D안 Phase 2a — PR-B5: 5-algo N=3 measurement + Gate PASS (2026-05-27)
+
+### 47.1 동기
+
+Phase 2a final PR — baseline 5 algo (Dijkstra/LIS/SegTree/Two Sum/BFS) × N=3 =
+15 runs measurement + Gate 판정. PRINCIPLES.md 룰 1 (N≥3) + 룰 2 (cross-algo
+regression) + 룰 3 (baseline anchor) 동시 적용. PR-A5 (Dijkstra-only) → 5-algo
+generalization.
+
+### 47.2 변경 내용
+
+**Measurement infra 확장**:
+- `ipe/v1/measurement/n3_runner.py`: `BASELINE_5_ALGORITHMS` constant + `run_baseline_5_measurements()` helper (5 algo 순회, global run_index 재정렬).
+- `ipe/v1/measurement/__main__.py`: `--baseline-5` flag (mutex with `--algorithm`).
+- `tests/v1/measurement/test_n3_runner.py`: 2 신규 unit (multi-algo dispatch + constant length).
+
+**측정 데이터**:
+- `docs/baseline/data/v1-pr-b5-detailed.jsonl` (15 lines, raw).
+- `docs/baseline/v1-pr-b5-N3-5algo.md` (narrative 보고서, Gate 판정 포함).
+
+### 47.3 측정 결과 요약
+
+| Algo | Run-level | Sample-level | `samples_engaged` |
+|---|---|---|---|
+| Dijkstra | 3/3 ✅ | 12/12 | 12/12 |
+| LIS | 3/3 ✅ | 14/14 | 14/14 |
+| Segment Tree | 3/3 ✅ | 12/12 | 12/12 |
+| Two Sum | 3/3 ✅ | 12/12 | 12/12 |
+| BFS | 2/3 ⚠ | 11/12 | 12/12 |
+| **합계** | **14/15 (93.3%)** | **61/62 (98.4%)** | **62/62 (100%)** |
+
+### 47.4 vs baseline anchor
+
+| Setup | Run-level | Δ |
+|---|---|---|
+| baseline v0 N=3 | 4/15 (27%) | reference |
+| IPE v0 N=3 | 3/15 (20%) | -7pp |
+| **IPE v1 PR-B5** | **14/15 (93.3%)** | **+66pp** |
+
+### 47.5 D안 H1/H2/H3 검증 (Phase 1 보완)
+
+- ✅ **H1 정량 검증**: `budget_exhausted` 93% → 0%, 1-shot success 86.7%, fix loop 정상 작동 1건 (Two Sum r2), oscillation halt 1건 (BFS r1).
+- ✅ **H2 완전 검증**: `samples_engaged` 62/62 (100%) — silent skip 0.
+- ⚠ **H3 부분 검증**: iter=2 sample 작음 (n=2). fix loop 성공률 50% (1/2). 어려운 algo 에서 추가 측정 필요.
+
+자세한 분석: `docs/baseline/v1-pr-b5-N3-5algo.md`.
+
+### 47.6 Gate 판정 (Phase 2a final)
+
+| 시나리오 | 판정 | 본 측정 |
+|---|---|---|
+| ≥ baseline 동등 (≥4/15) | **Phase 2b 진입** | ✓ **14/15** (압도적 상회) |
+| < baseline (kill-switch) | Phase 2a rollback | — |
+
+### **판정: Phase 2b 진입 ✅** (kill-switch 미발동)
+
+### 47.7 알려진 한계
+
+- N=3 small variance (±10pp 예상)
+- 13/15 1-shot → H1/H3 정량 sample size 작음
+- BFS r1 root cause 미분석 (sample-3-mismatch 2회 반복 → halt). Phase 2b 진입
+  전 디버그 권장.
+- Indexing inconsistency (Dijkstra 0-idx vs 나머지 1-idx) 그대로
+- Cost 추적 없음 — 추정 ~$15-30 (`LLMCallTracker` v1 통합 후 정확 측정)
+
+### 47.8 Complexity budget 영향
+
+| | 변경 전 | PR-B5 후 |
+|---|---|---|
+| 노드 | v0 7 + v1 4 = 11 임시 공존 | 동일 |
+| Safety | v0 10 + v1 (5 verifier) = 15 | +baseline-5 measurement helper = 15 (helper 는 safety 아닌 infra) |
+| `TargetAlgorithm` enum | 5 (baseline 완성) | 동일 |
+
+### 47.9 Phase 2b 후보 (다음 PR 시리즈)
+
+| 후보 | priority |
+|---|---|
+| BFS r1 root cause 디버그 | 즉시 |
+| Algorithm 확장 (Knapsack, Union-Find, Topological Sort, MaxFlow, Binary Search) | 높음 |
+| N=5 재측정 (variance 축소) | 중 |
+| Observability 강화 (`LLMCallTracker` v1 통합) | 중 |
+| Indexing 통일 (Dijkstra 0-idx → 1-idx) | 낮음 |
+| Catalog v1 schema (Phase 3 일부 앞당김) | 낮음 |
+
+### 47.10 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/measurement/n3_runner.py` | `BASELINE_5_ALGORITHMS` + `run_baseline_5_measurements()` 추가 |
+| `ipe/v1/measurement/__main__.py` | `--baseline-5` flag + import 갱신 |
+| `tests/v1/measurement/test_n3_runner.py` | 2 신규 unit (multi-algo dispatch + constant) |
+| `docs/baseline/data/v1-pr-b5-detailed.jsonl` | 신규 — 15 runs raw |
+| `docs/baseline/v1-pr-b5-N3-5algo.md` | 신규 — narrative 보고서 + Gate 판정 |
+| `CHANGES.md` §47 | 본 entry |
+
+---

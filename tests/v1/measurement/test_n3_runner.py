@@ -128,6 +128,31 @@ def _factory_for(states_by_index: list[V1State]) -> Any:
 # ---------- run_n_measurements ----------
 
 
+def test_run_baseline_5_measurements_uses_all_algorithms_and_reindexes() -> None:
+    """5 algo × N=2 = 10 runs. run_index 가 0..9 로 global reindex."""
+    from ipe.v1.measurement.n3_runner import (
+        BASELINE_5_ALGORITHMS,
+        run_baseline_5_measurements,
+    )
+
+    # 5 algo × 2 = 10 stub states (모두 success).
+    factory = _factory_for([_success_state(f"r{i}") for i in range(10)])
+    outcomes = run_baseline_5_measurements(n=2, graph_factory=factory)
+
+    assert len(outcomes) == 10
+    assert [o.run_index for o in outcomes] == list(range(10))
+    for i, algo in enumerate(BASELINE_5_ALGORITHMS):
+        assert algo.value in outcomes[i * 2].run_id
+        assert algo.value in outcomes[i * 2 + 1].run_id
+
+
+def test_baseline_5_algorithms_constant_length() -> None:
+    """baseline 5 = exactly 5 algorithms."""
+    from ipe.v1.measurement.n3_runner import BASELINE_5_ALGORITHMS
+
+    assert len(BASELINE_5_ALGORITHMS) == 5
+
+
 def test_run_n_measurements_collects_outcomes_in_order() -> None:
     outcomes = run_n_measurements(
         n=3,
