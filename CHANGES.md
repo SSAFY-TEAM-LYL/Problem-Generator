@@ -3515,3 +3515,78 @@ upper_bound 는 Phase 3.
 | `CHANGES.md` §48 | 본 entry |
 
 ---
+
+## 49. v1.0 D안 Phase 2b — PR-C2: Union-Find verifier + smoke green (2026-05-27)
+
+### 49.1 동기
+
+PR-C 시리즈 두 번째. classic DSU same-set query. naive BFS-over-union-edges
+golden 으로 cross-check (DSU 와 다른 algorithm).
+
+### 49.2 변경 내용
+
+- `TargetAlgorithm.UNION_FIND` enum 추가
+- `UnionFindVerifier` — 4 invariants:
+  - `output_count_matches_queries`, `binary_output_for_queries`
+  - `same_set_correctness` (BFS over union edges golden)
+  - `self_query_returns_one`
+- designer + architect prompt (U/Q op keyword 강제)
+- 14 unit tests
+
+### 49.3 검증
+
+- ruff 0 / mypy 0 (55 src, +2 PR-C2)
+- pytest non-e2e: **227 passed** (+12)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 49.4 누적 7 verifier
+
+Dijkstra, LIS, Segment Tree, Two Sum, BFS, Binary Search, Union-Find.
+
+### 49.5 Phase 2b/2c 확장 plan (사용자 "수많은 algorithm" 의도)
+
+**Phase 2b (PR-C 시리즈, ~8 algo)**:
+
+| PR | algo | difficulty | golden algorithm |
+|---|---|---|---|
+| C1 ✅ | Binary Search | low | linear scan |
+| **C2** | Union-Find | medium | BFS over union edges |
+| C3 | Topological Sort | medium | Kahn's algorithm |
+| C4 | Knapsack 0/1 | high | brute O(2^N) |
+| C5 | Quicksort/Mergesort | low | `sorted()` |
+| C6 | KMP / Z-algorithm | medium | brute O(NM) |
+| C7 | Maximum Flow | high | min-cut = max-flow |
+| C8 | Sieve of Eratosthenes | low | trial division |
+
+**Phase 2c (PR-D 시리즈, +10 algo) — narrative 확장**:
+
+- **DP**: LCS, Edit Distance, Coin Change, Matrix Chain Multiplication
+- **Graph**: Bellman-Ford, Kruskal MST, SCC (Tarjan/Kosaraju), LCA, Articulation Points
+- **String**: Rabin-Karp, Trie, Aho-Corasick
+- **Number Theory**: GCD/LCM, Modular Exp, Extended Euclidean, Miller-Rabin
+- **Data Structure**: Heap, Fenwick Tree, Sparse Table
+
+**Phase 2d (PR-E 시리즈, +15-20 algo) — catalog 가속**:
+
+- **Combinatorics**: nCr/nPr, Stars and Bars, Catalan
+- **Geometry**: Convex Hull, Line Intersection, Closest Pair
+- **Greedy**: Activity Selection, Huffman, Job Scheduling
+- **Bit**: Subset Enum, Hamming weight, Bit DP
+- **Math**: Matrix Exp, Polynomial / FFT, Sieve variants
+- **Game Theory**: Nim, Sprague-Grundy
+
+총 catalog target: 30~50+ algorithm (Phase 2 끝 기준).
+
+### 49.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.UNION_FIND` 추가 |
+| `ipe/v1/verifiers/union_find.py` | 신규 — `UnionFindVerifier` + BFS golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `UNION_FIND_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Union-Find format guide |
+| `tests/v1/verifiers/test_union_find.py` | 14 단위 테스트 |
+| `CHANGES.md` §49 | 본 entry |
+
+---

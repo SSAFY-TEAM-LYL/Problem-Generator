@@ -99,6 +99,20 @@ BINARY_SEARCH_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+UNION_FIND_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_count_matches_queries", "출력 줄 수 == 입력의 Q op 갯수"),
+    ("binary_output_for_queries", "모든 출력 ∈ {0, 1}"),
+    (
+        "same_set_correctness",
+        "BFS over union edges (naive O(N) per query) golden 과 일치",
+    ),
+    (
+        "self_query_returns_one",
+        "Q x x (self-query) 는 항상 1",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -159,6 +173,20 @@ binary_search 의 input/output format 은 다음 표준을 **반드시** 따른�
   "-1" (no match)
 - variant: classic exact match (lower/upper bound 는 미지원).
 
+target_algorithm = "union_find" 면 다음 4 invariants 를 반드시 포함:
+- output_count_matches_queries
+- binary_output_for_queries
+- same_set_correctness
+- self_query_returns_one
+
+union_find 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N Q" (N=element 수, Q=op 갯수, 공백 구분)
+- 그 다음 Q 줄: 각 줄 op. **op keyword 대문자 'U' 또는 'Q' 한 글자**:
+  - "U x y": union x, y (1-indexed, no output)
+  - "Q x y": same-set query, 출력 0 또는 1 (1-indexed)
+- output: 각 "Q" op 마다 한 줄, 0 또는 1.
+- variant: classic same-set DSU.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -197,6 +225,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(BFS_DEFAULT_INVARIANTS)
     if target_algorithm == "binary_search":
         return list(BINARY_SEARCH_DEFAULT_INVARIANTS)
+    if target_algorithm == "union_find":
+        return list(UNION_FIND_DEFAULT_INVARIANTS)
     return []
 
 
