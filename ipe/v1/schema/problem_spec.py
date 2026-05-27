@@ -39,6 +39,7 @@ class TargetAlgorithm(StrEnum):
     SIEVE = "sieve"
     BELLMAN_FORD = "bellman_ford"
     FLOYD_WARSHALL = "floyd_warshall"
+    KRUSKAL_MST = "kruskal_mst"
 
 
 class ConstraintRange(BaseModel):
