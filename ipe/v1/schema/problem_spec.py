@@ -38,6 +38,7 @@ class TargetAlgorithm(StrEnum):
     MAX_FLOW = "max_flow"
     SIEVE = "sieve"
     BELLMAN_FORD = "bellman_ford"
+    FLOYD_WARSHALL = "floyd_warshall"
 
 
 class ConstraintRange(BaseModel):

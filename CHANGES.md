@@ -4049,3 +4049,63 @@ Sort, String Match, Max Flow, Sieve, **Bellman-Ford**).
 | `CHANGES.md` §57 | 본 entry |
 
 ---
+
+## 58. v1.0 D안 Phase 2c — PR-D2: Floyd-Warshall verifier (all-pairs, baseline ×3.0) (2026-05-27)
+
+### 58.1 동기
+
+Phase 2c PR-D 두 번째. **all-pairs shortest path** — single-pair (Bellman-Ford,
+Dijkstra) 와 다른 output 형식 (V × V matrix). **baseline 5 의 정확히 3배 달성**.
+
+### 58.2 변경 내용
+
+- `TargetAlgorithm.FLOYD_WARSHALL` enum 추가
+- `FloydWarshallVerifier` — 4 invariants:
+  - `output_is_v_by_v_matrix`, `diagonal_is_zero`
+  - `triangle_inequality` (d[i][j] <= d[i][k] + d[k][j])
+  - `matches_bellman_ford_golden` (V × Bellman-Ford cross-algorithm golden,
+    O(V^2 * E), V <= 25)
+- designer + architect prompt (V <= 20, negative cycle 금지)
+- 13 unit tests (matrix parse flexible, negative cycle skip, V limit, ...)
+
+### 58.3 검증
+
+- ruff 0 / mypy 0 (36 src)
+- pytest non-e2e: **346 passed** (+13)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 58.4 15 verifier 누적 — **baseline ×3.0 달성** 🎯
+
+```
+Phase 1 (1):    Dijkstra
+Phase 2a (4):   LIS, SegTree, Two Sum, BFS
+Phase 2b (8):   Binary Search, Union-Find, Toposort, Knapsack,
+                Sort, String Match, Max Flow, Sieve
+Phase 2c (2):   Bellman-Ford, Floyd-Warshall
+─────────────
+TOTAL: 15 algorithm verifier
+```
+
+### 58.5 Multi-output 형식 패턴 확립
+
+| output 형식 | 예시 algorithm | verifier 패턴 |
+|---|---|---|
+| single int | Dijkstra/BFS/Bellman-Ford/Knapsack/Max Flow/Sieve_count | parse_int + 단일 비교 |
+| int list | Sieve/Sort/Toposort | tokenize + multiset/order check |
+| pair index | Two Sum | parse pair + 1-indexed check |
+| matrix | **Floyd-Warshall** | parse V×V + diagonal + triangle |
+| binary per query | Union-Find/SegTree | parse line count + 0/1 check |
+
+### 58.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.FLOYD_WARSHALL` 추가 |
+| `ipe/v1/verifiers/floyd_warshall.py` | 신규 — `FloydWarshallVerifier` + V × Bellman-Ford golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `FLOYD_WARSHALL_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Floyd-Warshall format guide |
+| `tests/v1/verifiers/test_floyd_warshall.py` | 13 단위 테스트 |
+| `CHANGES.md` §58 | 본 entry |
+
+---
