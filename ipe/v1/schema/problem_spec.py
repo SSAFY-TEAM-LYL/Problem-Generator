@@ -32,6 +32,7 @@ class TargetAlgorithm(StrEnum):
     BINARY_SEARCH = "binary_search"
     UNION_FIND = "union_find"
     TOPOSORT = "toposort"
+    KNAPSACK = "knapsack"
 
 
 class ConstraintRange(BaseModel):

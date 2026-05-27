@@ -127,6 +127,17 @@ TOPOSORT_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+KNAPSACK_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_single_int", "출력이 단일 정수"),
+    ("value_non_negative", "출력 >= 0"),
+    ("value_within_total_bound", "0 <= 출력 <= sum(v_i)"),
+    (
+        "value_optimal_via_brute",
+        "brute O(2^N) subset enum golden 과 일치 (sample N <= 15)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -214,6 +225,20 @@ toposort 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - variant: classic DAG topological ordering. input 은 cycle 없는 DAG 가정.
   topo order 는 일반적으로 unique 하지 않으므로 어떤 valid order 든 OK.
 
+target_algorithm = "knapsack" 면 다음 4 invariants 를 반드시 포함:
+- output_is_single_int
+- value_non_negative
+- value_within_total_bound
+- value_optimal_via_brute
+
+knapsack 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N C" (N=item 갯수, C=capacity, 공백 구분, 1-indexed items)
+- 그 다음 N 줄: 각 줄 "w_i v_i" (weight, value 둘 다 정수, 음수 금지)
+- output: 단일 정수 — capacity C 이하 최대 value 합
+- variant: classic 0/1 knapsack (each item 0 or 1 회 선택, no fractional).
+- **important: sample N <= 15** (brute O(2^N) golden 의 안전 상한; verifier 가
+  N > 22 면 silent skip)
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -256,6 +281,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(UNION_FIND_DEFAULT_INVARIANTS)
     if target_algorithm == "toposort":
         return list(TOPOSORT_DEFAULT_INVARIANTS)
+    if target_algorithm == "knapsack":
+        return list(KNAPSACK_DEFAULT_INVARIANTS)
     return []
 
 

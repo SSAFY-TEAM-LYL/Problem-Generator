@@ -3647,3 +3647,50 @@ Topological Sort.
 | `CHANGES.md` §50 | 본 entry |
 
 ---
+
+## 51. v1.0 D안 Phase 2b — PR-C4: 0/1 Knapsack verifier (2026-05-27)
+
+### 51.1 동기
+
+PR-C 시리즈 네 번째. classic DP — first **DP-family** algorithm in V1 (PR-A~C3
+모두 graph/structural). brute O(2^N) golden 으로 optimal value cross-check.
+
+### 51.2 변경 내용
+
+- `TargetAlgorithm.KNAPSACK` enum 추가
+- `KnapsackVerifier` — 4 invariants:
+  - `output_is_single_int`, `value_non_negative`
+  - `value_within_total_bound` (0 <= output <= sum(v_i))
+  - `value_optimal_via_brute` (O(2^N) subset enum golden, N <= 22 안전 상한)
+- designer + architect prompt (sample N <= 15 가이드)
+- 15 unit tests
+
+### 51.3 검증
+
+- ruff 0 / mypy 0 (30 src)
+- pytest non-e2e: **256 passed** (+15)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 51.4 9 verifier 누적
+
+Dijkstra, LIS, Segment Tree, Two Sum, BFS, Binary Search, Union-Find,
+Topological Sort, Knapsack 0/1.
+
+### 51.5 DP family 시작 (Phase 2c 가속)
+
+PR-C4 가 첫 DP. Phase 2c plan 의 DP cluster (LCS, Edit Distance, Coin Change,
+Matrix Chain) 모두 동일 brute golden 패턴 적용 가능. PR-D 시리즈 가속 신호.
+
+### 51.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.KNAPSACK` 추가 |
+| `ipe/v1/verifiers/knapsack.py` | 신규 — `KnapsackVerifier` + brute O(2^N) golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `KNAPSACK_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Knapsack format guide |
+| `tests/v1/verifiers/test_knapsack.py` | 15 단위 테스트 |
+| `CHANGES.md` §51 | 본 entry |
+
+---

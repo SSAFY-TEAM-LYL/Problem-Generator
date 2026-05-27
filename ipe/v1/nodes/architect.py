@@ -85,6 +85,14 @@ Topological Sort (toposort) 가 target 이면:
   valid order 든 OK (예: pos[u] < pos[v] for all edges u→v).
 - variant: classic DAG topological ordering.
 
+0/1 Knapsack (knapsack) 가 target 이면:
+- input format: 첫 줄 "N C" (N=item 갯수, C=capacity, 1-indexed),
+  그 다음 N줄 각각 "w_i v_i" (weight, value 둘 다 non-negative 정수).
+- output: 단일 정수 — capacity C 이하 최대 value 합.
+- variant: classic 0/1 knapsack (each item 0 or 1 회 선택, no fractional).
+- **중요**: sample N <= 15 (brute O(2^N) golden 의 안전 상한). N 이 너무 크면
+  verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
