@@ -85,6 +85,20 @@ BFS_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+BINARY_SEARCH_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_format_valid", "출력이 단일 정수 (-1 또는 1-indexed positive)"),
+    ("index_in_range", "-1 또는 1 <= idx <= N"),
+    (
+        "value_matches_target_when_found",
+        "idx > 0 일 때 a[idx] == T",
+    ),
+    (
+        "existence_consistent",
+        "linear scan golden 의 발견 여부와 일치 ('-1' vs valid idx)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -132,6 +146,19 @@ bfs 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1"
 - variant: single-source single-target. directed graph. edge weight=1 가정.
 
+target_algorithm = "binary_search" 면 다음 4 invariants 를 반드시 포함:
+- output_format_valid
+- index_in_range
+- value_matches_target_when_found
+- existence_consistent
+
+binary_search 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N T" (N=array 크기, T=target value, 공백 구분)
+- 둘째 줄: a_1 a_2 ... a_N (sorted ascending, 1-indexed)
+- output: 1-indexed index (a[idx]==T, 여러 valid idx 시 어느 하나 OK) 또는
+  "-1" (no match)
+- variant: classic exact match (lower/upper bound 는 미지원).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -168,6 +195,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(TWO_SUM_DEFAULT_INVARIANTS)
     if target_algorithm == "bfs":
         return list(BFS_DEFAULT_INVARIANTS)
+    if target_algorithm == "binary_search":
+        return list(BINARY_SEARCH_DEFAULT_INVARIANTS)
     return []
 
 

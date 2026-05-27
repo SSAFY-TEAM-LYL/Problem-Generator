@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .base import SymbolicVerifier, get_verifier, register_verifier
 from .bfs import BFSVerifier
+from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
 from .lis import LISVerifier
 from .segtree import SegmentTreeVerifier
@@ -20,14 +21,17 @@ from .twosum import TwoSumVerifier
 # Phase 2a (PR-B2): SegmentTreeVerifier 자동 등록.
 # Phase 2a (PR-B3): TwoSumVerifier 자동 등록.
 # Phase 2a (PR-B4): BFSVerifier 자동 등록 (baseline 5 완성).
+# Phase 2b (PR-C1): BinarySearchVerifier 자동 등록.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
 register_verifier(TwoSumVerifier())
 register_verifier(BFSVerifier())
+register_verifier(BinarySearchVerifier())
 
 __all__ = [
     "BFSVerifier",
+    "BinarySearchVerifier",
     "DijkstraVerifier",
     "LISVerifier",
     "SegmentTreeVerifier",
