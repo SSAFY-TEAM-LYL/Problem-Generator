@@ -31,6 +31,7 @@ class TargetAlgorithm(StrEnum):
     BFS = "bfs"
     BINARY_SEARCH = "binary_search"
     UNION_FIND = "union_find"
+    TOPOSORT = "toposort"
 
 
 class ConstraintRange(BaseModel):
