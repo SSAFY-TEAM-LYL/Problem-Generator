@@ -36,6 +36,7 @@ class TargetAlgorithm(StrEnum):
     SORT = "sort"
     STRING_MATCH = "string_match"
     MAX_FLOW = "max_flow"
+    SIEVE = "sieve"
 
 
 class ConstraintRange(BaseModel):

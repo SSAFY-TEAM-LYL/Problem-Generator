@@ -3840,3 +3840,82 @@ Kruskal MST, Floyd-Warshall, SCC 등도 동일 invariant + golden 패턴 적용 
 | `CHANGES.md` §54 | 본 entry |
 
 ---
+
+## 55. v1.0 D안 Phase 2b — PR-C8: Sieve verifier + **Phase 2b 마무리** (2026-05-27)
+
+### 55.1 동기
+
+PR-C 시리즈 마지막 (8/8). classic prime sieve. trial division O(N√N) golden.
+Phase 2b 8개 알고리즘 catalog 확장 완료.
+
+### 55.2 변경 내용
+
+- `TargetAlgorithm.SIEVE` enum 추가
+- `SieveVerifier` — 4 invariants:
+  - `output_is_int_list`, `all_in_valid_range`
+  - `all_strictly_ascending`
+  - `matches_trial_division` (O(N√N) golden, N <= 10000)
+- designer + architect prompt (N <= 10000 가이드)
+- 17 unit tests
+
+### 55.3 검증
+
+- ruff 0 / mypy 0 (34 src)
+- pytest non-e2e: **319 passed** (+17)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 55.4 13 verifier 누적 — **baseline ×2.6 확장 달성**
+
+Phase 1 (1): Dijkstra
+Phase 2a (4): LIS, Segment Tree, Two Sum, BFS
+Phase 2b (8): **Binary Search, Union-Find, Topological Sort, Knapsack 0/1,
+Sort, String Match, Max Flow, Sieve**
+
+### 55.5 Phase 2b 통합 통계
+
+| metric | 값 |
+|---|---|
+| 신규 verifier 수 | 8 (PR-C1~C8) |
+| 신규 invariants | 32 (각 verifier 4개) |
+| 신규 unit tests | 117 (PR-C1: 13, C2-C7 각 14-16, C8 17) |
+| 누적 unit tests | 319 (PR-B5 시점 188 → +131) |
+| smoke 성공률 | 8/8 (100%) |
+| smoke 평균 iteration | 1.125 (대부분 1-shot) |
+| 누적 samples_engaged 비율 | 100% (모든 smoke) |
+| Cluster verifier 도입 | 3개 (Sort, String Match, Max Flow) |
+| Algorithm family 다양성 | Graph(4)/DP(1)/String(1)/NumTheory(1)/Sort(1)/Search(1)/DS(1) |
+
+### 55.6 H1/H2/H3 가설 누적 evidence
+
+- **H1 (structured routing)**: PR-C8 도 1-shot. 32 invariants 결정론적 dispatch
+  검증 완료.
+- **H2 (algorithm-specific verifier engagement)**: 8/8 smoke 에서
+  samples_engaged 100%. SegTree (PR-B2.1) 사건 이후 format 보정 패턴 정착.
+- **H3 (IterationContext skill amnesia 완화)**: PR-C3 toposort 의 sample_mismatch
+  → 1 fix-loop recover. multi-iteration routing 도 동작.
+
+### 55.7 다음 단계 후보 (Phase 2c 시작 신호)
+
+D안 architecture + verifier catalog 가 안정화됨. 다음 우선순위 후보:
+
+1. **Phase 2c PR-D 시리즈**: catalog 확장 가속 (Bellman-Ford / Kruskal MST /
+   Coin Change / Heap / Fenwick Tree / Trie / Convex Hull 등 ~10개)
+2. **PR-E N=3 measurement**: 13 algorithm × N=3 = 39 runs 로 baseline anchor
+   재측정 (현 baseline = 5 algo only). vs v0 비교 narrative 확정.
+3. **Observability 강화**: LLMCallTracker integration, per-iteration
+   timing/cost breakdown.
+4. **Indexing unification**: Dijkstra 0-indexed legacy → 1-indexed 통일.
+
+### 55.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.SIEVE` 추가 |
+| `ipe/v1/verifiers/sieve.py` | 신규 — `SieveVerifier` + trial division golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `SIEVE_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Sieve format guide |
+| `tests/v1/verifiers/test_sieve.py` | 17 단위 테스트 |
+| `CHANGES.md` §55 | 본 entry — **Phase 2b 마무리** |
+
+---
