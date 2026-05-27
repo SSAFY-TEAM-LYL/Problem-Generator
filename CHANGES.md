@@ -3590,3 +3590,60 @@ Dijkstra, LIS, Segment Tree, Two Sum, BFS, Binary Search, Union-Find.
 | `CHANGES.md` §49 | 본 entry |
 
 ---
+
+## 50. v1.0 D안 Phase 2b — PR-C3: Topological Sort verifier (2026-05-27)
+
+### 50.1 동기
+
+PR-C 시리즈 세 번째. classic DAG ordering. **topo order 는 unique 하지 않음** →
+verifier 가 정답 비교가 아닌 **constraints** 검증 (PR-B 패턴 중 first non-unique
+algorithm).
+
+### 50.2 변경 내용
+
+- `TargetAlgorithm.TOPOSORT` enum 추가
+- `TopologicalSortVerifier` — 4 invariants:
+  - `output_length_matches_n`, `output_is_permutation`
+  - `edges_respect_order` (∀ u→v: pos[u] < pos[v])
+  - `dag_input_via_kahn` (Kahn cross-check, cycle 이면 spec invalid → skip)
+- designer + architect prompt (DAG 가정 + non-uniqueness 명시)
+- 14 unit tests
+- f-string 호환 fix: prompt 의 `{1..N}` → `1..N` (LangChain ChatPromptTemplate
+  default f-string template 변수 충돌 회피)
+
+### 50.3 검증
+
+- ruff 0 / mypy 0
+- pytest non-e2e: **241 passed** (+14)
+- **smoke (real LLM, ~$1)**: success, iter=2 (1 fix-loop recover from
+  sample_mismatch), **samples_engaged=4/4** ✅
+
+### 50.4 H1+H3 evidence
+
+iter=0 sample_mismatch → structured feedback → iter=1 recover → H1 routing +
+H3 IterationContext 가 multi-iteration 으로 동작 확인. (PR-C 시리즈 첫 fix-loop
+recovery)
+
+### 50.5 첫 non-unique invariant pattern 확립
+
+기존 PR-A/B/C1/C2 = 정답 unique. PR-C3 부터는 **유효 답이 여러 개** 인 problem
+type cover. 이후 Knapsack reconstruction, MST edge set, MaxFlow path 등에 확장.
+
+### 50.6 8 verifier 누적
+
+Dijkstra, LIS, Segment Tree, Two Sum, BFS, Binary Search, Union-Find,
+Topological Sort.
+
+### 50.7 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.TOPOSORT` 추가 |
+| `ipe/v1/verifiers/toposort.py` | 신규 — `TopologicalSortVerifier` |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `TOPOSORT_DEFAULT_INVARIANTS` + dispatch + prompt + f-string fix |
+| `ipe/v1/nodes/architect.py` | Topological Sort format guide + f-string fix |
+| `tests/v1/verifiers/test_toposort.py` | 14 단위 테스트 |
+| `CHANGES.md` §50 | 본 entry |
+
+---
