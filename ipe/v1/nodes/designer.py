@@ -216,6 +216,20 @@ FLOYD_WARSHALL_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+KRUSKAL_MST_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_single_int", "출력이 단일 정수 (MST weight 또는 -1)"),
+    ("weight_non_negative", "connected 일 때 MST weight >= 0"),
+    (
+        "connectivity_consistent",
+        "graph connected ↔ output != -1 (disconnected ↔ -1)",
+    ),
+    (
+        "weight_matches_prim_golden",
+        "output == Prim's algorithm O(V^2) golden (cross-algorithm, V<=50)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -408,6 +422,20 @@ floyd_warshall 의 input/output format 은 다음 표준을 **반드시** 따른
   verifier silent skip).
 - input 은 reachable negative cycle 없는 graph (cycle 시 silent skip).
 
+target_algorithm = "kruskal_mst" 면 다음 4 invariants 를 반드시 포함:
+- output_is_single_int
+- weight_non_negative
+- connectivity_consistent
+- weight_matches_prim_golden
+
+kruskal_mst 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "V E" (V=노드 수, E=edge 수, 1-indexed)
+- 그 다음 E줄 각각 "u v w" (**undirected** edge, w >= 0)
+- output: 단일 정수 — MST total weight. graph disconnected 면 "-1".
+- variant: classic Kruskal MST (sort edges + Union-Find).
+- **중요**: sample V <= 30 (Prim golden 충분 capacity, verifier 상한 V <= 50).
+- Union-Find (PR-C2) + Sort (PR-C5) 결합 narrative — 두 기존 verifier 의 sequel.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -464,6 +492,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(BELLMAN_FORD_DEFAULT_INVARIANTS)
     if target_algorithm == "floyd_warshall":
         return list(FLOYD_WARSHALL_DEFAULT_INVARIANTS)
+    if target_algorithm == "kruskal_mst":
+        return list(KRUSKAL_MST_DEFAULT_INVARIANTS)
     return []
 
 

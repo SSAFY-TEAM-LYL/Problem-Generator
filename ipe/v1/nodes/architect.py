@@ -148,6 +148,15 @@ Floyd-Warshall (floyd_warshall) 가 target 이면:
   reachable negative cycle 금지.
 - Bellman-Ford 와의 차이: all-pairs matrix output (single value 아님).
 
+Kruskal MST (kruskal_mst) 가 target 이면:
+- input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
+  그 다음 E줄 각각 "u v w" (**undirected** edge, w >= 0).
+- output: 단일 정수 — MST total weight, 또는 "-1" (graph disconnected).
+- variant: classic Kruskal MST (sort + Union-Find).
+- **중요**: sample V <= 30 (Prim's algorithm golden 안전 상한).
+- Union-Find (PR-C2) + Sort (PR-C5) 결합 narrative — Kruskal 의 자연스러운
+  building block.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

@@ -15,6 +15,7 @@ from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
 from .floyd_warshall import FloydWarshallVerifier
 from .knapsack import KnapsackVerifier
+from .kruskal_mst import KruskalMSTVerifier
 from .lis import LISVerifier
 from .maxflow import MaxFlowVerifier
 from .segtree import SegmentTreeVerifier
@@ -40,6 +41,7 @@ from .union_find import UnionFindVerifier
 # Phase 2b (PR-C8): SieveVerifier 자동 등록 — Phase 2b 마무리.
 # Phase 2c (PR-D1): BellmanFordVerifier 자동 등록 — Graph family 확장 시작.
 # Phase 2c (PR-D2): FloydWarshallVerifier 자동 등록 — all-pairs shortest path.
+# Phase 2c (PR-D3): KruskalMSTVerifier 자동 등록 — MST cluster.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -55,6 +57,7 @@ register_verifier(MaxFlowVerifier())
 register_verifier(SieveVerifier())
 register_verifier(BellmanFordVerifier())
 register_verifier(FloydWarshallVerifier())
+register_verifier(KruskalMSTVerifier())
 
 __all__ = [
     "BFSVerifier",
@@ -63,6 +66,7 @@ __all__ = [
     "DijkstraVerifier",
     "FloydWarshallVerifier",
     "KnapsackVerifier",
+    "KruskalMSTVerifier",
     "LISVerifier",
     "MaxFlowVerifier",
     "SegmentTreeVerifier",

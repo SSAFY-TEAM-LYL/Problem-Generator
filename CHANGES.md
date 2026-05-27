@@ -4109,3 +4109,46 @@ TOTAL: 15 algorithm verifier
 | `CHANGES.md` §58 | 본 entry |
 
 ---
+
+## 59. v1.0 D안 Phase 2c — PR-D3: Kruskal MST verifier (baseline ×3.2) (2026-05-27)
+
+### 59.1 동기
+
+Phase 2c PR-D 세 번째. **MST** (Minimum Spanning Tree). **Union-Find (PR-C2) +
+Sort (PR-C5) 의 결합 narrative** — 기존 verifier 의 building block 으로 Kruskal
+자체 구성 가능. cross-algorithm golden = **Prim's algorithm**.
+
+### 59.2 변경 내용
+
+- `TargetAlgorithm.KRUSKAL_MST` enum 추가
+- `KruskalMSTVerifier` — 4 invariants:
+  - `output_is_single_int`, `weight_non_negative`
+  - `connectivity_consistent` (graph connected ↔ output != -1)
+  - `weight_matches_prim_golden` (Prim O(V^2) cross-algorithm, V <= 50)
+- designer + architect prompt (undirected, w >= 0, V <= 30)
+- 14 unit tests
+
+### 59.3 검증
+
+- ruff 0 / mypy 0 (37 src)
+- pytest non-e2e: **360 passed** (+14)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 59.4 16 verifier 누적 — baseline ×3.2
+
+7 graph (Dijkstra/BFS/Toposort/MaxFlow/Bellman-Ford/Floyd-Warshall/**Kruskal
+MST**) + 2 search + 2 DS + 1 DP + 1 Array + 1 Sort + 1 String + 1 NumTheory.
+
+### 59.5 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.KRUSKAL_MST` 추가 |
+| `ipe/v1/verifiers/kruskal_mst.py` | 신규 — `KruskalMSTVerifier` + Prim's cross-algorithm golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `KRUSKAL_MST_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Kruskal MST format guide |
+| `tests/v1/verifiers/test_kruskal_mst.py` | 14 단위 테스트 |
+| `CHANGES.md` §59 | 본 entry |
+
+---
