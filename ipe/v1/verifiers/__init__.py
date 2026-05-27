@@ -14,6 +14,7 @@ from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
 from .knapsack import KnapsackVerifier
 from .lis import LISVerifier
+from .maxflow import MaxFlowVerifier
 from .segtree import SegmentTreeVerifier
 from .sort import SortVerifier
 from .stringmatch import StringMatchVerifier
@@ -32,6 +33,7 @@ from .union_find import UnionFindVerifier
 # Phase 2b (PR-C4): KnapsackVerifier 자동 등록.
 # Phase 2b (PR-C5): SortVerifier 자동 등록.
 # Phase 2b (PR-C6): StringMatchVerifier 자동 등록.
+# Phase 2b (PR-C7): MaxFlowVerifier 자동 등록.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -43,6 +45,7 @@ register_verifier(TopologicalSortVerifier())
 register_verifier(KnapsackVerifier())
 register_verifier(SortVerifier())
 register_verifier(StringMatchVerifier())
+register_verifier(MaxFlowVerifier())
 
 __all__ = [
     "BFSVerifier",
@@ -50,6 +53,7 @@ __all__ = [
     "DijkstraVerifier",
     "KnapsackVerifier",
     "LISVerifier",
+    "MaxFlowVerifier",
     "SegmentTreeVerifier",
     "SortVerifier",
     "StringMatchVerifier",

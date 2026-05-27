@@ -108,6 +108,16 @@ String Match (string_match) 가 target 이면:
 - variant: classic single-pattern substring search (KMP, Z-algorithm,
   Rabin-Karp family). designer 가 algorithm 선택.
 
+Maximum Flow (max_flow) 가 target 이면:
+- input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=sink,
+  모두 1-indexed, s != t).
+- 그 다음 E줄 각각 "u v c" (directed edge u→v, capacity c >= 0).
+- output: 단일 정수 — s→t maximum flow.
+- variant: classic single-source single-sink max flow (Ford-Fulkerson,
+  Edmonds-Karp, Dinic family). designer 가 algorithm 선택.
+- **중요**: sample V <= 12 (brute 2^V min-cut golden 의 안전 상한). V 가 너무
+  크면 verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

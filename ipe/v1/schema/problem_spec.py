@@ -35,6 +35,7 @@ class TargetAlgorithm(StrEnum):
     KNAPSACK = "knapsack"
     SORT = "sort"
     STRING_MATCH = "string_match"
+    MAX_FLOW = "max_flow"
 
 
 class ConstraintRange(BaseModel):
