@@ -3264,3 +3264,81 @@ fix iteration 0회.
 | `CHANGES.md` §45 | 본 entry |
 
 ---
+
+## 46. v1.0 D안 Phase 2a — PR-B4: BFS verifier + smoke green (baseline 5 verifier 완성) (2026-05-27)
+
+### 46.1 동기
+
+Phase 2a 네 번째 PR (4/5) — **baseline 5 verifier 완성**. v0 baseline N=3 의
+BFS 는 0/3 fail 였음. v1 의 BFSVerifier 가 PR-B5 measurement 에서 회복 여부
+검증 anchor.
+
+### 46.2 변경 내용
+
+- `ipe/v1/schema/problem_spec.py`: `TargetAlgorithm.BFS = "bfs"` 추가.
+- `ipe/v1/verifiers/bfs.py`: `BFSVerifier` — 4 invariants:
+  - `non_negative_distance`, `source_zero`, `reachability_consistent`,
+    `distance_optimal` (Floyd-Warshall O(V³) golden, edge weight=1).
+- `ipe/v1/verifiers/__init__.py`: `BFSVerifier` 자동 register.
+- `ipe/v1/nodes/designer.py`: `BFS_DEFAULT_INVARIANTS` + dispatch + prompt.
+- `ipe/v1/nodes/architect.py`: BFS format guide 추가.
+- `tests/v1/verifiers/test_bfs.py`: 15 단위 테스트.
+- 기존 test 의 `"bfs"` reject sentinel → `"kruskal"` 로 변경 (BFS 가 이제
+  supported).
+
+### 46.3 검증
+
+- ruff 0 / mypy --strict 0 (51 source files, +2 PR-B4)
+- pytest tests/v1 (non-e2e): **198 passed** (+15 net since PR-B3)
+- **smoke (real LLM, cost ~$1)**: BFS 1-shot success, **samples_engaged=4** ✅
+  (PR-B2.1 패턴 두 번째 검증 — architect prompt 충분히 강함)
+
+### 46.4 baseline 5 verifier 완성 (Phase 2a)
+
+| algo | verifier | golden | invariants |
+|---|---|---|---|
+| Dijkstra (PR-A2) | `DijkstraVerifier` | Bellman-Ford | 4 (0-indexed) |
+| LIS (PR-B1) | `LISVerifier` | Patience sort | 3 |
+| Segment Tree (PR-B2+2.1) | `SegmentTreeVerifier` | Naive O(NQ) | 4 (1-indexed) |
+| Two Sum (PR-B3) | `TwoSumVerifier` | Brute O(N²) | 4 (1-indexed) |
+| **BFS (PR-B4 본)** | **`BFSVerifier`** | **Floyd-Warshall** | **4 (1-indexed)** |
+
+각 algo 가 self 와 다른 algorithm 으로 cross-check golden — H2 narrative 보장.
+
+### 46.5 Complexity budget 영향
+
+| | PR-B3 후 | PR-B4 후 |
+|---|---|---|
+| Safety | v0 10 + v1 14 | +BFS 1 = 15 |
+| `TargetAlgorithm` enum | 4 | 5 (baseline 5 완성) |
+
+### 46.6 다음 단계 (PR-B5 final)
+
+baseline 5 algo × N=3 = 15 runs measurement:
+- v1 vs v0 baseline N=3 직접 비교 (룰 2 cross-algorithm regression check 충족)
+- samples_engaged 분포 (H2 검증), iteration_history depth (H1 검증)
+- cost 추정: ~$15-30 (5 algo × 3 run × ~$1-2 per run)
+- **Gate**: baseline 5 algo 합산 run-level >= v0 baseline 동등 이상 → Phase 2b 진입.
+
+### 46.7 알려진 한계
+
+- BFS 1-indexed, Dijkstra 0-indexed inconsistency 그대로 — Phase 3 에서 통일.
+- `_floyd_warshall_unit` 은 단순 unit-weight 가정 — directed weighted variant 는
+  Dijkstra. BFS 의 unweighted graph 가 cross-check 의미.
+- variant 제한 (single-source single-target, directed). all-targets 또는
+  undirected variant 는 Phase 3.
+
+### 46.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.BFS` 추가 |
+| `ipe/v1/verifiers/bfs.py` | 신규 — `BFSVerifier` + Floyd-Warshall golden |
+| `ipe/v1/verifiers/__init__.py` | `BFSVerifier` import + auto-register |
+| `ipe/v1/nodes/designer.py` | `BFS_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | BFS format guide 추가 |
+| `tests/v1/verifiers/test_bfs.py` | 15 단위 테스트 |
+| `tests/v1/schema/test_iteration_context.py` + `test_problem_spec.py` + `test_main_cli.py` | "bfs" reject → "kruskal" reject (BFS 가 이제 supported) |
+| `CHANGES.md` §46 | 본 entry |
+
+---

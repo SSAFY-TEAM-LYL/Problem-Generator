@@ -9,6 +9,7 @@ Phase 1 = Dijkstra 만. Phase 2 에서 LIS, SegmentTree 등 추가.
 from __future__ import annotations
 
 from .base import SymbolicVerifier, get_verifier, register_verifier
+from .bfs import BFSVerifier
 from .dijkstra import DijkstraVerifier
 from .lis import LISVerifier
 from .segtree import SegmentTreeVerifier
@@ -18,12 +19,15 @@ from .twosum import TwoSumVerifier
 # Phase 2a (PR-B1): LISVerifier 자동 등록.
 # Phase 2a (PR-B2): SegmentTreeVerifier 자동 등록.
 # Phase 2a (PR-B3): TwoSumVerifier 자동 등록.
+# Phase 2a (PR-B4): BFSVerifier 자동 등록 (baseline 5 완성).
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
 register_verifier(TwoSumVerifier())
+register_verifier(BFSVerifier())
 
 __all__ = [
+    "BFSVerifier",
     "DijkstraVerifier",
     "LISVerifier",
     "SegmentTreeVerifier",

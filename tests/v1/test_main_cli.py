@@ -33,7 +33,7 @@ def test_parse_target_algorithm_accepts_dijkstra_uppercase() -> None:
 
 def test_parse_target_algorithm_rejects_unsupported() -> None:
     with pytest.raises(argparse.ArgumentTypeError, match="unsupported algorithm"):
-        _parse_target_algorithm("bfs")
+        _parse_target_algorithm("kruskal")
 
 
 # ---------- _build_parser ----------

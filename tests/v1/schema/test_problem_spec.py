@@ -116,7 +116,7 @@ def test_problem_spec_requires_positive_time_limit() -> None:
 
 def test_problem_spec_rejects_unsupported_target_algorithm() -> None:
     base = _valid_spec().model_dump()
-    base["target_algorithm"] = "bfs"  # Phase 2 까지는 enum 에 없음
+    base["target_algorithm"] = "kruskal"  # Phase 2a 이후에도 enum 에 없음
     with pytest.raises(ValidationError):
         ProblemSpec.model_validate(base)
 
