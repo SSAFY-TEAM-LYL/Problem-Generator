@@ -107,6 +107,10 @@ def run_n_measurements(
     outcomes: list[RunOutcome] = []
     for i in range(n):
         run_id = f"{run_id_prefix}-{target_algorithm.value}-r{i + 1}"
+        print(
+            f"[n3_runner] start {target_algorithm.value} r{i + 1}/{n} run_id={run_id}",
+            flush=True,
+        )
         initial = initial_state(
             run_id, target_algorithm, max_iterations=max_iterations
         )
@@ -116,13 +120,22 @@ def run_n_measurements(
             raw = graph.invoke(initial)
             final = _normalize_final_state(raw)
             elapsed = time.time() - start
-            outcomes.append(_summarize_state(i, final, elapsed))
+            outcome = _summarize_state(i, final, elapsed)
+            outcomes.append(outcome)
+            print(
+                f"[n3_runner] done  {target_algorithm.value} r{i + 1}/{n} "
+                f"status={outcome.final_status} iter={outcome.iteration_used} "
+                f"samples={outcome.sample_pass_count}/{outcome.sample_total} "
+                f"engaged={outcome.samples_engaged} elapsed={elapsed:.1f}s",
+                flush=True,
+            )
         except Exception as exc:  # noqa: BLE001
             elapsed = time.time() - start
             err_brief = f"{type(exc).__name__}: {exc!s}"[:200]
             print(
-                f"[n3_runner] run r{i + 1} algo={target_algorithm.value} "
-                f"raised {err_brief} — saving sentinel outcome"
+                f"[n3_runner] FAIL  {target_algorithm.value} r{i + 1}/{n} "
+                f"{err_brief} elapsed={elapsed:.1f}s — sentinel saved",
+                flush=True,
             )
             outcomes.append(
                 RunOutcome(
