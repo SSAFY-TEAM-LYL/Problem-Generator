@@ -188,6 +188,20 @@ SIEVE_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+BELLMAN_FORD_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_single_int", "출력이 단일 정수 (-1 또는 d[s][t])"),
+    ("source_target_self_zero", "s == t 일 때 d = 0"),
+    (
+        "no_negative_cycle_in_input",
+        "input 에 reachable negative cycle 없음 (있으면 verifier skip)",
+    ),
+    (
+        "distance_matches_floyd_warshall",
+        "output == Floyd-Warshall O(V^3) golden (V<=30, cross-algorithm)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -347,6 +361,23 @@ sieve 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - **중요**: sample N <= 10000 (trial division golden 안전 상한; N > 10000 면
   verifier 가 silent skip).
 
+target_algorithm = "bellman_ford" 면 다음 4 invariants 를 반드시 포함:
+- output_is_single_int
+- source_target_self_zero
+- no_negative_cycle_in_input
+- distance_matches_floyd_warshall
+
+bellman_ford 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "V E s t" (V=노드 수, E=edge 수, s=source, t=target, 모두 1-indexed)
+- 그 다음 E줄 각각 "u v w" (directed edge u→v, **w 음수 허용** — Dijkstra 와
+  차이점)
+- output: 단일 정수 d[s][t], 또는 "-1" (unreachable)
+- variant: classic Bellman-Ford (negative weight 허용, **negative cycle 금지**).
+  input 은 반드시 reachable negative cycle 없는 DAG-like graph (verifier 가
+  cycle 시 silent skip).
+- **중요**: sample V <= 25 (Floyd-Warshall O(V^3) golden 안전 상한; V > 30 면
+  verifier silent skip).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -399,6 +430,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(MAX_FLOW_DEFAULT_INVARIANTS)
     if target_algorithm == "sieve":
         return list(SIEVE_DEFAULT_INVARIANTS)
+    if target_algorithm == "bellman_ford":
+        return list(BELLMAN_FORD_DEFAULT_INVARIANTS)
     return []
 
 

@@ -9,6 +9,7 @@ Phase 1 = Dijkstra 만. Phase 2 에서 LIS, SegmentTree 등 추가.
 from __future__ import annotations
 
 from .base import SymbolicVerifier, get_verifier, register_verifier
+from .bellman_ford import BellmanFordVerifier
 from .bfs import BFSVerifier
 from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
@@ -36,6 +37,7 @@ from .union_find import UnionFindVerifier
 # Phase 2b (PR-C6): StringMatchVerifier 자동 등록.
 # Phase 2b (PR-C7): MaxFlowVerifier 자동 등록.
 # Phase 2b (PR-C8): SieveVerifier 자동 등록 — Phase 2b 마무리.
+# Phase 2c (PR-D1): BellmanFordVerifier 자동 등록 — Graph family 확장 시작.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -49,9 +51,11 @@ register_verifier(SortVerifier())
 register_verifier(StringMatchVerifier())
 register_verifier(MaxFlowVerifier())
 register_verifier(SieveVerifier())
+register_verifier(BellmanFordVerifier())
 
 __all__ = [
     "BFSVerifier",
+    "BellmanFordVerifier",
     "BinarySearchVerifier",
     "DijkstraVerifier",
     "KnapsackVerifier",

@@ -4006,3 +4006,46 @@ v1 ×2.6 catalog 확장 후에도 baseline 강한 우위 유지
 | `CHANGES.md` §56 | 본 entry |
 
 ---
+
+## 57. v1.0 D안 Phase 2c — PR-D1: Bellman-Ford verifier (Graph family 확장 시작) (2026-05-27)
+
+### 57.1 동기
+
+Phase 2c PR-D 시리즈 첫 PR. Graph family 확장 (기존 4: Dijkstra/BFS/Toposort/
+MaxFlow). **negative weight cross-check** narrative — Dijkstra ↔ Bellman-Ford 가
+같은 (V E s t / u v w) format 으로 서로 검증.
+
+### 57.2 변경 내용
+
+- `TargetAlgorithm.BELLMAN_FORD` enum 추가
+- `BellmanFordVerifier` — 4 invariants:
+  - `output_is_single_int`, `source_target_self_zero`
+  - `no_negative_cycle_in_input` (silent skip via Bellman-Ford V-th relax)
+  - `distance_matches_floyd_warshall` (cross-algorithm O(V^3) golden, V <= 30)
+- designer + architect prompt (negative weight 허용, negative cycle 금지)
+- 14 unit tests
+
+### 57.3 검증
+
+- ruff 0 / mypy 0 (35 src)
+- pytest non-e2e: **333 passed** (+14)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 57.4 14 verifier 누적 — baseline ×2.8
+
+5 baseline + 9 Phase 2b/2c (Binary Search, Union-Find, Toposort, Knapsack,
+Sort, String Match, Max Flow, Sieve, **Bellman-Ford**).
+
+### 57.5 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.BELLMAN_FORD` 추가 |
+| `ipe/v1/verifiers/bellman_ford.py` | 신규 — `BellmanFordVerifier` + Floyd-Warshall golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `BELLMAN_FORD_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Bellman-Ford format guide |
+| `tests/v1/verifiers/test_bellman_ford.py` | 14 단위 테스트 |
+| `CHANGES.md` §57 | 본 entry |
+
+---
