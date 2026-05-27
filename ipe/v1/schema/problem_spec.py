@@ -40,6 +40,7 @@ class TargetAlgorithm(StrEnum):
     BELLMAN_FORD = "bellman_ford"
     FLOYD_WARSHALL = "floyd_warshall"
     KRUSKAL_MST = "kruskal_mst"
+    HEAP = "heap"
 
 
 class ConstraintRange(BaseModel):

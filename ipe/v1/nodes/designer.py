@@ -230,6 +230,20 @@ KRUSKAL_MST_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+HEAP_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_count_matches_pops", "출력 token 갯수 == pop op 갯수"),
+    ("popped_values_are_ints", "모든 출력 token integer parseable"),
+    (
+        "all_popped_in_pushed_multiset",
+        "popped 모든 value 가 push 된 multiset 안에 있음",
+    ),
+    (
+        "matches_naive_min_heap_golden",
+        "output == naive sorted-list O(N^2) simulation 과 정확 일치",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -436,6 +450,20 @@ kruskal_mst 의 input/output format 은 다음 표준을 **반드시** 따른다
 - **중요**: sample V <= 30 (Prim golden 충분 capacity, verifier 상한 V <= 50).
 - Union-Find (PR-C2) + Sort (PR-C5) 결합 narrative — 두 기존 verifier 의 sequel.
 
+target_algorithm = "heap" 면 다음 4 invariants 를 반드시 포함:
+- output_count_matches_pops
+- popped_values_are_ints
+- all_popped_in_pushed_multiset
+- matches_naive_min_heap_golden
+
+heap 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N" (operation 갯수, N <= 1000)
+- 그 다음 N 줄: 각 줄 op. **op keyword 대문자 'P' 또는 'O' 한 글자**:
+  - "P x": push integer x
+  - "O": pop min, output value
+- output: pop op 마다 한 줄, 단일 정수 (popped value)
+- variant: classic **min-heap** (smallest first). pop on empty heap 금지.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -494,6 +522,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(FLOYD_WARSHALL_DEFAULT_INVARIANTS)
     if target_algorithm == "kruskal_mst":
         return list(KRUSKAL_MST_DEFAULT_INVARIANTS)
+    if target_algorithm == "heap":
+        return list(HEAP_DEFAULT_INVARIANTS)
     return []
 
 
