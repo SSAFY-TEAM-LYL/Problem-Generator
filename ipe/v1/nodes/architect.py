@@ -157,6 +157,15 @@ Kruskal MST (kruskal_mst) 가 target 이면:
 - Union-Find (PR-C2) + Sort (PR-C5) 결합 narrative — Kruskal 의 자연스러운
   building block.
 
+Heap (heap) 가 target 이면:
+- input format: 첫 줄 "N" (op 갯수, N <= 1000), 그 다음 N줄 op.
+  **op keyword 대문자 'P' 또는 'O' 한 글자**:
+  - "P x": push integer x (정수)
+  - "O": pop min, output value (no arg)
+- output: pop op 마다 한 줄, 단일 정수 (popped value).
+- variant: classic **min-heap** (smallest first). pop on empty heap **금지**
+  (sample 에서 항상 push 가 더 많거나 같아야).
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
