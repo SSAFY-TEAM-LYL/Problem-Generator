@@ -3743,3 +3743,51 @@ matrix exp variants 등에 동일 패턴 적용 가능.
 | `CHANGES.md` §52 | 본 entry |
 
 ---
+
+## 53. v1.0 D안 Phase 2b — PR-C6: String Match verifier (KMP/Z-algo cluster) (2026-05-27)
+
+### 53.1 동기
+
+PR-C 시리즈 여섯 번째. classic single-pattern substring search. **second cluster
+verifier** — single enum (`STRING_MATCH`) 으로 KMP / Z-algorithm / Rabin-Karp /
+Aho-Corasick single-pattern family 모두 cover.
+
+### 53.2 변경 내용
+
+- `TargetAlgorithm.STRING_MATCH` enum 추가
+- `StringMatchVerifier` — 4 invariants:
+  - `output_is_single_int`, `index_valid_range`
+  - `text_at_index_matches_pattern`
+  - `existence_consistent` (brute O(NM) golden 발견여부 일치)
+- designer + architect prompt (text/pattern 모두 ASCII, 공백 금지)
+- 16 unit tests
+
+### 53.3 검증
+
+- ruff 0 / mypy 0 (32 src)
+- pytest non-e2e: **287 passed** (+16)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 53.4 11 verifier 누적
+
+Dijkstra, LIS, Segment Tree, Two Sum, BFS, Binary Search, Union-Find,
+Topological Sort, Knapsack 0/1, Sort, String Match.
+
+### 53.5 String family 시작
+
+PR-C6 가 첫 string algorithm. Phase 2c plan 의 Trie, Suffix Array, Suffix
+Automaton 은 별도 enum (output 형식이 다름). KMP cluster 는 본 enum 통합.
+
+### 53.6 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.STRING_MATCH` 추가 |
+| `ipe/v1/verifiers/stringmatch.py` | 신규 — `StringMatchVerifier` + brute O(NM) golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `STRING_MATCH_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | String Match format guide |
+| `tests/v1/verifiers/test_stringmatch.py` | 16 단위 테스트 |
+| `CHANGES.md` §53 | 본 entry |
+
+---

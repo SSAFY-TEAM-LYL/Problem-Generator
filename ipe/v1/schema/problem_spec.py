@@ -34,6 +34,7 @@ class TargetAlgorithm(StrEnum):
     TOPOSORT = "toposort"
     KNAPSACK = "knapsack"
     SORT = "sort"
+    STRING_MATCH = "string_match"
 
 
 class ConstraintRange(BaseModel):
