@@ -113,6 +113,20 @@ UNION_FIND_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+TOPOSORT_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_length_matches_n", "출력 정수 갯수 == N"),
+    ("output_is_permutation", "출력 ∈ permutation of 1..N (중복/범위초과 없음)"),
+    (
+        "edges_respect_order",
+        "모든 edge u→v 에 대해 pos[u] < pos[v]",
+    ),
+    (
+        "dag_input_via_kahn",
+        "input 자체가 DAG (Kahn O(V+E) cross-check, cycle 이면 verifier skip)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -187,6 +201,19 @@ union_find 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - output: 각 "Q" op 마다 한 줄, 0 또는 1.
 - variant: classic same-set DSU.
 
+target_algorithm = "toposort" 면 다음 4 invariants 를 반드시 포함:
+- output_length_matches_n
+- output_is_permutation
+- edges_respect_order
+- dag_input_via_kahn
+
+toposort 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N M" (N=노드 수, M=edge 수, 공백 구분, 1-indexed)
+- 그 다음 M 줄: 각 줄 "u v" (directed edge u→v, 1<=u,v<=N, u != v)
+- output: N space-separated 정수 (한 줄 또는 여러 줄), 1..N 의 valid topo order
+- variant: classic DAG topological ordering. input 은 cycle 없는 DAG 가정.
+  topo order 는 일반적으로 unique 하지 않으므로 어떤 valid order 든 OK.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -227,6 +254,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(BINARY_SEARCH_DEFAULT_INVARIANTS)
     if target_algorithm == "union_find":
         return list(UNION_FIND_DEFAULT_INVARIANTS)
+    if target_algorithm == "toposort":
+        return list(TOPOSORT_DEFAULT_INVARIANTS)
     return []
 
 

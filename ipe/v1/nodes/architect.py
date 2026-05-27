@@ -75,6 +75,16 @@ Union-Find (union_find) 가 target 이면:
 - output: 각 "Q" op 마다 한 줄, 0 (다른 set) 또는 1 (같은 set).
 - variant: classic same-set DSU.
 
+Topological Sort (toposort) 가 target 이면:
+- input format: 첫 줄 "N M" (N=노드 수, M=edge 수, 1-indexed),
+  그 다음 M줄 각각 "u v" (directed edge u→v, 1<=u,v<=N, u != v).
+- input 은 **반드시 DAG** (cycle 없음). cycle 있으면 verifier 가 skip 하여
+  samples_engaged 가 떨어진다.
+- output: N space-separated 정수 (한 줄 또는 여러 줄 모두 허용),
+  1..N 의 valid topological order. 일반적으로 unique 하지 않으므로 어떤
+  valid order 든 OK (예: pos[u] < pos[v] for all edges u→v).
+- variant: classic DAG topological ordering.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

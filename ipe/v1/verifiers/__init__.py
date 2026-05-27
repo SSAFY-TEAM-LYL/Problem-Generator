@@ -14,6 +14,7 @@ from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
 from .lis import LISVerifier
 from .segtree import SegmentTreeVerifier
+from .toposort import TopologicalSortVerifier
 from .twosum import TwoSumVerifier
 from .union_find import UnionFindVerifier
 
@@ -24,6 +25,7 @@ from .union_find import UnionFindVerifier
 # Phase 2a (PR-B4): BFSVerifier 자동 등록 (baseline 5 완성).
 # Phase 2b (PR-C1): BinarySearchVerifier 자동 등록.
 # Phase 2b (PR-C2): UnionFindVerifier 자동 등록.
+# Phase 2b (PR-C3): TopologicalSortVerifier 자동 등록.
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -31,6 +33,7 @@ register_verifier(TwoSumVerifier())
 register_verifier(BFSVerifier())
 register_verifier(BinarySearchVerifier())
 register_verifier(UnionFindVerifier())
+register_verifier(TopologicalSortVerifier())
 
 __all__ = [
     "BFSVerifier",
@@ -39,6 +42,7 @@ __all__ = [
     "LISVerifier",
     "SegmentTreeVerifier",
     "SymbolicVerifier",
+    "TopologicalSortVerifier",
     "TwoSumVerifier",
     "UnionFindVerifier",
     "get_verifier",
