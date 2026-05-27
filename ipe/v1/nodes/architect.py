@@ -61,6 +61,13 @@ BFS (bfs) 가 target 이면:
 - output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1".
 - variant: single-source single-target. directed graph. edge weight=1 가정.
 
+Binary Search (binary_search) 가 target 이면:
+- input format: 첫 줄 "N T" (N=array 크기, T=target value, 공백 구분),
+  둘째 줄 "a_1 ... a_N" (sorted ascending, 1-indexed).
+- output: 1-indexed index (a[idx]==T) 또는 "-1" (no match). 여러 valid idx 시
+  어느 하나만 출력해도 OK.
+- variant: classic exact match.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

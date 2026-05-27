@@ -29,6 +29,7 @@ class TargetAlgorithm(StrEnum):
     SEGTREE = "segtree"
     TWO_SUM = "two_sum"
     BFS = "bfs"
+    BINARY_SEARCH = "binary_search"
 
 
 class ConstraintRange(BaseModel):

@@ -3439,3 +3439,79 @@ generalization.
 | `CHANGES.md` §47 | 본 entry |
 
 ---
+
+## 48. v1.0 D안 Phase 2b — PR-C1: Binary Search verifier + smoke green (2026-05-27)
+
+### 48.1 동기
+
+Phase 2a Gate PASS (14/15, §47) 후 Phase 2b 진입. 사용자 결정: BFS r1 디버그
+skip, 직접 algorithm 확장 시작. **PR-C 시리즈 첫 PR**. Binary Search 는 가장
+단순한 algorithm — PR-C 패턴 검증 anchor.
+
+### 48.2 변경 내용
+
+- `ipe/v1/schema/problem_spec.py`: `TargetAlgorithm.BINARY_SEARCH = "binary_search"` 추가.
+- `ipe/v1/verifiers/binary_search.py`: `BinarySearchVerifier` — 4 invariants:
+  - `output_format_valid`: 단일 정수 (-1 또는 positive)
+  - `index_in_range`: -1 또는 1 ≤ idx ≤ N
+  - `value_matches_target_when_found`: idx > 0 일 때 a[idx] == T
+  - `existence_consistent`: linear scan O(N) golden 과 발견 여부 일치
+- `ipe/v1/verifiers/__init__.py`: 자동 register (6 verifier 누적).
+- `ipe/v1/nodes/designer.py`: `BINARY_SEARCH_DEFAULT_INVARIANTS` + dispatch + prompt.
+- `ipe/v1/nodes/architect.py`: Binary Search format guide.
+- `tests/v1/verifiers/test_binary_search.py`: 15 단위 테스트.
+
+variant: **classic exact match** (1-indexed, return idx or -1). lower_bound /
+upper_bound 는 Phase 3.
+
+### 48.3 검증
+
+- ruff 0 / mypy --strict 0 (53 source files, +2 PR-C1)
+- pytest tests/v1 (non-e2e): **215 passed** (+15 net since PR-B5)
+- **smoke (real LLM, cost ~$1)**: Binary Search 1-shot success, **samples_engaged=5/5** ✅
+  - LLM 이 sample_count=5 generation (architect 자율, Phase 2a 의 4-sample 패턴
+    과 다름)
+
+### 48.4 Complexity budget 영향
+
+| | PR-B5 후 | PR-C1 후 |
+|---|---|---|
+| Safety | 15 (5 verifier) | +Binary Search 1 = 16 |
+| `TargetAlgorithm` enum | 5 (baseline) | 6 (+BINARY_SEARCH) |
+
+### 48.5 다음 단계 (PR-C 시리즈)
+
+| PR | 후보 | difficulty | golden | priority |
+|---|---|---|---|---|
+| **PR-C1 (본)** | Binary Search | low | linear scan | ✅ |
+| PR-C2 | Union-Find (DSU) | medium | naive O(N) per query | high (fail likely) |
+| PR-C3 | Topological Sort | medium | Kahn's algorithm | medium |
+| PR-C4 | Knapsack 0/1 | high | brute O(2^N) | high (fail likely → H1/H3 anchor) |
+| PR-C5 | Maximum Flow | high | min-cut = max-flow | low (most complex) |
+| PR-C6 | Quicksort / Merge Sort | low | `sorted(arr)` | medium |
+| PR-C7 | KMP / Z-algorithm | medium | brute O(NM) | medium |
+| PR-C8 | Sieve of Eratosthenes | low | trial division | low |
+
+각 algo = 1 PR. 사용자 의도 "수많은 algorithm" 의 점진적 확장.
+
+### 48.6 알려진 한계
+
+- variant 제한: classic exact match. lower_bound / upper_bound / count-of-target
+  은 Phase 3.
+- sorted 가정 verifier 가 안 check (architect 책임). spec 단계에서 sorted 검증
+  invariant 추가 검토.
+- LLM 의 sample count variance (5 sample vs PR-B 의 4 sample). architect 자율.
+
+### 48.7 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.BINARY_SEARCH` 추가 |
+| `ipe/v1/verifiers/binary_search.py` | 신규 — `BinarySearchVerifier` + linear scan golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `BINARY_SEARCH_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Binary Search format guide |
+| `tests/v1/verifiers/test_binary_search.py` | 15 단위 테스트 |
+| `CHANGES.md` §48 | 본 entry |
+
+---
