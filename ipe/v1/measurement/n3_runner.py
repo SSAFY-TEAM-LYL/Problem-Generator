@@ -53,6 +53,23 @@ BASELINE_5_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
 )
 
 
+PHASE_2B_13_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
+    TargetAlgorithm.DIJKSTRA,
+    TargetAlgorithm.LIS,
+    TargetAlgorithm.SEGTREE,
+    TargetAlgorithm.TWO_SUM,
+    TargetAlgorithm.BFS,
+    TargetAlgorithm.BINARY_SEARCH,
+    TargetAlgorithm.UNION_FIND,
+    TargetAlgorithm.TOPOSORT,
+    TargetAlgorithm.KNAPSACK,
+    TargetAlgorithm.SORT,
+    TargetAlgorithm.STRING_MATCH,
+    TargetAlgorithm.MAX_FLOW,
+    TargetAlgorithm.SIEVE,
+)
+
+
 def _summarize_state(idx: int, state: V1State, elapsed: float) -> RunOutcome:
     v = state.verification
     return RunOutcome(
@@ -90,15 +107,50 @@ def run_n_measurements(
     outcomes: list[RunOutcome] = []
     for i in range(n):
         run_id = f"{run_id_prefix}-{target_algorithm.value}-r{i + 1}"
+        print(
+            f"[n3_runner] start {target_algorithm.value} r{i + 1}/{n} run_id={run_id}",
+            flush=True,
+        )
         initial = initial_state(
             run_id, target_algorithm, max_iterations=max_iterations
         )
         start = time.time()
-        graph = graph_factory()
-        raw = graph.invoke(initial)
-        final = _normalize_final_state(raw)
-        elapsed = time.time() - start
-        outcomes.append(_summarize_state(i, final, elapsed))
+        try:
+            graph = graph_factory()
+            raw = graph.invoke(initial)
+            final = _normalize_final_state(raw)
+            elapsed = time.time() - start
+            outcome = _summarize_state(i, final, elapsed)
+            outcomes.append(outcome)
+            print(
+                f"[n3_runner] done  {target_algorithm.value} r{i + 1}/{n} "
+                f"status={outcome.final_status} iter={outcome.iteration_used} "
+                f"samples={outcome.sample_pass_count}/{outcome.sample_total} "
+                f"engaged={outcome.samples_engaged} elapsed={elapsed:.1f}s",
+                flush=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            elapsed = time.time() - start
+            err_brief = f"{type(exc).__name__}: {exc!s}"[:200]
+            print(
+                f"[n3_runner] FAIL  {target_algorithm.value} r{i + 1}/{n} "
+                f"{err_brief} elapsed={elapsed:.1f}s — sentinel saved",
+                flush=True,
+            )
+            outcomes.append(
+                RunOutcome(
+                    run_index=i,
+                    run_id=run_id,
+                    final_status="api_error",
+                    iteration_used=0,
+                    sample_pass_count=0,
+                    sample_total=0,
+                    samples_engaged=0,
+                    invariant_violations=[],
+                    blocking_signatures=[err_brief],
+                    elapsed_seconds=elapsed,
+                )
+            )
     return outcomes
 
 
@@ -107,6 +159,36 @@ def write_jsonl(outcomes: list[RunOutcome], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(asdict(o), ensure_ascii=False) for o in outcomes]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def run_phase_2b_measurements(
+    *,
+    n: int = 3,
+    max_iterations: int = 8,
+    graph_factory: GraphFactory = build_graph,
+    run_id_prefix: str = "v1-pr-c8",
+) -> list[RunOutcome]:
+    """Phase 2b deliverable — 13 algo × N runs (default 39 runs).
+
+    Baseline 5 + PR-C 시리즈 8 = 13 algorithm. Catalog ×2.6 확장의 anchor
+    re-measurement. PR-B5 의 baseline 5 result 를 superset 으로 포함.
+    """
+    import dataclasses
+
+    all_outcomes: list[RunOutcome] = []
+    for algo in PHASE_2B_13_ALGORITHMS:
+        algo_outcomes = run_n_measurements(
+            n=n,
+            target_algorithm=algo,
+            max_iterations=max_iterations,
+            graph_factory=graph_factory,
+            run_id_prefix=f"{run_id_prefix}-{algo.value}",
+        )
+        for o in algo_outcomes:
+            all_outcomes.append(
+                dataclasses.replace(o, run_index=len(all_outcomes))
+            )
+    return all_outcomes
 
 
 def run_baseline_5_measurements(

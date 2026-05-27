@@ -161,7 +161,9 @@ class AnthropicCoderLLM:
         prompt = ChatPromptTemplate.from_messages(
             [("system", _SYSTEM_PROMPT), ("user", "{user}")]
         )
-        self._chain = prompt | llm.with_structured_output(SolutionAttempt)
+        self._chain = (
+            prompt | llm.with_structured_output(SolutionAttempt)
+        ).with_retry(stop_after_attempt=5, wait_exponential_jitter=True)
 
     def generate(self, state: V1State) -> SolutionAttempt:
         result = self._chain.invoke({"user": _build_user_prompt(state)})
