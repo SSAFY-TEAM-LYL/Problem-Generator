@@ -12,6 +12,7 @@ from .base import SymbolicVerifier, get_verifier, register_verifier
 from .bellman_ford import BellmanFordVerifier
 from .bfs import BFSVerifier
 from .binary_search import BinarySearchVerifier
+from .coin_change import CoinChangeVerifier
 from .dijkstra import DijkstraVerifier
 from .fenwick import FenwickVerifier
 from .floyd_warshall import FloydWarshallVerifier
@@ -46,6 +47,7 @@ from .union_find import UnionFindVerifier
 # Phase 2c (PR-D3): KruskalMSTVerifier 자동 등록 — MST cluster.
 # Phase 2c (PR-D4): HeapVerifier 자동 등록 — DS family 시작 (Priority Queue).
 # Phase 2c (PR-D5): FenwickVerifier 자동 등록 — DS family 3 (prefix-sum / BIT).
+# Phase 2c (PR-D6): CoinChangeVerifier 자동 등록 — DP family 2 (Knapsack outlier 재현 narrative).
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -64,11 +66,13 @@ register_verifier(FloydWarshallVerifier())
 register_verifier(KruskalMSTVerifier())
 register_verifier(HeapVerifier())
 register_verifier(FenwickVerifier())
+register_verifier(CoinChangeVerifier())
 
 __all__ = [
     "BFSVerifier",
     "BellmanFordVerifier",
     "BinarySearchVerifier",
+    "CoinChangeVerifier",
     "DijkstraVerifier",
     "FenwickVerifier",
     "FloydWarshallVerifier",

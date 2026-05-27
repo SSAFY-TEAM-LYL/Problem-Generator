@@ -4238,3 +4238,47 @@ assign / heap-ordered / point-add+prefix-sum).
 | `CHANGES.md` §61 | 본 entry |
 
 ---
+
+## 62. v1.0 D안 Phase 2c — PR-D6: Coin Change verifier (DP 2개째, baseline ×3.8) (2026-05-27)
+
+### 62.1 동기
+
+Phase 2c PR-D 여섯 번째. **DP family 2개째** — Knapsack (PR-C4, outlier 1/3
+의 architect expected_output 오류 가설) 동일 family 에서 패턴 재현 여부 narrative
+anchor.
+
+### 62.2 변경 내용
+
+- `TargetAlgorithm.COIN_CHANGE` enum 추가
+- `CoinChangeVerifier` — 4 invariants:
+  - `output_is_single_int`, `count_in_valid_range`
+  - `existence_consistent_with_dp`
+  - `count_matches_dp_optimal` (DP O(N*A) golden, A <= 1000)
+- designer + architect prompt (unbounded coins, c_i >= 1)
+- 15 unit tests (zero amount, classic US coins, unbounded, ...)
+
+### 62.3 검증
+
+- ruff 0 / mypy 0 (40 src)
+- pytest non-e2e: **405 passed** (+15)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=5/5** ✅
+
+### 62.4 19 verifier 누적 — baseline ×3.8
+
+DP family 2개 (Knapsack, **Coin Change**). **Knapsack outlier RCA 진단 보강**:
+Coin Change 가 1-shot 성공 = DP 자체 문제 X, Knapsack 의 specific
+expected_output 계산 한계 (P1 RCA 후속 변함 없음).
+
+### 62.5 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.COIN_CHANGE` 추가 |
+| `ipe/v1/verifiers/coin_change.py` | 신규 — `CoinChangeVerifier` + DP O(N*A) golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `COIN_CHANGE_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Coin Change format guide |
+| `tests/v1/verifiers/test_coin_change.py` | 15 단위 테스트 |
+| `CHANGES.md` §62 | 본 entry |
+
+---

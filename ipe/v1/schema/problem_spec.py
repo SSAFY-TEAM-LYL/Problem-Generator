@@ -42,6 +42,7 @@ class TargetAlgorithm(StrEnum):
     KRUSKAL_MST = "kruskal_mst"
     HEAP = "heap"
     FENWICK = "fenwick"
+    COIN_CHANGE = "coin_change"
 
 
 class ConstraintRange(BaseModel):
