@@ -163,6 +163,20 @@ STRING_MATCH_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+MAX_FLOW_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_single_int", "출력이 단일 정수"),
+    ("flow_non_negative", "출력 >= 0"),
+    (
+        "flow_within_source_outflow",
+        "출력 <= sum(cap for edge leaving s)",
+    ),
+    (
+        "flow_matches_brute_min_cut",
+        "max-flow min-cut theorem — brute 2^V subset enum 의 min-cut 과 일치 (V<=14)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -291,6 +305,22 @@ string_match 의 input/output format 은 다음 표준을 **반드시** 따른�
 - variant: classic single-pattern substring search (KMP/Z-algorithm/Rabin-Karp
   family, algorithm 선택은 designer 자유).
 
+target_algorithm = "max_flow" 면 다음 4 invariants 를 반드시 포함:
+- output_is_single_int
+- flow_non_negative
+- flow_within_source_outflow
+- flow_matches_brute_min_cut
+
+max_flow 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "V E s t" (V=노드 수, E=edge 수, s=source, t=sink, 모두 1-indexed,
+  s != t).
+- 그 다음 E 줄: 각 줄 "u v c" (directed edge u→v, 1-indexed, capacity c >= 0).
+- output: 단일 정수 — s→t maximum flow.
+- variant: classic single-source single-sink max flow (Ford-Fulkerson /
+  Edmonds-Karp / Dinic family). designer 가 algorithm 선택.
+- **중요**: sample V <= 12 (brute 2^V min-cut golden 안전 상한; V > 14 면
+  verifier 가 silent skip).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -339,6 +369,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(SORT_DEFAULT_INVARIANTS)
     if target_algorithm == "string_match":
         return list(STRING_MATCH_DEFAULT_INVARIANTS)
+    if target_algorithm == "max_flow":
+        return list(MAX_FLOW_DEFAULT_INVARIANTS)
     return []
 
 
