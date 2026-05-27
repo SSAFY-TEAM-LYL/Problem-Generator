@@ -258,6 +258,20 @@ FENWICK_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+COIN_CHANGE_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_single_int", "출력이 단일 정수 (-1 또는 min coin count)"),
+    ("count_in_valid_range", "-1 또는 0 <= count <= A"),
+    (
+        "existence_consistent_with_dp",
+        "DP 의 도달가능성과 일치 (impossible ↔ -1)",
+    ),
+    (
+        "count_matches_dp_optimal",
+        "output == DP O(N*A) min coin count (A <= 1000, N <= 20)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -494,6 +508,19 @@ fenwick 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - variant: classic Fenwick Tree (Binary Indexed Tree). SegTree (range-sum +
   point-assign) 와 다른 invariant — prefix-sum + point-add.
 
+target_algorithm = "coin_change" 면 다음 4 invariants 를 반드시 포함:
+- output_is_single_int
+- count_in_valid_range
+- existence_consistent_with_dp
+- count_matches_dp_optimal
+
+coin_change 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N A" (N=coin types, A=target amount, 0 <= A <= 1000, N <= 20)
+- 둘째 줄: "c_1 c_2 ... c_N" (각 동전 >= 1, 정수)
+- output: 단일 정수 — minimum coin count, 또는 "-1" (impossible)
+- variant: classic unbounded coin change (각 동전 무한 사용 가능).
+- DP O(N*A) golden — Knapsack (PR-C4) 의 outlier 패턴 동일 family 재현 anchor.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -556,6 +583,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(HEAP_DEFAULT_INVARIANTS)
     if target_algorithm == "fenwick":
         return list(FENWICK_DEFAULT_INVARIANTS)
+    if target_algorithm == "coin_change":
+        return list(COIN_CHANGE_DEFAULT_INVARIANTS)
     return []
 
 

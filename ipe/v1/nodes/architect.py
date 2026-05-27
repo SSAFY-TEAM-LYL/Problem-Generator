@@ -176,7 +176,14 @@ Fenwick Tree (fenwick) 가 target 이면:
 - variant: classic Fenwick Tree (BIT). SegTree 와 차이점:
   - SegTree: assign + range sum
   - Fenwick: add + prefix sum
-  → 다른 invariant pattern 으로 검증.
+
+Coin Change (coin_change) 가 target 이면:
+- input format: 첫 줄 "N A" (N=coin types, A=target amount, N<=20, A<=1000),
+  둘째 줄 "c_1 c_2 ... c_N" (각 동전 >= 1, 정수).
+- output: 단일 정수 — **minimum coin count** to make A, 또는 "-1" (impossible).
+- variant: classic **unbounded** coin change (each coin unlimited use).
+- **중요**: architect 가 expected_output 을 spec 단계에서 계산할 때 DP O(N*A)
+  formula 를 정확히 적용. Knapsack (PR-C4) 와 같은 outlier 패턴 회피.
 
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
