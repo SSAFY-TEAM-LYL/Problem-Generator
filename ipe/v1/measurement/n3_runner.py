@@ -53,6 +53,23 @@ BASELINE_5_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
 )
 
 
+PHASE_2B_13_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
+    TargetAlgorithm.DIJKSTRA,
+    TargetAlgorithm.LIS,
+    TargetAlgorithm.SEGTREE,
+    TargetAlgorithm.TWO_SUM,
+    TargetAlgorithm.BFS,
+    TargetAlgorithm.BINARY_SEARCH,
+    TargetAlgorithm.UNION_FIND,
+    TargetAlgorithm.TOPOSORT,
+    TargetAlgorithm.KNAPSACK,
+    TargetAlgorithm.SORT,
+    TargetAlgorithm.STRING_MATCH,
+    TargetAlgorithm.MAX_FLOW,
+    TargetAlgorithm.SIEVE,
+)
+
+
 def _summarize_state(idx: int, state: V1State, elapsed: float) -> RunOutcome:
     v = state.verification
     return RunOutcome(
@@ -107,6 +124,36 @@ def write_jsonl(outcomes: list[RunOutcome], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(asdict(o), ensure_ascii=False) for o in outcomes]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def run_phase_2b_measurements(
+    *,
+    n: int = 3,
+    max_iterations: int = 8,
+    graph_factory: GraphFactory = build_graph,
+    run_id_prefix: str = "v1-pr-c8",
+) -> list[RunOutcome]:
+    """Phase 2b deliverable — 13 algo × N runs (default 39 runs).
+
+    Baseline 5 + PR-C 시리즈 8 = 13 algorithm. Catalog ×2.6 확장의 anchor
+    re-measurement. PR-B5 의 baseline 5 result 를 superset 으로 포함.
+    """
+    import dataclasses
+
+    all_outcomes: list[RunOutcome] = []
+    for algo in PHASE_2B_13_ALGORITHMS:
+        algo_outcomes = run_n_measurements(
+            n=n,
+            target_algorithm=algo,
+            max_iterations=max_iterations,
+            graph_factory=graph_factory,
+            run_id_prefix=f"{run_id_prefix}-{algo.value}",
+        )
+        for o in algo_outcomes:
+            all_outcomes.append(
+                dataclasses.replace(o, run_index=len(all_outcomes))
+            )
+    return all_outcomes
 
 
 def run_baseline_5_measurements(

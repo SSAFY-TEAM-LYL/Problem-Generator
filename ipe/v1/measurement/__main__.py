@@ -26,9 +26,11 @@ from ..main_v1 import _parse_target_algorithm
 from ..state import DEFAULT_MAX_ITERATIONS
 from .n3_runner import (
     BASELINE_5_ALGORITHMS,
+    PHASE_2B_13_ALGORITHMS,
     print_summary,
     run_baseline_5_measurements,
     run_n_measurements,
+    run_phase_2b_measurements,
     write_jsonl,
 )
 
@@ -56,6 +58,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--phase-2b",
+        action="store_true",
+        help=(
+            "Phase 2b deliverable: 13 algo (baseline 5 + PR-C 8개) 순회. "
+            "--algorithm/--baseline-5 와 mutually exclusive."
+        ),
+    )
+    parser.add_argument(
         "--n",
         type=int,
         default=3,
@@ -80,14 +90,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     load_dotenv()
     args = _build_parser().parse_args(argv)
 
-    if args.baseline_5 and args.algorithm is not None:
-        print("[measurement] error: --baseline-5 와 --algorithm 동시 지정 불가")
-        return 2
-    if not args.baseline_5 and args.algorithm is None:
-        print("[measurement] error: --baseline-5 또는 --algorithm 중 하나 필수")
+    mode_flags = sum(
+        [bool(args.algorithm), bool(args.baseline_5), bool(args.phase_2b)]
+    )
+    if mode_flags != 1:
+        print(
+            "[measurement] error: --algorithm / --baseline-5 / --phase-2b "
+            "중 정확히 하나만 지정해야 합니다"
+        )
         return 2
 
-    if args.baseline_5:
+    if args.phase_2b:
+        algo_list = [a.value for a in PHASE_2B_13_ALGORITHMS]
+        print(
+            f"[measurement] start phase-2b algos={algo_list} "
+            f"n_per_algo={args.n} max_iter={args.max_iter}"
+        )
+        outcomes = run_phase_2b_measurements(
+            n=args.n, max_iterations=args.max_iter
+        )
+    elif args.baseline_5:
         algo_list = [a.value for a in BASELINE_5_ALGORITHMS]
         print(
             f"[measurement] start baseline-5 algos={algo_list} "
