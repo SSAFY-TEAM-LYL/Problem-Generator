@@ -118,6 +118,14 @@ Maximum Flow (max_flow) 가 target 이면:
 - **중요**: sample V <= 12 (brute 2^V min-cut golden 의 안전 상한). V 가 너무
   크면 verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
 
+Sieve of Eratosthenes (sieve) 가 target 이면:
+- input format: 첫 줄 "N" (단일 정수, 0 <= N <= 10000).
+- output: ascending space-separated primes p (2 <= p <= N). N < 2 면 empty.
+- variant: classic sieve (Eratosthenes / Linear / Wheel family). designer 가
+  variant 선택.
+- **중요**: sample N <= 10000 (trial division golden 안전 상한). N 이 너무
+  크면 verifier silent skip.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 

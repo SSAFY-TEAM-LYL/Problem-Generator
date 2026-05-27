@@ -177,6 +177,17 @@ MAX_FLOW_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+SIEVE_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_is_int_list", "모든 출력 token 이 정수"),
+    ("all_in_valid_range", "모든 p 가 2 <= p <= N"),
+    ("all_strictly_ascending", "p_i < p_{i+1} (중복 금지)"),
+    (
+        "matches_trial_division",
+        "trial division O(N√N) golden 과 정확 일치 (multiset+order, N<=10000)",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -321,6 +332,21 @@ max_flow 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - **중요**: sample V <= 12 (brute 2^V min-cut golden 안전 상한; V > 14 면
   verifier 가 silent skip).
 
+target_algorithm = "sieve" 면 다음 4 invariants 를 반드시 포함:
+- output_is_int_list
+- all_in_valid_range
+- all_strictly_ascending
+- matches_trial_division
+
+sieve 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N" (단일 정수, 0 <= N <= 10000)
+- output: ascending space-separated primes p (2 <= p <= N). N < 2 면 empty.
+  한 줄 또는 여러 줄 (whitespace-tolerant).
+- variant: classic Sieve of Eratosthenes (Linear Sieve / Wheel Sieve family).
+  designer 가 sieve variant 선택.
+- **중요**: sample N <= 10000 (trial division golden 안전 상한; N > 10000 면
+  verifier 가 silent skip).
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -371,6 +397,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(STRING_MATCH_DEFAULT_INVARIANTS)
     if target_algorithm == "max_flow":
         return list(MAX_FLOW_DEFAULT_INVARIANTS)
+    if target_algorithm == "sieve":
+        return list(SIEVE_DEFAULT_INVARIANTS)
     return []
 
 
