@@ -101,6 +101,13 @@ Comparison Sort (sort) 가 target 이면:
 - variant: classic comparison sort (Quicksort, Mergesort, Heapsort family).
   designer 가 algorithm 선택. non-strict ascending (중복 OK).
 
+String Match (string_match) 가 target 이면:
+- input format: 첫 줄 text (한 단어, ASCII printable, **공백 금지**),
+  둘째 줄 pattern (한 단어, ASCII printable, **공백 금지**, non-empty).
+- output: 단일 정수 — 1-indexed first occurrence index, 또는 "-1" (no match).
+- variant: classic single-pattern substring search (KMP, Z-algorithm,
+  Rabin-Karp family). designer 가 algorithm 선택.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
