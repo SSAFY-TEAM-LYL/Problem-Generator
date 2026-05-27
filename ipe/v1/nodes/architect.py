@@ -93,6 +93,14 @@ Topological Sort (toposort) 가 target 이면:
 - **중요**: sample N <= 15 (brute O(2^N) golden 의 안전 상한). N 이 너무 크면
   verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
 
+Comparison Sort (sort) 가 target 이면:
+- input format: 첫 줄 "N" (배열 크기),
+  둘째 줄 "a_1 a_2 ... a_N" (1-indexed, 정수, 중복/음수 허용).
+- output: "b_1 b_2 ... b_N" — 입력의 ascending 정렬 (한 줄 권장,
+  whitespace-tolerant).
+- variant: classic comparison sort (Quicksort, Mergesort, Heapsort family).
+  designer 가 algorithm 선택. non-strict ascending (중복 OK).
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
