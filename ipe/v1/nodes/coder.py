@@ -163,7 +163,7 @@ class AnthropicCoderLLM:
         )
         self._chain = (
             prompt | llm.with_structured_output(SolutionAttempt)
-        ).with_retry(stop_after_attempt=3, wait_exponential_jitter=True)
+        ).with_retry(stop_after_attempt=5, wait_exponential_jitter=True)
 
     def generate(self, state: V1State) -> SolutionAttempt:
         result = self._chain.invoke({"user": _build_user_prompt(state)})

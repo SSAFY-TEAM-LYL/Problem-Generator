@@ -111,11 +111,33 @@ def run_n_measurements(
             run_id, target_algorithm, max_iterations=max_iterations
         )
         start = time.time()
-        graph = graph_factory()
-        raw = graph.invoke(initial)
-        final = _normalize_final_state(raw)
-        elapsed = time.time() - start
-        outcomes.append(_summarize_state(i, final, elapsed))
+        try:
+            graph = graph_factory()
+            raw = graph.invoke(initial)
+            final = _normalize_final_state(raw)
+            elapsed = time.time() - start
+            outcomes.append(_summarize_state(i, final, elapsed))
+        except Exception as exc:  # noqa: BLE001
+            elapsed = time.time() - start
+            err_brief = f"{type(exc).__name__}: {exc!s}"[:200]
+            print(
+                f"[n3_runner] run r{i + 1} algo={target_algorithm.value} "
+                f"raised {err_brief} — saving sentinel outcome"
+            )
+            outcomes.append(
+                RunOutcome(
+                    run_index=i,
+                    run_id=run_id,
+                    final_status="api_error",
+                    iteration_used=0,
+                    sample_pass_count=0,
+                    sample_total=0,
+                    samples_engaged=0,
+                    invariant_violations=[],
+                    blocking_signatures=[err_brief],
+                    elapsed_seconds=elapsed,
+                )
+            )
     return outcomes
 
 
