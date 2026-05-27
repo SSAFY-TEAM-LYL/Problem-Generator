@@ -244,6 +244,20 @@ HEAP_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
 )
 
 
+FENWICK_DEFAULT_INVARIANTS: tuple[tuple[str, str], ...] = (
+    ("output_count_matches_queries", "출력 token 갯수 == Q op 갯수"),
+    ("query_output_integer", "모든 출력 token integer parseable"),
+    (
+        "prefix_sum_non_negative_for_non_negative_input",
+        "초기 array + add v 모두 >= 0 이면 모든 Q 결과 >= 0",
+    ),
+    (
+        "prefix_sum_matches_naive",
+        "output == naive O(NQ) cumulative sum simulation 과 정확 일치",
+    ),
+)
+
+
 _SYSTEM_PROMPT = """\
 당신은 algorithm designer 이다. 주어진 ProblemSpec 에 대해 typed AlgorithmDesign
 을 산출한다 (구조화된 tool call 로 반환).
@@ -464,6 +478,22 @@ heap 의 input/output format 은 다음 표준을 **반드시** 따른다:
 - output: pop op 마다 한 줄, 단일 정수 (popped value)
 - variant: classic **min-heap** (smallest first). pop on empty heap 금지.
 
+target_algorithm = "fenwick" 면 다음 4 invariants 를 반드시 포함:
+- output_count_matches_queries
+- query_output_integer
+- prefix_sum_non_negative_for_non_negative_input
+- prefix_sum_matches_naive
+
+fenwick 의 input/output format 은 다음 표준을 **반드시** 따른다:
+- 첫 줄: "N Q" (N=array size, Q=op 갯수, 1-indexed, N,Q <= 1000)
+- 둘째 줄: "a_1 ... a_N" (초기 array, 정수)
+- 그 다음 Q 줄: 각 줄 op. **op keyword 대문자 'A' 또는 'Q' 한 글자**:
+  - "A i v": add v to a[i] (1-indexed, no output)
+  - "Q i": prefix sum a[1..i] (1-indexed, output single int)
+- output: Q op 마다 한 줄, 단일 정수.
+- variant: classic Fenwick Tree (Binary Indexed Tree). SegTree (range-sum +
+  point-assign) 와 다른 invariant — prefix-sum + point-add.
+
 target_algorithm = "segtree" 면 다음 4 invariants 를 반드시 포함:
 - output_count_matches_queries
 - non_negative_sum_for_non_negative_input
@@ -524,6 +554,8 @@ def _default_invariants_for(target_algorithm: str) -> list[tuple[str, str]]:
         return list(KRUSKAL_MST_DEFAULT_INVARIANTS)
     if target_algorithm == "heap":
         return list(HEAP_DEFAULT_INVARIANTS)
+    if target_algorithm == "fenwick":
+        return list(FENWICK_DEFAULT_INVARIANTS)
     return []
 
 

@@ -4195,3 +4195,46 @@ Sort + 1 String + 1 NumTheory + 1 Union-Find.
 | `CHANGES.md` §60 | 본 entry |
 
 ---
+
+## 61. v1.0 D안 Phase 2c — PR-D5: Fenwick Tree verifier (BIT, DS 3개째) (2026-05-27)
+
+### 61.1 동기
+
+Phase 2c PR-D 다섯 번째. **Fenwick Tree (Binary Indexed Tree)** — SegTree
+(range-assign + range-sum) 와 다른 invariant pattern (point-add + prefix-sum).
+DS family 3개째.
+
+### 61.2 변경 내용
+
+- `TargetAlgorithm.FENWICK` enum 추가
+- `FenwickVerifier` — 4 invariants:
+  - `output_count_matches_queries`, `query_output_integer`
+  - `prefix_sum_non_negative_for_non_negative_input`
+  - `prefix_sum_matches_naive` (O(NQ) cumulative sum cross-check)
+- designer + architect prompt (A/Q op keyword, 1-indexed)
+- 15 unit tests
+
+### 61.3 검증
+
+- ruff 0 / mypy 0 (39 src)
+- pytest non-e2e: **390 passed** (+15)
+- **smoke (real LLM, ~$1)**: 1-shot success, **samples_engaged=4/4** ✅
+
+### 61.4 18 verifier 누적 — baseline ×3.6
+
+DS family 3개 (SegTree, Heap, **Fenwick**) — 3가지 핵심 DS pattern (range-
+assign / heap-ordered / point-add+prefix-sum).
+
+### 61.5 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/schema/problem_spec.py` | `TargetAlgorithm.FENWICK` 추가 |
+| `ipe/v1/verifiers/fenwick.py` | 신규 — `FenwickVerifier` + naive prefix-sum golden |
+| `ipe/v1/verifiers/__init__.py` | auto-register |
+| `ipe/v1/nodes/designer.py` | `FENWICK_DEFAULT_INVARIANTS` + dispatch + prompt |
+| `ipe/v1/nodes/architect.py` | Fenwick format guide |
+| `tests/v1/verifiers/test_fenwick.py` | 15 단위 테스트 |
+| `CHANGES.md` §61 | 본 entry |
+
+---

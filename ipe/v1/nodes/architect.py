@@ -166,6 +166,18 @@ Heap (heap) 가 target 이면:
 - variant: classic **min-heap** (smallest first). pop on empty heap **금지**
   (sample 에서 항상 push 가 더 많거나 같아야).
 
+Fenwick Tree (fenwick) 가 target 이면:
+- input format: 첫 줄 "N Q" (1-indexed, N,Q <= 1000),
+  둘째 줄 "a_1 ... a_N" (초기 array, 정수),
+  그 다음 Q줄 op. **op keyword 대문자 'A' 또는 'Q' 한 글자**:
+  - "A i v": add v to a[i] (1-indexed)
+  - "Q i": prefix sum a[1..i] (output)
+- output: Q op 마다 한 줄, 단일 정수.
+- variant: classic Fenwick Tree (BIT). SegTree 와 차이점:
+  - SegTree: assign + range sum
+  - Fenwick: add + prefix sum
+  → 다른 invariant pattern 으로 검증.
+
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
 
