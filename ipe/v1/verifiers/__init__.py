@@ -13,6 +13,7 @@ from .bellman_ford import BellmanFordVerifier
 from .bfs import BFSVerifier
 from .binary_search import BinarySearchVerifier
 from .dijkstra import DijkstraVerifier
+from .fenwick import FenwickVerifier
 from .floyd_warshall import FloydWarshallVerifier
 from .heap import HeapVerifier
 from .knapsack import KnapsackVerifier
@@ -44,6 +45,7 @@ from .union_find import UnionFindVerifier
 # Phase 2c (PR-D2): FloydWarshallVerifier 자동 등록 — all-pairs shortest path.
 # Phase 2c (PR-D3): KruskalMSTVerifier 자동 등록 — MST cluster.
 # Phase 2c (PR-D4): HeapVerifier 자동 등록 — DS family 시작 (Priority Queue).
+# Phase 2c (PR-D5): FenwickVerifier 자동 등록 — DS family 3 (prefix-sum / BIT).
 register_verifier(DijkstraVerifier())
 register_verifier(LISVerifier())
 register_verifier(SegmentTreeVerifier())
@@ -61,12 +63,14 @@ register_verifier(BellmanFordVerifier())
 register_verifier(FloydWarshallVerifier())
 register_verifier(KruskalMSTVerifier())
 register_verifier(HeapVerifier())
+register_verifier(FenwickVerifier())
 
 __all__ = [
     "BFSVerifier",
     "BellmanFordVerifier",
     "BinarySearchVerifier",
     "DijkstraVerifier",
+    "FenwickVerifier",
     "FloydWarshallVerifier",
     "HeapVerifier",
     "KnapsackVerifier",

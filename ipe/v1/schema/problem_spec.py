@@ -41,6 +41,7 @@ class TargetAlgorithm(StrEnum):
     FLOYD_WARSHALL = "floyd_warshall"
     KRUSKAL_MST = "kruskal_mst"
     HEAP = "heap"
+    FENWICK = "fenwick"
 
 
 class ConstraintRange(BaseModel):
