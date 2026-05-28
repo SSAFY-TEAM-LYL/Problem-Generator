@@ -137,7 +137,9 @@ def test_executor_all_samples_pass_no_violations_overall_pass() -> None:
     assert all(sr.passed for sr in v.sample_results)
 
 
-def test_executor_sample_mismatch_routes_to_coder() -> None:
+def test_executor_sample_mismatch_no_violations_routes_to_architect() -> None:
+    """Option B (§68): verifier invariants 통과 + sample mismatch =
+    architect expected_output 오류 가설 → architect back-route."""
     runner = _ScriptedRunner([_ok("5"), _ok("999"), _ok("-1")])
     verifier = _StubVerifier(violations=[], engaged=3)
     node = make_executor_node(runner=runner, verifier_getter=_verifier_getter(verifier))
@@ -147,8 +149,28 @@ def test_executor_sample_mismatch_routes_to_coder() -> None:
     assert v.overall_pass is False
     assert v.failure_mode is FailureMode.SAMPLE_MISMATCH
     assert v.feedback is not None
-    assert v.feedback.target_node is TargetNode.CODER
+    assert v.feedback.target_node is TargetNode.ARCHITECT
     assert v.feedback.blocking_signature == "sample-1-mismatch"
+    assert "architect" in v.feedback.actionable_hint.lower()
+
+
+def test_executor_sample_mismatch_with_violations_routes_to_coder() -> None:
+    """invariant_violations 있으면 coder 의 실제 잘못 → coder 유지 (no back-route)."""
+    runner = _ScriptedRunner([_ok("5"), _ok("999"), _ok("-1")])
+    bogus_violation = InvariantViolation(
+        invariant_kind="non_negative_distance",
+        description="dist < 0",
+        evidence={},
+    )
+    verifier = _StubVerifier(violations=[bogus_violation], engaged=3)
+    node = make_executor_node(runner=runner, verifier_getter=_verifier_getter(verifier))
+    new_state = node(_state())
+    v = new_state.verification
+    assert v is not None
+    assert v.failure_mode is FailureMode.SAMPLE_MISMATCH
+    assert v.feedback is not None
+    assert v.feedback.target_node is TargetNode.CODER
+    assert len(v.invariant_violations) == 1
 
 
 def test_executor_sample_crash_routes_to_coder() -> None:

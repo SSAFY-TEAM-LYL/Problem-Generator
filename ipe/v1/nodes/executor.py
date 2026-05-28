@@ -137,14 +137,28 @@ def _build_verification(
     sample_failure = _classify_run_failure(sample_results, run_statuses)
     if sample_failure is not None:
         mode, hint, sig = sample_failure
+        # Option B (P3 §68): sample_mismatch + invariant_violations=[] 일 때
+        # = verifier 의 모든 mathematical invariants 통과 + sample 단순 비교만
+        # mismatch → coder output 이 사실상 정답이고 architect 의 expected_output
+        # 이 잘못 계산된 것. architect 로 back-route 해서 spec 재생성 유도.
+        # (Two Sum persistent + 5 variance fails 의 systematic recovery)
+        if mode == FailureMode.SAMPLE_MISMATCH and not violations:
+            target = TargetNode.ARCHITECT
+            routed_hint = (
+                f"{hint} (verifier invariants all pass — likely architect "
+                f"expected_output error, regenerate spec)"
+            )
+        else:
+            target = TargetNode.CODER
+            routed_hint = hint
         return VerificationResult(
             overall_pass=False,
             failure_mode=mode,
             sample_results=sample_results,
             invariant_violations=violations,
             feedback=StructuredFeedback(
-                target_node=TargetNode.CODER,
-                actionable_hint=hint,
+                target_node=target,
+                actionable_hint=routed_hint,
                 blocking_signature=sig,
             ),
             iteration=iteration,
