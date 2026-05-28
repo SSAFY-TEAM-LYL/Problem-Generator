@@ -23,10 +23,12 @@ import argparse
 import sys
 import uuid
 from collections.abc import Sequence
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from .graph import build_graph
+from .persistence import persist_run_outputs
 from .schema import TargetAlgorithm
 from .state import DEFAULT_MAX_ITERATIONS, V1State, initial_state
 
@@ -70,6 +72,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         help="dump spec/design/attempt for diagnosis (verifier engagement debug)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("outputs"),
+        help=(
+            "persist run outputs (spec.json/design.json/attempt.py/"
+            "verification.json/outcome.json) to <dir>/<run_id>/. "
+            "default: outputs/."
+        ),
+    )
+    parser.add_argument(
+        "--no-output-dir",
+        action="store_true",
+        help="비활성화 — outputs/ persistence skip.",
     )
     return parser
 
@@ -153,6 +170,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     _print_summary(final)
     if args.verbose:
         _print_verbose(final)
+
+    if not args.no_output_dir:
+        paths = persist_run_outputs(final, output_dir=args.output_dir)
+        print(f"[v1] outputs persisted → {paths.run_dir}")
 
     return 0 if final.final_status == "success" else 1
 

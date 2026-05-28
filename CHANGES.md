@@ -4798,3 +4798,108 @@ verifier-routing co-evolution.
 | `CHANGES.md` §68 | 본 entry |
 
 ---
+
+## 69. v1.0 D안 P3 — outputs/ persistence (생성된 spec/code 영속화) (2026-05-29)
+
+### 69.1 동기
+
+이전까지 v1 D안 은 **RunOutcome metric (jsonl)** 만 영속화. 실제 generated
+artifact (problem spec / algorithm design / solution code / verification
+detail) 는 verbose flag 로만 console 출력 = 휘발성. 사용자 사이드 "생성한
+문제 어디서 확인?" 질문의 직접적 답 — portfolio / catalog browsing / future
+option C / 사후 RCA 분석의 prerequisite.
+
+### 69.2 구현
+
+신규 `ipe/v1/persistence.py` — `persist_run_outputs(state, output_dir)` 함수:
+
+각 run 은 `outputs/<run_id>/` 디렉토리에 5 file:
+
+| file | 내용 |
+|---|---|
+| `spec.json` | ProblemSpec (title/description/constraints/io/samples) |
+| `design.json` | AlgorithmDesign (algorithm_name/pseudocode/invariants) |
+| `attempt.py` | SolutionAttempt.code (raw Python) |
+| `verification.json` | VerificationResult (samples/violations/feedback) |
+| `outcome.json` | 요약 metric (final_status/sample_pass_count/iteration_history) |
+
+CLI flag 추가 — `ipe.v1.main_v1`:
+- `--output-dir <path>` (default `outputs/`)
+- `--no-output-dir` (skip)
+
+기존 jsonl (RunOutcome) 와 **보완** — jsonl 은 batch metric, outputs/ 는
+단일 run 의 full atomic artifact.
+
+### 69.3 검증
+
+- ruff 0 / mypy 0 (41 src, +1)
+- pytest non-e2e: **413 passed** (+8 신규 persistence test)
+- 단위 test: 5 file 생성 / json parseable / raw code 확인 / None field skip /
+  outcome 요약 / mkdir / str path / overwrite re-run
+- smoke (real LLM): `main_v1 --algorithm sieve --run-id demo-sieve-002` →
+  outputs/demo-sieve-002/ 5 files 모두 정상. spec.json 안에 실제 한국어
+  problem description, attempt.py 에 working Sieve 구현 확인.
+
+### 69.4 narrative
+
+```text
+이전:  RunOutcome metric (jsonl) 만 영속
+       → "47/57, 91.2%" 수치 narrative 만
+       → 실제 산출물 보려면 --verbose console (휘발성)
+
+이후:  outputs/<run_id>/ — full artifact persistence
+       → spec / design / code / verification 모두 inspectable
+       → portfolio demo: "이 시스템이 만든 실제 문제 보여줘" 가능
+       → catalog browsing 의 prerequisite
+       → future option C, 사후 RCA 분석 base
+```
+
+### 69.5 후속 작업 제안
+
+| priority | task | 영향 |
+|---|---|---|
+| P3 | measurement runner `--output-dir` 옵션 | batch detail 보존 |
+| P3 | outputs/ catalog UI (간단 web browser) | catalog browsing 활성화 |
+| P3 | option C (verifier expected derive) | Two Sum final fix |
+
+### 69.6 추가 — 사람용 problem.md + samples/ 분리 + measurement opt-in
+
+사용자 의도 "실제 문제로 쓰려면 문제 지문/테케/정답" + "측정 단계는 옵션
+스위칭":
+
+**persistence.py 확장**:
+- `outputs/<run_id>/problem.md` — 사람 친화 markdown (title / description /
+  입력출력 / 제약사항 / 샘플) — competitive programming / online judge 표준
+- `outputs/<run_id>/samples/<i>.in` + `<i>.out` — 1-indexed sample 분리
+  → `diff <(python attempt.py < 1.in) 1.out` 채점 가능
+
+**measurement runner 옵션화**:
+- `measurement/__main__.py` 에 `--persist-outputs <dir>` flag 추가 (default
+  off, 큰 N 시 디스크 부담 회피)
+- `run_n_measurements` / `run_baseline_5_measurements` /
+  `run_phase_2b_measurements` / `run_phase_2c_measurements` 모두 optional
+  `persist_output_dir: Path | None = None` param 추가
+- single run (`main_v1`) 은 default ON (예시/demo 용도) 유지
+
+**검증**:
+- 11 persistence tests (8 + 3 new)
+- pytest 416 passed
+- smoke single run: outputs/demo-two-001/ 에 problem.md + samples/1.in~4.out
+  모두 생성. competitive-programming 호환 구조.
+- smoke measurement:
+  - `--algorithm dijkstra --n 1` (default): outputs/ 생성 X ✅
+  - `--algorithm dijkstra --n 1 --persist-outputs outputs/measurement-demo`:
+    outputs/measurement-demo/v1-pr-a5-dijkstra-r1/ 생성 ✅
+
+### 69.7 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/persistence.py` | 신규 — `persist_run_outputs()` + `PersistedPaths` + `_write_problem_md()` + `_write_samples_dir()` |
+| `ipe/v1/main_v1.py` | `--output-dir` / `--no-output-dir` flag + final persist 호출 |
+| `ipe/v1/measurement/n3_runner.py` | 4 runner 함수 모두 optional `persist_output_dir` param 추가 + `run_baseline_5_measurements` 를 `_run_multi_algo` 으로 통합 |
+| `ipe/v1/measurement/__main__.py` | `--persist-outputs <dir>` flag 추가 + 모든 mode 에 propagate |
+| `tests/v1/test_persistence.py` | 11 단위 테스트 (8 + 3 new for problem.md/samples) |
+| `CHANGES.md` §69 | 본 entry |
+
+---
