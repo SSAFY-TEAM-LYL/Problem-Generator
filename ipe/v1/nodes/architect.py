@@ -43,7 +43,14 @@ Segment Tree (segtree) 가 target 이면:
   1-indexed inclusive). **op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자**
   (숫자 코드 1/2 금지, 풀워드 update/query 금지).
 - output: 각 "Q" op 마다 한 줄, 단일 정수.
-- 음수 update 값 허용. variant = Range Sum + Point Update (Phase 2a).
+- 음수 update 값 허용. variant = Range Sum + Point Update.
+- **중요 (sample 권장)**: **N <= 5, Q <= 5** 로 작성. array state mental
+  tracking 가능.
+- **expected_output 계산 절차 (필수, step-by-step)**:
+  1. 초기 array 표 작성 (A_1..A_N)
+  2. 각 op 별로 array 변화 추적: U i v → A[i]=v, Q l r → A[l..r] 합 계산
+  3. Q op 마다 sum 값 누적 기록 (출력 순서)
+  4. 사례별 재검증: l==r 면 단일 element, l..N 이면 끝까지.
 
 LIS 가 target 이면:
 - input format: 첫 줄 N, 둘째 줄 a_1 ... a_N
@@ -53,13 +60,29 @@ Two Sum (two_sum) 이 target 이면:
 - input format: 첫 줄 "N T" (N=array 크기, T=target sum, 공백 구분),
   둘째 줄 "a_1 ... a_N" (1-indexed array, 공백 구분, 음수 허용).
 - output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair).
-  여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
+- **중요 (sample 작성 핵심)**: **valid pair 가 정확히 1개만 존재**하도록 array
+  와 T 신중히 작성. 그래야 architect expected 와 coder output 이 일치.
+  - 예 BAD: a=[1,4,5,6,9], T=10 — pair (1,9) 와 (4,6) 둘 다 sum=10, mismatch risk
+  - 예 GOOD: a=[2,7,1,8], T=9 — pair (2,7) 만 sum=9, unique
+- **expected_output 계산 절차 (필수)**:
+  1. 모든 (i, j) 쌍 (i<j) 의 sum 직접 enumerate
+  2. T 와 같은 sum 이 정확히 1개 또는 0개인지 확인
+  3. 1개면 그 (i, j) 1-indexed 출력, 0개면 "-1"
+  4. **1-indexed 강조**: a 의 첫 element 가 a_1 (1-indexed), i < j 순서.
 
 BFS (bfs) 가 target 이면:
 - input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=target,
   모두 1-indexed), 그 다음 E줄 각각 "u v" (directed edge u→v, 1-indexed).
 - output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1".
 - variant: single-source single-target. directed graph. edge weight=1 가정.
+- **중요 (sample 권장)**: **V <= 6** 로 작성. layer-by-layer BFS trace 가능.
+- **expected_output 계산 절차 (필수, layer trace)**:
+  1. layer 0: s 자신 (dist=0)
+  2. layer 1: s 에서 directed edge 1개로 도달하는 모든 v (dist=1)
+  3. layer k: layer (k-1) 의 nodes 에서 한 step 으로 도달 + 이전 layer 들에
+     없는 nodes
+  4. t 가 layer k 에 처음 등장 → expected_output = k. 어떤 layer 에도 없으면 "-1".
+  5. s == t 면 0.
 
 Binary Search (binary_search) 가 target 이면:
 - input format: 첫 줄 "N T" (N=array 크기, T=target value, 공백 구분),
@@ -115,6 +138,14 @@ String Match (string_match) 가 target 이면:
 - output: 단일 정수 — 1-indexed first occurrence index, 또는 "-1" (no match).
 - variant: classic single-pattern substring search (KMP, Z-algorithm,
   Rabin-Karp family). designer 가 algorithm 선택.
+- **중요 (sample 권장)**: text 길이 <= 15. pattern 의 **first** occurrence 만
+  중요 (later occurrence 출력해도 mismatch).
+- **expected_output 계산 절차 (필수)**:
+  1. text 의 각 1-indexed 시작 위치 i = 1..len(text)-len(pattern)+1 순회
+  2. text[i..i+len(pattern)-1] == pattern 인 첫 i 찾기 (**first only**)
+  3. 발견 시 i (1-indexed), 못 찾으면 "-1"
+  4. 사례별 재검증: pattern == text[1..len(pattern)] 면 1, pattern 이 text
+     끝 부분이면 len(text)-len(pattern)+1.
 
 Maximum Flow (max_flow) 가 target 이면:
 - input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=sink,
@@ -229,17 +260,30 @@ Fenwick Tree (fenwick) 가 target 이면:
   - "A i v": add v to a[i] (1-indexed)
   - "Q i": prefix sum a[1..i] (output)
 - output: Q op 마다 한 줄, 단일 정수.
-- variant: classic Fenwick Tree (BIT). SegTree 와 차이점:
-  - SegTree: assign + range sum
-  - Fenwick: add + prefix sum
+- variant: classic Fenwick Tree (BIT). SegTree 와 차이점: SegTree=assign +
+  range sum, Fenwick=add + prefix sum.
+- **중요 (sample 권장)**: **N <= 5, Q <= 5** 로 작성.
+- **expected_output 계산 절차 (필수, array state trace)**:
+  1. 초기 array 표 (a_1..a_N)
+  2. 각 op 별 array state 변화 추적:
+     - A i v → a[i] += v (no output)
+     - Q i → output = a[1]+a[2]+...+a[i] (1-indexed prefix sum)
+  3. Q op 결과만 출력 순서대로 누적
+  4. 사례별 재검증: Q 1 = a[1], Q N = total sum.
 
 Coin Change (coin_change) 가 target 이면:
 - input format: 첫 줄 "N A" (N=coin types, A=target amount, N<=20, A<=1000),
   둘째 줄 "c_1 c_2 ... c_N" (각 동전 >= 1, 정수).
 - output: 단일 정수 — **minimum coin count** to make A, 또는 "-1" (impossible).
 - variant: classic **unbounded** coin change (each coin unlimited use).
-- **중요**: architect 가 expected_output 을 spec 단계에서 계산할 때 DP O(N*A)
-  formula 를 정확히 적용. Knapsack (PR-C4) 와 같은 outlier 패턴 회피.
+- **중요 (sample 권장)**: **A <= 20** 로 작성. 직접 DP table 추적 가능.
+- **expected_output 계산 절차 (필수, DP table)**:
+  1. dp 배열 초기화: dp[0]=0, dp[1..A]=∞
+  2. amt = 1..A 순회:
+     - dp[amt] = min(dp[amt-c]+1 for c in coins if c<=amt and dp[amt-c]<∞)
+  3. dp[A] 가 expected_output. ∞ 면 "-1".
+  4. 사례별 재검증: A==0 → 0, coin 중 1 있으면 항상 가능, 모든 coin 이 A 보다
+     크면 불가능 → "-1".
 
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
