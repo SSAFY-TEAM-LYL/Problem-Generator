@@ -4721,7 +4721,6 @@ v1 Phase 2c RCA3 final:       91.2% (52/57, +64pp) ←── 현재 ✅
 
 ---
 
-<<<<<<< HEAD
 ## 68. v1.0 D안 P3 Option B — routing 확장 (variance systematic 회복) (2026-05-29)
 
 ### 68.1 동기
@@ -4797,7 +4796,9 @@ verifier-routing co-evolution.
 | `tests/v1/nodes/test_executor.py` | 1 test 갱신 + 1 test 추가 |
 | `docs/baseline/data/v1-optionb-{twosum,lis,unionfind,bellman,fenwick}-N3.jsonl` | 신규 — 5 algo Option B 측정 |
 | `CHANGES.md` §68 | 본 entry |
-=======
+
+---
+
 ## 69. v1.0 D안 P3 — outputs/ persistence (생성된 spec/code 영속화) (2026-05-29)
 
 ### 69.1 동기
@@ -4900,6 +4901,5 @@ CLI flag 추가 — `ipe.v1.main_v1`:
 | `ipe/v1/measurement/__main__.py` | `--persist-outputs <dir>` flag 추가 + 모든 mode 에 propagate |
 | `tests/v1/test_persistence.py` | 11 단위 테스트 (8 + 3 new for problem.md/samples) |
 | `CHANGES.md` §69 | 본 entry |
->>>>>>> 7bf1d2e (docs(v1): CHANGES.md §69 — outputs/ persistence narrative)
 
 ---
