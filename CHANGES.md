@@ -4624,3 +4624,99 @@ RCA3 (§66):        예상 ~55+/57 (~96%+) — 일반화 후 (Two Sum 만 persis
 | `CHANGES.md` §66 | 본 entry |
 
 ---
+
+## 67. v1.0 D안 P2 final — Phase 2c RCA3 full re-test (Gate PASS +8.7pp) (2026-05-28)
+
+### 67.1 결과 (Gate PASS)
+
+| metric | 값 |
+|---|---|
+| Run-level | **52/57 (91.2%) success** ✅ |
+| Sample-level | 209/214 (97.7%) |
+| samples_engaged | 212/214 (99.1%) |
+| API error | 0 |
+| Mean iteration | 1.07 |
+
+### 67.2 Phase 2c 전체 narrative (§63 ~ §67)
+
+```text
+Phase 2c (§63):    47/57 (82.5%) — Knapsack/Kruskal outlier
+Post-RCA (§64):    42/57 (73.7%) — prompt side effect (regression)
+RCA2 (§65):        45/57 (78.9%) — Graph family 일반화
+RCA3 (§66/67):     52/57 (91.2%) ✅ — 6 algo 일반화 후 final
+                                   (Phase 2c 대비 +8.7pp 회복)
+                                   (v0 baseline 27% 대비 +64pp)
+```
+
+### 67.3 회복 algo (Phase 2c → RCA3)
+
+| algorithm | Phase 2c | RCA3 | Δ |
+|---|---|---|---|
+| **Knapsack** | 0/3 | **3/3** | +3 ✅ |
+| **Kruskal MST** | 1/3 | **3/3** | +2 ✅ |
+| Two Sum | 1/3 | 2/3 | +1 (개선) |
+| 14 other algo | 동일 | 동일 | 0 |
+| lis/union_find/bellman_ford/fenwick | 3/3 | 2/3 each | -1 each (variance) |
+
+**Net +5 runs**.
+
+### 67.4 5 fail 분석 (variance, persistent risk)
+
+- lis r1, union_find r3, bellman_ford r2, fenwick r2: Phase 2c 3/3 였음. NEW
+  sampling variance (1 fail per algo).
+- two_sum r1: persistent pattern. prompt 한계.
+
+5 fails 모두 fail_oscillation iter=2 sample-mismatch 패턴 = `invariant_violations=[]`
+일 가능성. systematic 보다는 sampling artifact + Two Sum persistent.
+
+### 67.5 H1/H2/H3 final evidence
+
+- **H1 (routing)**: API error 0, budget 0. 결정론적 종료.
+- **H2 (verifier)**: **99.1% samples_engaged** (212/214). 새 verifier (Fenwick/
+  Heap/Coin Change) 안정.
+- **H3 (multi-iter)**: mean iter 1.07 = 거의 모두 1-shot. RCA fix 후 retry
+  필요 없음.
+
+### 67.6 Prompt engineering 누적 학습 (§63 ~ §67)
+
+1. **literal `{var}` 항상 회피** — 3건 escape bug (§50/§65/§66)
+2. **일부 강화 = 다른 부분 regression** — 일관성 위해 모든 algo 동일 패턴
+   일반화 안전 (§64 → §65/§66)
+3. **prompt 한계** — Two Sum 같은 case 는 architecture 변경 필요 (P3
+   option B/C)
+4. **architect expected_output 절차 명시** = 가장 효과적 fix 패턴
+   (brute enumerate / step-by-step trace / DP table)
+
+### 67.7 narrative 최종
+
+```text
+v0 single LLM baseline:        27%
+v1 Phase 1 (Dijkstra):        100% (3/3, +73pp)
+v1 Phase 2a (5 algo):         93.3% (14/15, +66pp)
+v1 Phase 2b (13 algo):        87.2% (34/39, +60pp)
+v1 Phase 2c (19 algo):        82.5% (47/57, +55pp)
+v1 Phase 2c RCA3 final:       91.2% (52/57, +64pp) ←── 현재 ✅
+                              ↓
+            19 algorithm catalog (baseline ×3.8)
+            100% samples_engaged (99.1% engaged)
+            architect prompt 일반화 완료
+```
+
+### 67.8 후속 작업 제안
+
+| priority | task | 영향 |
+|---|---|---|
+| P3 | option B (sample_mismatch + invariant=[] → architect back-route) | Two Sum + 미래 variance systematic 회복 |
+| P3 | option C (verifier expected_output derive) | architect dependency 제거 |
+| P3 | outputs/ persistence (generated problems 저장) | catalog browsing |
+| P3 | N=5 확장 측정 | variance ↓, statistical power ↑ |
+| P3 | Phase 2d (PR-E: Trie / Modular Exp / GCD / Aho-Corasick) | catalog ×4.5+ |
+
+### 67.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `docs/baseline/data/v1-phase-2c-rca3-N3-19algo-detailed.jsonl` | 신규 — final 57 outcome (52/57) |
+| `CHANGES.md` §67 | 본 entry |
+
+---

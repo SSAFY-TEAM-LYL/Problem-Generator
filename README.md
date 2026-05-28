@@ -4,10 +4,10 @@
 > Opus/Sonnet 으로 problem spec → algorithm design → code → symbolic verifier
 > 4-node pipeline. 19 algorithm × 4 invariants 누적 catalog.
 
-[![Status](https://img.shields.io/badge/status-v1.0%20D%EC%95%88%20Phase%202c%20(19%20algo)-blue)](CHANGES.md)
+[![Status](https://img.shields.io/badge/status-v1.0%20D%EC%95%88%20Phase%202c%20RCA3%20(19%20algo)-blue)](CHANGES.md)
 [![Tests](https://img.shields.io/badge/tests-405%20passed-brightgreen)](tests/)
-[![e2e](https://img.shields.io/badge/Phase%202c%20(N=3%20x%2019)-47%2F57%20(82.5%25)-green)](docs/baseline/v1-phase-2c-N3-19algo.md)
-[![Engaged](https://img.shields.io/badge/samples_engaged-100%25-brightgreen)](docs/baseline/v1-phase-2c-N3-19algo.md)
+[![e2e](https://img.shields.io/badge/Phase%202c%20RCA3-52%2F57%20(91.2%25)-brightgreen)](CHANGES.md#67)
+[![Engaged](https://img.shields.io/badge/samples_engaged-99.1%25-brightgreen)](CHANGES.md#67)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
@@ -35,9 +35,10 @@ target_algorithm  →  [architect → designer → coder → executor]  →  검
 | v1 Phase 1 (Dijkstra MVR) | 100% (3/3) | D안 architecture 시작 |
 | v1 Phase 2a (5 algo) | 93.3% (14/15) | baseline + 4 algo |
 | v1 Phase 2b (13 algo) | 87.2% (34/39) | +8 algo (Search/DS/DP/Sort/String/...) |
-| **v1 Phase 2c (19 algo)** | **82.5% (47/57)** | **+6 algo (Graph/DS/DP) — current** |
+| v1 Phase 2c (19 algo) | 82.5% (47/57) | +6 algo (Graph/DS/DP) |
+| **v1 Phase 2c RCA3 final** | **91.2% (52/57)** | **architect prompt 일반화 — current ✅** |
 
-**+55pp vs v0 baseline 유지 + 100% samples_engaged 달성**. catalog ×3.8 확장.
+**+64pp vs v0 baseline + 99.1% samples_engaged**. catalog ×3.8 확장.
 
 ---
 

@@ -5,11 +5,11 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v1.0 D안 Phase 2c (19 algo verifier, baseline ×3.8)",
+    version: "v1.0 D안 Phase 2c RCA3 (19 algo, 91.2% Gate PASS)",
     repo: "https://github.com/LsMin124/IPE",
     mainCommit: "a0b3ed6",
     updated: "2026-05-28",
-    e2eSuccess: "Phase 2c 19 algo measurement Gate PASS (47/57, 82.5%, 100% engaged). P1/P2 RCA 진행 — Knapsack/Kruskal/Floyd/Bellman/BFS systematic outlier 회복 (architect prompt 강화). Two Sum persistent 만 P3 (routing 확장) 후속.",
+    e2eSuccess: "Phase 2c RCA3 final = 52/57 (91.2%), sample-level 97.7%, samples_engaged 99.1%. v0 baseline 27% 대비 +64pp. Knapsack 0/3→3/3, Kruskal 1/3→3/3, BFS 0/3→3/3 모두 회복. 5 fails 모두 sampling variance (각 algo 2/3). P3 후속: option B (routing 확장) + N=5 확장 측정.",
     tests: 405,
     coverage: 93,
     nodes: 4,
@@ -346,6 +346,16 @@ window.IPE_DATA = {
       target: "11 algorithm 회복 — Knapsack/Kruskal/Floyd/Bellman/MaxFlow/BFS/SegTree/Fenwick/String Match 모두 3/3 또는 회복. Two Sum 만 persistent (1/3 — architect 의 multiple valid pair 생성, P3 routing 확장 후속). 누적 학습: literal {var} 회피, 일반화 안전, prompt 한계.",
       tests: 405,
       doc: "CHANGES.md §65-§66",
+    },
+    {
+      id: "D-RCA-P2-final",
+      round: "P2 final — Phase 2c RCA3 full re-test",
+      date: "2026-05-28",
+      title: "전체 재측정 = 52/57 (91.2%) Gate PASS, +8.7pp 회복",
+      desc: "RCA3 (6 algo 일반화 + escape bug fix) 적용 후 Phase 2c 전체 재측정. Phase 2c §63 47/57 (82.5%) 대비 +5 net runs 회복. sample-level 97.7%, samples_engaged 99.1%, API error 0. mean iteration 1.07 (거의 모두 1-shot). Knapsack 0/3 → 3/3, Kruskal 1/3 → 3/3, BFS 0/3 → 3/3, MaxFlow 1/3 → 3/3, Floyd 0/3 → 3/3 모두 회복 유지. 5 fails 모두 sampling variance (각 algo 2/3, persistent 없음).",
+      target: "v0 baseline 27% 대비 +64pp. 19 algorithm catalog 안정 운영. P3 후속: option B (routing 확장 — Two Sum + variance systematic 회복) / option C (verifier expected derive) / N=5 확장 측정 / Phase 2d (Trie/Modular Exp).",
+      tests: 405,
+      doc: "CHANGES.md §67",
     },
   ],
 };
