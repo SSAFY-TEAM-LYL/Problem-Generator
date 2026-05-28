@@ -9,6 +9,7 @@ from ipe.v1.persistence import persist_run_outputs
 from ipe.v1.schema import (
     AlgorithmDesign,
     ComplexityBound,
+    FailureMode,
     Invariant,
     IOContract,
     ProblemSpec,
@@ -18,7 +19,6 @@ from ipe.v1.schema import (
     TargetAlgorithm,
     VerificationResult,
 )
-from ipe.v1.schema import FailureMode
 from ipe.v1.state import initial_state
 
 
