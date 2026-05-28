@@ -4720,3 +4720,81 @@ v1 Phase 2c RCA3 final:       91.2% (52/57, +64pp) ←── 현재 ✅
 | `CHANGES.md` §67 | 본 entry |
 
 ---
+
+## 68. v1.0 D안 P3 Option B — routing 확장 (variance systematic 회복) (2026-05-29)
+
+### 68.1 동기
+
+§67 RCA3 final 5 fails = 모두 `invariant_violations=[]` + sample mismatch
+반복 = architect expected_output 오류 패턴 (단순 sampling variance 가 아닌
+systematic 가능성). prompt-level fix 한계 — architecture-level routing 변경.
+
+### 68.2 Fix
+
+`ipe/v1/nodes/executor.py` 의 `_build_verification`:
+- 기존: sample_failure → `target_node=CODER` (무조건)
+- 신규: `mode == SAMPLE_MISMATCH and not violations` → `target_node=ARCHITECT`
+- 의미: verifier 의 모든 mathematical invariants 통과 + sample mismatch =
+  coder output 이 사실상 정답 → architect 의 expected_output 오류 가설 →
+  spec 재생성 유도
+
+### 68.3 검증 결과 (5 algo N=3 = 15 runs)
+
+| algorithm | RCA3 (§67) | **Option B (§68)** | 효과 |
+|---|---|---|---|
+| **bellman_ford** | 2/3 | **3/3 ✅** | +1 (variance 해소) |
+| **union_find** | 2/3 | **3/3 ✅** | +1 (variance 해소) |
+| **fenwick** | 2/3 | **3/3 ✅** | +1 (variance 해소) |
+| **lis** | 2/3 | **3/3 ✅** | +1 (variance 해소) |
+| **two_sum** | 2/3 | **2/3** | 0 (1 oscillation) |
+
+Net **10/15 → 14/15 (93.3%)**, **+4 systematic 회복**.
+
+### 68.4 Two Sum 잔존 (oscillation)
+
+Two Sum r2 detail: blocking_signature `sample-1-mismatch` ×2 →
+OSCILLATION_THRESHOLD (=2) 도달 → end_oscillation. architect 가 새 spec 만들었으나
+그 spec 의 sample-1 도 same mismatch.
+
+**P3 option C** (verifier expected_output 자동 derive) 가 final fix.
+
+### 68.5 단위 테스트
+
+- `test_executor_sample_mismatch_no_violations_routes_to_architect` (신규)
+- `test_executor_sample_mismatch_with_violations_routes_to_coder` (신규)
+- 기존 1 test 갱신
+
+406 passed (+1).
+
+### 68.6 narrative
+
+```text
+Phase 2c (§63):    47/57 (82.5%)
+RCA3 (§67):        52/57 (91.2%) — prompt 일반화
+Option B (§68 sub-measurement):   14/15 (93.3%) on variance algo set
+                                  → full Phase 2c 재측정 시 ~55+/57 예상
+```
+
+### 68.7 H1 evidence 강화
+
+verifier 결과 (violations 유무) 를 routing 의 signal 로 직접 활용 —
+verifier-routing co-evolution.
+
+### 68.8 후속 작업 제안
+
+| priority | task | 영향 |
+|---|---|---|
+| P3 | option C (verifier expected_output derive) | Two Sum final fix |
+| P3 | Phase 2c 전체 재측정 (option B 효과 통계 확정) | anchor 갱신 |
+| P3 | outputs/ persistence | spec/code 영속화 |
+
+### 68.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/nodes/executor.py` | `_build_verification` sample_mismatch + violations 체크 + ARCHITECT routing |
+| `tests/v1/nodes/test_executor.py` | 1 test 갱신 + 1 test 추가 |
+| `docs/baseline/data/v1-optionb-{twosum,lis,unionfind,bellman,fenwick}-N3.jsonl` | 신규 — 5 algo Option B 측정 |
+| `CHANGES.md` §68 | 본 entry |
+
+---
