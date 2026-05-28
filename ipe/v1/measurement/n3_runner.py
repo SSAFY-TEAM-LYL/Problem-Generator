@@ -70,6 +70,17 @@ PHASE_2B_13_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
 )
 
 
+PHASE_2C_19_ALGORITHMS: tuple[TargetAlgorithm, ...] = (
+    *PHASE_2B_13_ALGORITHMS,
+    TargetAlgorithm.BELLMAN_FORD,
+    TargetAlgorithm.FLOYD_WARSHALL,
+    TargetAlgorithm.KRUSKAL_MST,
+    TargetAlgorithm.HEAP,
+    TargetAlgorithm.FENWICK,
+    TargetAlgorithm.COIN_CHANGE,
+)
+
+
 def _summarize_state(idx: int, state: V1State, elapsed: float) -> RunOutcome:
     v = state.verification
     return RunOutcome(
@@ -168,15 +179,49 @@ def run_phase_2b_measurements(
     graph_factory: GraphFactory = build_graph,
     run_id_prefix: str = "v1-pr-c8",
 ) -> list[RunOutcome]:
-    """Phase 2b deliverable — 13 algo × N runs (default 39 runs).
+    """Phase 2b deliverable — 13 algo × N runs (default 39 runs)."""
+    return _run_multi_algo(
+        algos=PHASE_2B_13_ALGORITHMS,
+        n=n,
+        max_iterations=max_iterations,
+        graph_factory=graph_factory,
+        run_id_prefix=run_id_prefix,
+    )
 
-    Baseline 5 + PR-C 시리즈 8 = 13 algorithm. Catalog ×2.6 확장의 anchor
-    re-measurement. PR-B5 의 baseline 5 result 를 superset 으로 포함.
+
+def run_phase_2c_measurements(
+    *,
+    n: int = 3,
+    max_iterations: int = 8,
+    graph_factory: GraphFactory = build_graph,
+    run_id_prefix: str = "v1-pr-d6",
+) -> list[RunOutcome]:
+    """Phase 2c deliverable — 19 algo × N runs (default 57 runs).
+
+    Phase 2b 13 + PR-D 시리즈 6 = 19 algorithm. Catalog ×3.8 확장의 anchor
+    re-measurement. Knapsack outlier 재추적 + 새 6 verifier 최초 측정.
     """
+    return _run_multi_algo(
+        algos=PHASE_2C_19_ALGORITHMS,
+        n=n,
+        max_iterations=max_iterations,
+        graph_factory=graph_factory,
+        run_id_prefix=run_id_prefix,
+    )
+
+
+def _run_multi_algo(
+    *,
+    algos: tuple[TargetAlgorithm, ...],
+    n: int,
+    max_iterations: int,
+    graph_factory: GraphFactory,
+    run_id_prefix: str,
+) -> list[RunOutcome]:
     import dataclasses
 
     all_outcomes: list[RunOutcome] = []
-    for algo in PHASE_2B_13_ALGORITHMS:
+    for algo in algos:
         algo_outcomes = run_n_measurements(
             n=n,
             target_algorithm=algo,

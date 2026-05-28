@@ -4282,3 +4282,86 @@ expected_output 계산 한계 (P1 RCA 후속 변함 없음).
 | `CHANGES.md` §62 | 본 entry |
 
 ---
+
+## 63. v1.0 D안 Phase 2c — N=3 × 19 algo measurement (Gate PASS) (2026-05-28)
+
+### 63.1 동기
+
+Phase 2c PR-D 6개 추가 (PR #95~#100) 후 catalog ×3.8 확장. **baseline anchor
+갱신** + **Knapsack outlier 재추적** + **새 6 verifier 최초 N=3 측정**.
+memory measurement_first rule 적용.
+
+### 63.2 결과 (Gate PASS)
+
+| metric | 값 |
+|---|---|
+| Run-level | **47/57 (82.5%) success** |
+| Sample-level | 232/241 (96.3%) |
+| samples_engaged | **241/241 (100%)** ✅ |
+| API error | 0 (retry 5 + sentinel 작동) |
+| Mean iteration | 1.21 |
+| vs v0 baseline (27%) | **+55pp 유지** |
+| vs Phase 2b (87.2%) | -4.7pp (Knapsack/Kruskal outlier + variance) |
+
+자세한 per-algo breakdown / failure 분석 / RCA 가설:
+`docs/baseline/v1-phase-2c-N3-19algo.md`.
+
+### 63.3 새 6 PR-D verifier 최초 측정
+
+| verifier | success | comment |
+|---|---|---|
+| Bellman-Ford | 3/3 | 1-shot all |
+| Floyd-Warshall | 3/3 | matrix output 안정 |
+| **Kruskal MST** | **1/3** | ⚠ NEW outlier (smoke 1-shot 와 다름) |
+| Heap | 3/3 | op sequence 안정 |
+| Fenwick | 3/3 | prefix-sum 안정 |
+| Coin Change | 2/3 | 1-shot 2/3 + 1 variance |
+
+소계 15/18 (83.3%).
+
+### 63.4 Knapsack outlier 강화 + DP family 일반화 반박
+
+- Phase 2b: knapsack 1/3 → Phase 2c: **0/3** (악화)
+- 동일 DP family 의 **Coin Change 2/3 success** → DP 전반 X, **Knapsack
+  specific** 확정 (LLM Opus 4.7 의 0/1 Knapsack 정답 계산 한계).
+
+### 63.5 Failure 분석 (10 fails)
+
+- **9/10**: `invariant_violations=[]` + sample mismatch 반복 → architect
+  expected_output 오류 가설 (PR-D6 narrative 강화).
+- **1/10**: two_sum r1 `indices_in_range_and_ordered` 실 위반 — H1 architect
+  routing 실제 발동 evidence.
+
+### 63.6 narrative 갱신
+
+```text
+v0 baseline (단일 Dijkstra):    27%
+v1 PR-A5:                      100% (3/3)
+v1 PR-B5 baseline 5 algo:      93.3% (14/15)
+v1 Phase 2b 13 algo:          87.2% (34/39)
+v1 Phase 2c 19 algo:          82.5% (47/57) ← 현재 (catalog ×3.8)
+                                            ↓
+                            +55pp 유지, 100% samples_engaged
+```
+
+### 63.7 후속 작업 제안 (P1 강조)
+
+| priority | task | 영향 |
+|---|---|---|
+| **P1** | **Knapsack RCA** — architect prompt brute 강제 또는 back-route 추가 | knapsack 0/3 → 3/3 |
+| **P1** | **Kruskal MST RCA** — undirected MST weight 계산 prompt 강화 | kruskal 1/3 → 3/3 |
+| P2 | N=5 확장 측정 | variance ↓ |
+| P2 | Phase 2d (PR-E) — Trie / Modular Exp / Aho-Corasick | catalog ×4.5+ |
+| P3 | Observability v1 (LLMCallTracker) | cost 분석 |
+
+### 63.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/measurement/n3_runner.py` | `PHASE_2C_19_ALGORITHMS` + `run_phase_2c_measurements()` + `_run_multi_algo()` helper |
+| `ipe/v1/measurement/__main__.py` | `--phase-2c` flag |
+| `docs/baseline/v1-phase-2c-N3-19algo.md` | 신규 — 본 measurement 보고서 |
+| `docs/baseline/data/v1-phase-2c-N3-19algo-detailed.jsonl` | 신규 — 57 outcome raw data |
+| `CHANGES.md` §63 | 본 entry |
+
+---
