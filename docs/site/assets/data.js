@@ -5,12 +5,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v1.0 D안 Phase 2c RCA3 (19 algo, 91.2% Gate PASS)",
+    version: "v1.0 D안 (19 algo, 91.2% Gate PASS, anchor freeze)",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "a0b3ed6",
-    updated: "2026-05-28",
-    e2eSuccess: "Phase 2c RCA3 final = 52/57 (91.2%), sample-level 97.7%, samples_engaged 99.1%. v0 baseline 27% 대비 +64pp. Knapsack 0/3→3/3, Kruskal 1/3→3/3, BFS 0/3→3/3 모두 회복. 5 fails 모두 sampling variance (각 algo 2/3). P3 후속: option B (routing 확장) + N=5 확장 측정.",
-    tests: 405,
+    mainCommit: "706f875",
+    updated: "2026-05-29",
+    e2eSuccess: "Phase 2c RCA3 final = 52/57 (91.2%), sample-level 97.7%, samples_engaged 99.1%, v0 baseline 27% 대비 +64pp. P3 후속 2개 merge: Option B (sample_mismatch + invariant_violations=[] → architect back-route, variance systematic 회복) + outputs/ persistence (run-id 디렉토리에 spec/design/code/verification/outcome + problem.md + samples/<i>.{in,out}, online judge 호환). 추가 측정은 diminishing returns 로 판단 → anchor freeze.",
+    tests: 418,
     coverage: 93,
     nodes: 4,
     deps: 12,
@@ -18,14 +18,14 @@ window.IPE_DATA = {
 
   // 최근 대표 PR — v1 D안 Phase 1~2c 시리즈 + RCA
   recentPrs: [
-    { num: 86, title: "PR-C1 Binary Search verifier", type: "feat", impact: "v1 catalog 6 algo" },
-    { num: 90, title: "PR-C5 Sort verifier (cluster 패턴)", type: "feat", impact: "baseline ×2.0 달성" },
     { num: 93, title: "PR-C8 Sieve verifier (Phase 2b 마무리)", type: "feat", impact: "baseline ×2.6, 13 algo" },
     { num: 94, title: "Phase 2b N=3 × 13 algo measurement", type: "test", impact: "34/39 (87.2%), 100% engaged" },
     { num: 96, title: "PR-D2 Floyd-Warshall verifier", type: "feat", impact: "baseline ×3.0 달성" },
     { num: 100, title: "PR-D6 Coin Change verifier (DP 2개째)", type: "feat", impact: "baseline ×3.8, 19 algo" },
     { num: 101, title: "Phase 2c N=3 × 19 algo measurement", type: "test", impact: "47/57 (82.5%) Gate PASS" },
-    { num: 103, title: "P1+P2 RCA — Knapsack/Kruskal/Graph/6 algo 일반화", type: "fix", impact: "17/18 회복, Two Sum persistent" },
+    { num: 103, title: "P1+P2 RCA — Knapsack/Kruskal/Graph/6 algo 일반화", type: "fix", impact: "52/57 (91.2%), Two Sum persistent" },
+    { num: 104, title: "P3 Option B — sample_mismatch+invariant=[] architect back-route", type: "fix", impact: "variance systematic 회복 (sub-meas 14/15)" },
+    { num: 105, title: "P3 outputs/ persistence + problem.md/samples + measurement opt-in", type: "feat", impact: "online judge 호환 format, team demo" },
   ],
 
   // 6 LangGraph nodes
@@ -356,6 +356,26 @@ window.IPE_DATA = {
       target: "v0 baseline 27% 대비 +64pp. 19 algorithm catalog 안정 운영. P3 후속: option B (routing 확장 — Two Sum + variance systematic 회복) / option C (verifier expected derive) / N=5 확장 측정 / Phase 2d (Trie/Modular Exp).",
       tests: 405,
       doc: "CHANGES.md §67",
+    },
+    {
+      id: "D-P3-OptionB",
+      round: "P3 Option B — routing 확장 (PR #104)",
+      date: "2026-05-29",
+      title: "sample_mismatch + invariant_violations=[] → ARCHITECT back-route",
+      desc: "§67 의 잔존 5 fails 가 모두 `invariant_violations=[]` 패턴 (verifier OK, 그러나 sample 불일치 = architect expected_output 오류). executor `_build_verification` 에서 이 조건 검출 시 target_node 를 CODER → ARCHITECT 로 swap, hint 에 'verifier invariants all pass — likely architect expected_output error, regenerate spec' 첨부. 5 algo sub-measurement (Two Sum / LIS / Union-Find / Bellman / Fenwick × N=3 = 15) = 14/15 (93.3%) — variance systematic 회복 evidence.",
+      target: "Two Sum persistent fail / variance 회복 routing 차원 자동화. CODER 측에 책임 전가 없이 ARCHITECT 가 재생성하도록 graph 흐름 보정.",
+      tests: 418,
+      doc: "CHANGES.md §68",
+    },
+    {
+      id: "D-P3-outputs",
+      round: "P3 outputs/ persistence (PR #105)",
+      date: "2026-05-29",
+      title: "생성된 spec/code 영속화 + problem.md/samples + measurement opt-in",
+      desc: "이전엔 RunOutcome JSONL 만 영속화. P3 에서 outputs/<run_id>/ 디렉토리에 spec.json / design.json / attempt.py / verification.json / outcome.json + problem.md (제목 + 지문 + samples) + samples/<i>.in/.out (online judge 호환 format) 저장. main_v1 default ON (--no-output-dir 로 비활성), measurement runner 는 default OFF (--persist-outputs <dir> opt-in — 큰 N 시 디스크 부담 회피). 팀원 demo 시 한두 run 만 확인 가능. unit test 11개 추가.",
+      target: "실제 문제로 사용 가능한 artifact 영속화. 측정 시 디스크 부담은 opt-in 으로 제어.",
+      tests: 418,
+      doc: "CHANGES.md §69",
     },
   ],
 };

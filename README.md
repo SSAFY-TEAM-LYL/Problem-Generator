@@ -4,8 +4,8 @@
 > Opus/Sonnet 으로 problem spec → algorithm design → code → symbolic verifier
 > 4-node pipeline. 19 algorithm × 4 invariants 누적 catalog.
 
-[![Status](https://img.shields.io/badge/status-v1.0%20D%EC%95%88%20Phase%202c%20RCA3%20(19%20algo)-blue)](CHANGES.md)
-[![Tests](https://img.shields.io/badge/tests-405%20passed-brightgreen)](tests/)
+[![Status](https://img.shields.io/badge/status-v1.0%20D%EC%95%88%20(19%20algo%2C%20anchor%20freeze)-blue)](CHANGES.md)
+[![Tests](https://img.shields.io/badge/tests-418%20passed-brightgreen)](tests/)
 [![e2e](https://img.shields.io/badge/Phase%202c%20RCA3-52%2F57%20(91.2%25)-brightgreen)](CHANGES.md#67)
 [![Engaged](https://img.shields.io/badge/samples_engaged-99.1%25-brightgreen)](CHANGES.md#67)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
@@ -36,9 +36,11 @@ target_algorithm  →  [architect → designer → coder → executor]  →  검
 | v1 Phase 2a (5 algo) | 93.3% (14/15) | baseline + 4 algo |
 | v1 Phase 2b (13 algo) | 87.2% (34/39) | +8 algo (Search/DS/DP/Sort/String/...) |
 | v1 Phase 2c (19 algo) | 82.5% (47/57) | +6 algo (Graph/DS/DP) |
-| **v1 Phase 2c RCA3 final** | **91.2% (52/57)** | **architect prompt 일반화 — current ✅** |
+| **v1 Phase 2c RCA3 final** | **91.2% (52/57)** | **architect prompt 일반화 — v1.0 anchor ✅** |
 
-**+64pp vs v0 baseline + 99.1% samples_engaged**. catalog ×3.8 확장.
+**+64pp vs v0 baseline + 99.1% samples_engaged**. catalog ×3.8 확장. 추가
+측정은 diminishing returns 로 판단해 anchor freeze. P3 후속 (PR #104 Option B
+routing 확장, PR #105 outputs/ persistence) 까지 반영.
 
 ---
 
