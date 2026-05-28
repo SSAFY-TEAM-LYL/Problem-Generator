@@ -4365,3 +4365,87 @@ v1 Phase 2c 19 algo:          82.5% (47/57) ← 현재 (catalog ×3.8)
 | `CHANGES.md` §63 | 본 entry |
 
 ---
+
+## 64. v1.0 D안 P1 RCA — Knapsack + Kruskal MST 회복 (2026-05-28)
+
+### 64.1 동기
+
+Phase 2c measurement (§63) 의 P1 outlier:
+- **Knapsack 0/3** (Phase 2b 1/3 → Phase 2c 0/3, 악화)
+- **Kruskal MST 1/3** (NEW outlier, smoke 1-shot 와 다름)
+
+공통 패턴: `invariant_violations=[]` + `sample-N-mismatch` 반복 = architect 의
+expected_output 잘못 계산 (coder output 이 사실 정답, verifier brute golden 통과).
+
+### 64.2 진단
+
+verbose smoke 로 Knapsack sample 4 직접 분석:
+- input: `N=5, C=10, items=(2,6)(2,10)(3,12)(4,13)(5,15)`
+- architect expected: 41
+- brute optimal: 37 (best subset = {2,3,5} = (2,10)+(3,12)+(5,15), w=10, v=37)
+- 추정: LLM 이 4-item subset 다 들어간다고 가정 (실제 weight sum 14 over)
+
+### 64.3 Fix A (surgical) — architect prompt 강화
+
+**Knapsack section** (RCA v1):
+- sample N <= 6 권장 (2^N enumeration 직접 검증 가능)
+- expected_output 계산 절차 (4단계): brute enumerate → valid subset filter →
+  max value → 사례별 재검증
+- 흔한 실수 명시 ("4-item 다 들어간다 가정 X — 실제 weight sum 확인")
+
+**Kruskal MST section** (RCA v2):
+- sample V <= 4 권장
+- expected_output 계산 절차 (5단계, **step-by-step trace 강제**):
+  edge sort 표 → Union-Find 적용 → weight 누적 → V-1 갯수 검증 → 최종 sum
+- 흔한 실수: cycle 검사 빠뜨림
+
+### 64.4 검증 결과
+
+| algorithm | Phase 2c (§63) | RCA v1 (prompt 강화) | RCA v2 (step-by-step) |
+|---|---|---|---|
+| **Knapsack** | 0/3 | **3/3 ✅** | (불필요) |
+| **Kruskal MST** | 1/3 | 1/3 (효과 없음) | **3/3 ✅** |
+
+- Knapsack: RCA v1 한 번에 완전 회복. brute enumeration 절차 명시화 충분.
+- Kruskal MST: RCA v1 만으로는 부족, **v2 의 step-by-step trace 강제** 필요.
+  edge sort + Union-Find iteration 의 직접 mental model 명시가 핵심.
+
+### 64.5 H1/H2/H3 evidence 갱신
+
+- **H1 (routing)**: 변함 없음. 본 fix 는 routing 이 아닌 architect input 품질 개선.
+- **H2 (verifier)**: 변함 없음 — 100% engaged 유지.
+- **H3 (multi-iter)**: 변함 없음 — RCA fix 후 모두 1-shot success.
+
+### 64.6 narrative 효과
+
+```text
+Phase 2c 19 algo:    47/57 (82.5%)
+        ↓ Knapsack RCA: 0/3 → 3/3 (+3)
+        ↓ Kruskal MST RCA: 1/3 → 3/3 (+2)
+        ↓ (theoretical, full 19 algo 재측정 시)
+Post-RCA 19 algo: ~52/57 (~91.2%) 예상
+        ↓ 누적 +64pp vs v0 baseline (27%)
+```
+
+실제 full Phase 2c 재측정은 별도 PR (P2).
+
+### 64.7 후속 작업 제안
+
+| priority | task | 영향 |
+|---|---|---|
+| **P2** | Phase 2c 19 algo 전체 재측정 (RCA 효과 통계 확정) | narrative anchor 갱신 |
+| P2 | other algo expected_output 절차 prompt 일반화 (Coin Change/SegTree/Two Sum/String Match 의 sample_mismatch 회피) | run-level +pp |
+| P3 | option B (routing 확장: sample_mismatch + invariant_violations=[] → architect back-route) | systematic recovery |
+| P3 | option C (verifier 가 expected_output derive) | architect expected dependency 제거 |
+
+### 64.8 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/nodes/architect.py` | Knapsack section: brute enumerate 4단계 / Kruskal MST section: step-by-step trace 5단계 |
+| `docs/baseline/data/v1-rca-knapsack-N3.jsonl` | 신규 — Knapsack RCA v1 N=3 결과 (3/3) |
+| `docs/baseline/data/v1-rca-kruskal-N3.jsonl` | 신규 — Kruskal RCA v1 N=3 결과 (1/3) |
+| `docs/baseline/data/v1-rca-kruskal-v2-N3.jsonl` | 신규 — Kruskal RCA v2 N=3 결과 (3/3) |
+| `CHANGES.md` §64 | 본 entry |
+
+---
