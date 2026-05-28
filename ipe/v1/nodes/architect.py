@@ -123,8 +123,20 @@ Maximum Flow (max_flow) 가 target 이면:
 - output: 단일 정수 — s→t maximum flow.
 - variant: classic single-source single-sink max flow (Ford-Fulkerson,
   Edmonds-Karp, Dinic family). designer 가 algorithm 선택.
-- **중요**: sample V <= 12 (brute 2^V min-cut golden 의 안전 상한). V 가 너무
-  크면 verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
+- **중요 (sample V 권장)**: **sample V <= 5** 로 작성. brute min-cut
+  enumeration 직접 검증 가능.
+- **expected_output 계산 절차 (필수, step-by-step)**:
+  1. **모든 (s 포함 subset S, t 포함 complement T) 분할 enumerate** —
+     2^(V-2) 개 경우.
+  2. **각 분할의 cut capacity** = sum of edge.c (u in S, v in T) — S→T
+     방향 edge 만 합산.
+  3. **min cut capacity 직접 표 작성** — 모든 분할 case 의 cut 값 나열.
+  4. **max-flow min-cut theorem**: max flow = min cut. 최종 expected_output =
+     min cut 값.
+  5. 사례별 재검증: source 만 분리한 cut (S 가 s 만 포함) 과 sink 만 분리한
+     cut (T 가 t 만 포함) 의 capacity 상한 확인.
+- **PR-D7 outlier 회피**: 이전 측정에서 expected_output 잘못 계산되어 1/3 fail.
+  위 절차 + brute enumeration 직접 trace 필수.
 
 Sieve of Eratosthenes (sieve) 가 target 이면:
 - input format: 첫 줄 "N" (단일 정수, 0 <= N <= 10000).
@@ -140,11 +152,19 @@ Bellman-Ford (bellman_ford) 가 target 이면:
   허용**).
 - output: 단일 정수 d[s][t], 또는 "-1" (unreachable).
 - variant: classic Bellman-Ford (negative weight 허용, **negative cycle 금지**).
-  input 은 반드시 reachable negative cycle 없는 graph (cycle 시 verifier
-  silent skip).
-- **중요**: sample V <= 25 (Floyd-Warshall O(V^3) golden 의 안전 상한).
-- Dijkstra 와의 차이: w 음수 허용. negative weight 가 있는 sample 1개 이상
-  포함 권장 (verifier engagement narrative).
+  input 은 반드시 reachable negative cycle 없는 graph.
+- **중요 (sample V 권장)**: **sample V <= 4** 로 작성. step-by-step
+  relaxation trace 가능.
+- **expected_output 계산 절차 (필수, step-by-step trace)**:
+  1. **초기 dist 배열**: dist[s]=0, 나머지 V-1 개 = ∞.
+  2. **V-1 번 relaxation iteration** — 각 iteration 마다:
+     - for each edge (u, v, w): if dist[u] + w < dist[v]: dist[v] = dist[u] + w
+     - 매 iteration 후 dist 배열 표 갱신 명시
+  3. **최종 dist[t]** 가 expected_output. ∞ 면 "-1".
+  4. 사례별 재검증: s == t 면 0, 단일 edge path 가능하면 그 값 상한.
+- Dijkstra 와의 차이: w 음수 허용. negative weight 1개 이상 sample 권장.
+- **PR-D7 outlier 회피**: 이전 측정에서 expected_output 잘못 계산되어 1/3 success.
+  위 step-by-step trace 절차 엄격 준수.
 
 Floyd-Warshall (floyd_warshall) 가 target 이면:
 - input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
@@ -152,9 +172,24 @@ Floyd-Warshall (floyd_warshall) 가 target 이면:
 - output: V lines, each V space-separated 정수. d[i][j] 또는 "-1"
   (unreachable). diagonal d[i][i] = 0.
 - variant: classic Floyd-Warshall all-pairs shortest path.
-- **중요**: sample V <= 20 (V × Bellman-Ford golden 안전 상한).
-  reachable negative cycle 금지.
-- Bellman-Ford 와의 차이: all-pairs matrix output (single value 아님).
+- **중요 (sample V 권장)**: **sample V <= 3** 로 작성. V=3 면 3x3 matrix
+  9 cells 만 — architect 가 직접 enumerate 가능. V=4 부터 16 cells, 실수 위험.
+- **expected_output 계산 절차 (필수, V x V matrix trace)**:
+  1. **초기 V x V matrix**:
+     - d[i][i] = 0 (diagonal)
+     - direct edge (u,v,w) 가 있으면 d[u][v] = w
+     - 나머지 = ∞ (출력 시 "-1")
+  2. **k = 1..V 마다 triple loop**:
+     - for i in 1..V: for j in 1..V:
+       - if d[i][k] + d[k][j] < d[i][j]: d[i][j] = d[i][k] + d[k][j]
+     - 매 k iteration 후 **matrix 표 갱신 명시**
+  3. **최종 matrix** 가 expected_output. ∞ 셀은 "-1" 로.
+  4. 사례별 재검증:
+     - diagonal 다 0 확인
+     - direct edge 가 매우 작으면 그 값 그대로
+     - V=3 같은 작은 sample 은 손으로 직접 계산 가능
+- **PR-D7 outlier 회피**: 이전 측정에서 systematic 0/3 fail = V x V matrix
+  계산 실수. 위 절차 + 작은 V (V <= 3) 권장 필수.
 
 Kruskal MST (kruskal_mst) 가 target 이면:
 - input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
