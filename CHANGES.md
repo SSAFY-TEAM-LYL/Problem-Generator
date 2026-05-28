@@ -4449,3 +4449,97 @@ Post-RCA 19 algo: ~52/57 (~91.2%) 예상
 | `CHANGES.md` §64 | 본 entry |
 
 ---
+
+## 65. v1.0 D안 P2 RCA2 — Graph family 일반화 + post-RCA regression 해소 (2026-05-28)
+
+### 65.1 동기
+
+§64 RCA fix (Knapsack/Kruskal) 적용 후 Phase 2c 전체 재측정:
+- 47/57 (82.5%) → **42/57 (73.7%)** ⚠ **-8.8pp 후퇴**
+- Knapsack/Kruskal 은 회복 (Knapsack 0/3 → 2/3, Kruskal 1/3 → 3/3)
+- 그러나 **이전 3/3 였던 algo 다수 후퇴**:
+  - Floyd-Warshall: 3/3 → **0/3** (NEW systematic)
+  - Bellman-Ford: 3/3 → 1/3
+  - Fenwick: 3/3 → 1/3
+  - Max Flow: 3/3 → 1/3
+
+15 fails 모두 `invariant_violations=[]` + sample mismatch 반복 = architect
+expected_output 오류 패턴 (§64 와 동일 mechanism).
+
+### 65.2 가설
+
+§64 Knapsack/Kruskal section 의 강력한 절차 가이드가:
+1. prompt 전체 길이 ↑ → 다른 algo section LLM attention 분산
+2. 또는 LLM 이 "절차 명시" 패턴을 다른 algo 에도 over-apply 하며 expected
+   계산 sloppy
+
+→ 다른 algo 도 동일 절차 가이드 일반화 필요.
+
+### 65.3 Fix B — Graph family (3 algo) 일반화
+
+**Bellman-Ford**: sample V <= 4 + step-by-step relaxation trace 4단계
+(초기 dist → V-1 iteration → 최종 dist[t] → 재검증)
+
+**Floyd-Warshall**: sample V <= 3 (3x3 matrix 9 cells 만) + V x V matrix
+trace 4단계 (초기 matrix → k iteration triple loop → 최종 matrix → 재검증)
+
+**Max Flow**: sample V <= 5 + brute min-cut 5단계 (2^(V-2) 분할 enumerate →
+cut capacity 계산 → min cut → max-flow min-cut theorem → 재검증)
+
+### 65.4 Bug fix (Critical)
+
+추가 발견 — max_flow section 의 `S={s}` / `T={t}` literal 이
+ChatPromptTemplate 의 f-string variable 로 해석 → **모든 algo template
+ValidationError**.
+
+PR-C3 toposort 의 `{1..N}` 와 동일한 escape bug (§50.2). escape 표기로
+회피: `S 가 s 만 포함` 같은 plain 표현.
+
+### 65.5 검증 결과 (단일 algo N=3)
+
+| algorithm | Phase 2c (§63) | Post-RCA (§64 측정) | **RCA2 (§65)** |
+|---|---|---|---|
+| **Bellman-Ford** | 3/3 | 1/3 | **3/3 ✅** |
+| **Floyd-Warshall** | 3/3 | **0/3** | **3/3 ✅** |
+| **Max Flow** | 3/3 | 1/3 | **2/3** (1 variance) |
+
+소계: 2/9 → **8/9 (89%)**. Systematic regression 해소.
+
+### 65.6 narrative 갱신
+
+```text
+Phase 2c (§63):          47/57 (82.5%) — Knapsack/Kruskal outlier
+        ↓ §64 RCA (Knapsack + Kruskal prompt 강화)
+Post-RCA (§64 측정):     42/57 (73.7%) ⚠ — 다른 algo regression (prompt 의 side effect)
+        ↓ §65 RCA2 (Graph family 일반화)
+RCA2 단일 algo:          Bellman 3/3, Floyd 3/3, Max Flow 2/3 ✅
+        ↓ (이론적, 전체 재측정 시)
+Phase 2c full re-test:   예상 ~50+/57 (~88%+)
+```
+
+### 65.7 H1/H2/H3 evidence 갱신
+
+- **H2 (verifier)**: 변함 없음 — 100% engaged 유지.
+- **Prompt engineering 의 trade-off** 새 관찰: 한 algo 절차 강화가 다른 algo
+  regression 유발. 일반화 (모든 algo 동일 패턴) 가 안전.
+
+### 65.8 후속 작업 제안
+
+| priority | task | 영향 |
+|---|---|---|
+| P2 | **Phase 2c 전체 재측정** — Graph fix + 다른 algo 패턴 통계 확정 | full anchor 갱신 |
+| P2 | 다른 fail algo (Fenwick / Coin Change / SegTree / Two Sum) 일반화 | 추가 +pp |
+| P3 | option B (routing 확장) | systematic recovery |
+
+### 65.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/nodes/architect.py` | Bellman-Ford / Floyd-Warshall / Max Flow section 일반화 + `{s}`/`{t}` escape bug fix |
+| `docs/baseline/data/v1-phase-2c-postrca-N3-19algo-detailed.jsonl` | 신규 — post-§64 전체 측정 (42/57, regression 확인) |
+| `docs/baseline/data/v1-rca2-floyd-N3.jsonl` | 신규 — Floyd RCA2 (3/3) |
+| `docs/baseline/data/v1-rca2-bellman-N3.jsonl` | 신규 — Bellman RCA2 (3/3) |
+| `docs/baseline/data/v1-rca2-maxflow-N3.jsonl` | 신규 — Max Flow RCA2 (2/3) |
+| `CHANGES.md` §65 | 본 entry |
+
+---
