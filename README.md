@@ -1,87 +1,156 @@
 # IPE — Infinite Problem Engine
 
-> **검증된 알고리즘 문제 + audit-able 카탈로그**. LangGraph + Claude 로 문제 설계 →
-> 정해 작성 → 적대적 엣지케이스 → stress test → 난이도 평가 → 사람 review → catalog.
+> **알고리즘 문제 생성 + 결정론적 검증 파이프라인**. LangGraph + Claude 4.7
+> Opus/Sonnet 으로 problem spec → algorithm design → code → symbolic verifier
+> 4-node pipeline. 19 algorithm × 4 invariants 누적 catalog.
 
-[![Status](https://img.shields.io/badge/status-v0.3.0--rc1%20(release%20held)-yellow)](CHANGES.md)
-[![Tests](https://img.shields.io/badge/tests-474%20passed-brightgreen)](tests/)
-[![e2e](https://img.shields.io/badge/e2e%20(N=3)-3%2F15%20run--level%20%2F%2087.7%25%20sample--level-yellow)](docs/baseline/v0.3.0-rc1-N3.md)
+[![Status](https://img.shields.io/badge/status-v1.0%20D%EC%95%88%20Phase%202c%20(19%20algo)-blue)](CHANGES.md)
+[![Tests](https://img.shields.io/badge/tests-405%20passed-brightgreen)](tests/)
+[![e2e](https://img.shields.io/badge/Phase%202c%20(N=3%20x%2019)-47%2F57%20(82.5%25)-green)](docs/baseline/v1-phase-2c-N3-19algo.md)
+[![Engaged](https://img.shields.io/badge/samples_engaged-100%25-brightgreen)](docs/baseline/v1-phase-2c-N3-19algo.md)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)](https://github.com/LsMin124/IPE/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![Sandbox](https://img.shields.io/badge/sandbox-Docker%2Fnsjail%2Fsandbox--exec-brightgreen)](docs/SPEC.md#45-실행-격리-sandbox-4-tier)
 
-> 🌐 인터랙티브 사이트: [lsmin124.github.io/IPE](https://lsmin124.github.io/IPE/)
+> 🌐 인터랙티브 대시보드: [lsmin124.github.io/IPE](https://lsmin124.github.io/IPE/)
 
 ---
 
 ## 무엇
 
-IPE 는 LLM 만으로 문제를 *생성* 하는 것이 아니라 **검증 + 격리 + 영속화 + 사람
-review** 까지 묶은 파이프라인. 단일 LLM call 대비 정량 우위:
+IPE 는 **알고리즘 문제 생성 + 결정론적 검증** 시스템:
 
-| Metric | 단일 LLM baseline | IPE | Δ |
-|---|---|---|---|
-| Run-level success | 27% (N=15) | 20% | -7pp |
-| Sample-level pass | 78.7% | **87.7%** | **+9pp** |
+```
+target_algorithm  →  [architect → designer → coder → executor]  →  검증된 문제 + 코드
+                       (Opus)     (Sonnet)   (Opus)   (verifier)
+```
 
-→ IPE 의 가치는 *generation quality* 가 아니라 **verification + observability +
-catalog** 에 있다. 자세한 분석은 [`docs/baseline/v0.3.0-rc1-N3.md`](docs/baseline/v0.3.0-rc1-N3.md)
-+ [`docs/STRATEGIC_REVIEW`](docs/archive/2026-05_strategic-review.md).
+각 algorithm 의 **수학적 invariants** 를 코드로 결정론적 검증 (LLM judgment
+와 독립된 anchor). 19 algorithm × 4 invariants = 76 invariants 누적.
 
-핵심 가치:
-- **4-tier sandbox** — LLM 코드 host 격리 (Docker / nsjail / sandbox-exec / RLIMIT)
-- **Replay mode** — `ipe --replay <run_id>` cost 0 reproduction (audit-ability)
-- **Catalog persistence** — 사람 review 통과 문제만 catalog promote
-  ([`docs/catalog/SCHEMA.md`](docs/catalog/SCHEMA.md))
-- **3-Phase verification** — sample / adversarial / stress + brute oracle
+### v0 → v1 D안 architecture 진화
+
+| 시점 | run-level | 비고 |
+|---|---|---|
+| v0 single LLM baseline | 27% | 단일 LLM call 의 정확도 anchor |
+| v1 Phase 1 (Dijkstra MVR) | 100% (3/3) | D안 architecture 시작 |
+| v1 Phase 2a (5 algo) | 93.3% (14/15) | baseline + 4 algo |
+| v1 Phase 2b (13 algo) | 87.2% (34/39) | +8 algo (Search/DS/DP/Sort/String/...) |
+| **v1 Phase 2c (19 algo)** | **82.5% (47/57)** | **+6 algo (Graph/DS/DP) — current** |
+
+**+55pp vs v0 baseline 유지 + 100% samples_engaged 달성**. catalog ×3.8 확장.
+
+---
+
+## 19 Algorithm Catalog (Phase 2c)
+
+| family | algorithm | verifier 핵심 invariant |
+|---|---|---|
+| Graph | Dijkstra | Bellman-Ford cross-check (non-negative weight) |
+| Graph | BFS | Floyd-Warshall cross-check (edge=1) |
+| Graph | Topological Sort | edges_respect_order + Kahn DAG check |
+| Graph | Bellman-Ford | Floyd-Warshall cross-check (negative weight) |
+| Graph | Floyd-Warshall | V × Bellman-Ford cross-check (all-pairs) |
+| Graph | Kruskal MST | Prim cross-check |
+| Graph | Max Flow | brute min-cut (max-flow min-cut theorem) |
+| Search | Binary Search | linear scan cross-check |
+| Search | LIS | patience sort O(N log N) |
+| Array | Two Sum | brute O(N²) pair enumeration |
+| Sort | Sort cluster | Python `sorted()` |
+| String | String Match cluster | brute O(NM) substring search |
+| DS | Segment Tree | naive O(NQ) range sum |
+| DS | Heap (Min-PQ) | sorted-list simulation |
+| DS | Fenwick Tree (BIT) | naive prefix-sum |
+| DSU | Union-Find | BFS over union edges |
+| DP | Knapsack 0/1 | brute O(2^N) subset enum |
+| DP | Coin Change | DP O(N*A) tabulation |
+| NumTheory | Sieve of Eratosthenes | trial division O(N√N) |
 
 ---
 
 ## Quick Start
 
 ```bash
-# 설치
-make install
+# 환경 설정
+uv sync --extra dev
 
-# 새 문제 생성 (Two Sum, Python, Docker sandbox)
-ipe --algorithm "Two Sum"
+# .env 에 ANTHROPIC_API_KEY 설정
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 
-# 성공 시 catalog 에 자동 promote
-ipe --algorithm "Two Sum" --promote-to-catalog
+# 단일 algorithm 문제 생성 (verbose 으로 spec/code 확인)
+uv run python -m ipe.v1.main_v1 --algorithm dijkstra --max-iter 4 --verbose
 
-# 사람 review
-python -m ipe.catalog list --status draft
-python -m ipe.catalog show <id>
-python -m ipe.catalog approve <id> --by minsu
+# N=3 measurement (단일 algo)
+uv run python -m ipe.v1.measurement \
+  --algorithm knapsack --n 3 \
+  --output docs/baseline/data/my-run.jsonl
 
-# 단일 LLM baseline 측정 (PRINCIPLES.md §3)
-python -m ipe.baseline batch
+# Phase 2c 19 algo × N=3 = 57 runs (Gate 측정)
+uv run python -m ipe.v1.measurement \
+  --phase-2c --n 3 \
+  --output docs/baseline/data/phase-2c.jsonl
 ```
 
-산출물: `outputs/<run_id>/{problem.json, problem.md, solution.py, tests/, llm_traces/, checkpoint.db}` + `outputs/catalog/problems.jsonl`.
+지원되는 `--algorithm` 값: `dijkstra` / `lis` / `segtree` / `two_sum` /
+`bfs` / `binary_search` / `union_find` / `toposort` / `knapsack` / `sort` /
+`string_match` / `max_flow` / `sieve` / `bellman_ford` / `floyd_warshall` /
+`kruskal_mst` / `heap` / `fenwick` / `coin_change`
+
+산출물: `docs/baseline/data/*.jsonl` (RunOutcome JSONL) — 각 line 에
+`run_id, final_status, sample_pass_count, sample_total, samples_engaged,
+invariant_violations[], blocking_signatures[], elapsed_seconds`.
 
 ---
 
-## 문서 (SSOT 5개)
+## 아키텍처
+
+```text
+USER CLI
+   ↓
+initial_state (V1State, Pydantic v2 frozen)
+   ↓
+LangGraph pipeline:
+  [architect (Opus)] → ProblemSpec
+        ↓
+  [designer (Sonnet)] → AlgorithmDesign (+ invariants[])
+        ↓
+  [coder (Opus)] → SolutionAttempt (Python code)
+        ↓
+  [executor (no LLM)] → 4-phase verification:
+        ├ Phase A: subprocess run per sample
+        ├ Phase B: SymbolicVerifier dispatch (19 verifier registry)
+        ├ Phase C: StructuredFeedback build (failure_mode + target_node)
+        └ Phase D: routing decision (loop or terminate)
+   ↓
+[record] → final V1State + JSONL outcome
+```
+
+자세한 visualization: [`docs/v1-pipeline-flow.md`](docs/v1-pipeline-flow.md).
+
+---
+
+## 문서 (SSOT)
 
 | 위치 | 역할 |
 |---|---|
-| [`docs/SPEC.md`](docs/SPEC.md) | 기능/비기능 요구사항 + 기술 스택 + 인수 기준 |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 모듈 설계 + 그래프 토폴로지 + schema SSOT |
-| [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) | 5 운영 룰 (N≥3 measurement / cross-algo regression / baseline anchor / complexity budget / RCA rollback) |
-| [`docs/catalog/SCHEMA.md`](docs/catalog/SCHEMA.md) | Catalog JSONL schema + 백엔드 활용 |
-| [`CHANGES.md`](CHANGES.md) | 변경 이력 (Round 1~23 + RFC + Catalog + Baseline) |
-
-기타: [`docs/improvements/`](docs/improvements/) (통합 RCA 5 + 단독 3) · [`docs/baseline/`](docs/baseline/) (measurement raw + 보고서) · [`docs/archive/`](docs/archive/) (한시 문서 + 원본 RCA + RFC + backlog)
+| [`docs/SPEC.md`](docs/SPEC.md) | 기능/비기능 요구사항 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 모듈 설계 + Pydantic schema SSOT |
+| [`docs/v1-pipeline-flow.md`](docs/v1-pipeline-flow.md) | v1 D안 ASCII pipeline 시각화 |
+| [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) | 5 운영 룰 (N≥3 / cross-algo regression / baseline anchor / complexity budget / RCA rollback) |
+| [`docs/baseline/`](docs/baseline/) | Measurement raw data + 보고서 (Phase 2a/2b/2c) |
+| [`CHANGES.md`](CHANGES.md) | 변경 이력 (§1~§66+) |
 
 ---
 
-## v0.3.0 release 상태 (보류)
+## 가설 (H1/H2/H3) Evidence
 
-PRINCIPLES.md §3 결정 트리:
-- baseline ≈ IPE (|Δ run| < 20pp) → IPE 는 검증 layer 만 정당화
-- **다음 PR**: M3 dual-call rollback (Dijkstra baseline 3/3 vs IPE 0/3 명백한 음효과)
-- 그 후 v0.3.0 재측정 + tag
+- **H1 (structured routing)**: API error 0 / budget_exhausted 0 / typed
+  feedback 으로 architect↔coder 라우팅 결정론적 (Phase 2c 47/57 runs 전부
+  결정적 종료)
+- **H2 (algorithm-specific verifier)**: **samples_engaged 100%** 유지 across
+  19 algo. Verifier dispatch (LLM 독립) 가 sample-level 정답성 결정.
+- **H3 (IterationContext multi-iter recovery)**: binary_search r1/r2 +
+  segtree r1 + toposort retries 모두 iter=2 recover. fail_oscillation 은
+  외부 routing 한계 (P3 후속).
 
 ---
 
@@ -89,8 +158,22 @@ PRINCIPLES.md §3 결정 트리:
 
 ```bash
 make ci             # ruff + mypy --strict + pytest
-make selftest-all   # sandbox isolation 4-tier 자가진단
-make clean
+uv run pytest tests/v1 -q --ignore=tests/v1/test_e2e_real_llm.py
+uv run python -m ipe.v1.main_v1 --algorithm sieve --max-iter 4 --verbose
 ```
 
-자세한 dev workflow + 운영 룰 → [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md).
+자세한 운영 룰 → [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md).
+
+---
+
+## 기여 / 알려진 이슈
+
+- **Two Sum persistent fail**: architect 가 array 작성 시 multiple valid pair
+  생성하는 경우 expected_output mismatch. P3 routing 확장 (sample_mismatch +
+  invariant_violations=[] → architect back-route) 으로 systematic recovery
+  계획.
+- **outputs/ persistence**: v1 D안 은 RunOutcome metric 만 jsonl 저장. spec/
+  code 영속화는 후속 (verbose flag 로 console 출력만).
+
+PR 환영. [PRINCIPLES.md](docs/PRINCIPLES.md) 의 5 운영 룰 (N≥3 측정 / cross-algo
+regression / baseline anchor / complexity budget / RCA rollback) 준수 권장.
