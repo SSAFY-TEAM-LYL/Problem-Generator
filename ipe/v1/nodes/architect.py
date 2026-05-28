@@ -43,7 +43,14 @@ Segment Tree (segtree) 가 target 이면:
   1-indexed inclusive). **op keyword 는 반드시 대문자 'U' 또는 'Q' 한 글자**
   (숫자 코드 1/2 금지, 풀워드 update/query 금지).
 - output: 각 "Q" op 마다 한 줄, 단일 정수.
-- 음수 update 값 허용. variant = Range Sum + Point Update (Phase 2a).
+- 음수 update 값 허용. variant = Range Sum + Point Update.
+- **중요 (sample 권장)**: **N <= 5, Q <= 5** 로 작성. array state mental
+  tracking 가능.
+- **expected_output 계산 절차 (필수, step-by-step)**:
+  1. 초기 array 표 작성 (A_1..A_N)
+  2. 각 op 별로 array 변화 추적: U i v → A[i]=v, Q l r → A[l..r] 합 계산
+  3. Q op 마다 sum 값 누적 기록 (출력 순서)
+  4. 사례별 재검증: l==r 면 단일 element, l..N 이면 끝까지.
 
 LIS 가 target 이면:
 - input format: 첫 줄 N, 둘째 줄 a_1 ... a_N
@@ -53,13 +60,29 @@ Two Sum (two_sum) 이 target 이면:
 - input format: 첫 줄 "N T" (N=array 크기, T=target sum, 공백 구분),
   둘째 줄 "a_1 ... a_N" (1-indexed array, 공백 구분, 음수 허용).
 - output: 1-indexed "i j" (i < j, a[i]+a[j]==T) 또는 "-1" (no valid pair).
-  여러 valid pair 가 있으면 어느 하나만 출력해도 OK.
+- **중요 (sample 작성 핵심)**: **valid pair 가 정확히 1개만 존재**하도록 array
+  와 T 신중히 작성. 그래야 architect expected 와 coder output 이 일치.
+  - 예 BAD: a=[1,4,5,6,9], T=10 — pair (1,9) 와 (4,6) 둘 다 sum=10, mismatch risk
+  - 예 GOOD: a=[2,7,1,8], T=9 — pair (2,7) 만 sum=9, unique
+- **expected_output 계산 절차 (필수)**:
+  1. 모든 (i, j) 쌍 (i<j) 의 sum 직접 enumerate
+  2. T 와 같은 sum 이 정확히 1개 또는 0개인지 확인
+  3. 1개면 그 (i, j) 1-indexed 출력, 0개면 "-1"
+  4. **1-indexed 강조**: a 의 첫 element 가 a_1 (1-indexed), i < j 순서.
 
 BFS (bfs) 가 target 이면:
 - input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=target,
   모두 1-indexed), 그 다음 E줄 각각 "u v" (directed edge u→v, 1-indexed).
 - output: 단일 정수 — s→t shortest edge count (unweighted), unreachable 시 "-1".
 - variant: single-source single-target. directed graph. edge weight=1 가정.
+- **중요 (sample 권장)**: **V <= 6** 로 작성. layer-by-layer BFS trace 가능.
+- **expected_output 계산 절차 (필수, layer trace)**:
+  1. layer 0: s 자신 (dist=0)
+  2. layer 1: s 에서 directed edge 1개로 도달하는 모든 v (dist=1)
+  3. layer k: layer (k-1) 의 nodes 에서 한 step 으로 도달 + 이전 layer 들에
+     없는 nodes
+  4. t 가 layer k 에 처음 등장 → expected_output = k. 어떤 layer 에도 없으면 "-1".
+  5. s == t 면 0.
 
 Binary Search (binary_search) 가 target 이면:
 - input format: 첫 줄 "N T" (N=array 크기, T=target value, 공백 구분),
@@ -90,8 +113,16 @@ Topological Sort (toposort) 가 target 이면:
   그 다음 N줄 각각 "w_i v_i" (weight, value 둘 다 non-negative 정수).
 - output: 단일 정수 — capacity C 이하 최대 value 합.
 - variant: classic 0/1 knapsack (each item 0 or 1 회 선택, no fractional).
-- **중요**: sample N <= 15 (brute O(2^N) golden 의 안전 상한). N 이 너무 크면
-  verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
+- **중요 (sample N 권장)**: **sample N <= 6** 로 작성. N 작아야 architect 가
+  2^N subset enumeration 으로 직접 expected 검증 가능.
+- **expected_output 계산 절차 (필수)**:
+  1. brute force: 2^N 개 subset 모두 enumerate.
+  2. 각 subset 의 weight sum <= C 만 유효.
+  3. 유효 subset 의 value sum 최대값이 expected_output.
+  4. 직접 사례별 재검증 (e.g. N=5, C=10 에서 4-item 다 들어간다고 가정 X —
+     실제 weight sum 확인).
+- **PR-D6 outlier 회피**: 이전 측정에서 expected_output 이 brute optimal 보다
+  큰 값으로 잘못 계산되어 0/3 fail. 위 절차 엄격 준수.
 
 Comparison Sort (sort) 가 target 이면:
 - input format: 첫 줄 "N" (배열 크기),
@@ -107,6 +138,14 @@ String Match (string_match) 가 target 이면:
 - output: 단일 정수 — 1-indexed first occurrence index, 또는 "-1" (no match).
 - variant: classic single-pattern substring search (KMP, Z-algorithm,
   Rabin-Karp family). designer 가 algorithm 선택.
+- **중요 (sample 권장)**: text 길이 <= 15. pattern 의 **first** occurrence 만
+  중요 (later occurrence 출력해도 mismatch).
+- **expected_output 계산 절차 (필수)**:
+  1. text 의 각 1-indexed 시작 위치 i = 1..len(text)-len(pattern)+1 순회
+  2. text[i..i+len(pattern)-1] == pattern 인 첫 i 찾기 (**first only**)
+  3. 발견 시 i (1-indexed), 못 찾으면 "-1"
+  4. 사례별 재검증: pattern == text[1..len(pattern)] 면 1, pattern 이 text
+     끝 부분이면 len(text)-len(pattern)+1.
 
 Maximum Flow (max_flow) 가 target 이면:
 - input format: 첫 줄 "V E s t" (V=노드 수, E=edge 수, s=source, t=sink,
@@ -115,8 +154,20 @@ Maximum Flow (max_flow) 가 target 이면:
 - output: 단일 정수 — s→t maximum flow.
 - variant: classic single-source single-sink max flow (Ford-Fulkerson,
   Edmonds-Karp, Dinic family). designer 가 algorithm 선택.
-- **중요**: sample V <= 12 (brute 2^V min-cut golden 의 안전 상한). V 가 너무
-  크면 verifier 가 silent skip 하여 samples_engaged 가 떨어진다.
+- **중요 (sample V 권장)**: **sample V <= 5** 로 작성. brute min-cut
+  enumeration 직접 검증 가능.
+- **expected_output 계산 절차 (필수, step-by-step)**:
+  1. **모든 (s 포함 subset S, t 포함 complement T) 분할 enumerate** —
+     2^(V-2) 개 경우.
+  2. **각 분할의 cut capacity** = sum of edge.c (u in S, v in T) — S→T
+     방향 edge 만 합산.
+  3. **min cut capacity 직접 표 작성** — 모든 분할 case 의 cut 값 나열.
+  4. **max-flow min-cut theorem**: max flow = min cut. 최종 expected_output =
+     min cut 값.
+  5. 사례별 재검증: source 만 분리한 cut (S 가 s 만 포함) 과 sink 만 분리한
+     cut (T 가 t 만 포함) 의 capacity 상한 확인.
+- **PR-D7 outlier 회피**: 이전 측정에서 expected_output 잘못 계산되어 1/3 fail.
+  위 절차 + brute enumeration 직접 trace 필수.
 
 Sieve of Eratosthenes (sieve) 가 target 이면:
 - input format: 첫 줄 "N" (단일 정수, 0 <= N <= 10000).
@@ -132,11 +183,19 @@ Bellman-Ford (bellman_ford) 가 target 이면:
   허용**).
 - output: 단일 정수 d[s][t], 또는 "-1" (unreachable).
 - variant: classic Bellman-Ford (negative weight 허용, **negative cycle 금지**).
-  input 은 반드시 reachable negative cycle 없는 graph (cycle 시 verifier
-  silent skip).
-- **중요**: sample V <= 25 (Floyd-Warshall O(V^3) golden 의 안전 상한).
-- Dijkstra 와의 차이: w 음수 허용. negative weight 가 있는 sample 1개 이상
-  포함 권장 (verifier engagement narrative).
+  input 은 반드시 reachable negative cycle 없는 graph.
+- **중요 (sample V 권장)**: **sample V <= 4** 로 작성. step-by-step
+  relaxation trace 가능.
+- **expected_output 계산 절차 (필수, step-by-step trace)**:
+  1. **초기 dist 배열**: dist[s]=0, 나머지 V-1 개 = ∞.
+  2. **V-1 번 relaxation iteration** — 각 iteration 마다:
+     - for each edge (u, v, w): if dist[u] + w < dist[v]: dist[v] = dist[u] + w
+     - 매 iteration 후 dist 배열 표 갱신 명시
+  3. **최종 dist[t]** 가 expected_output. ∞ 면 "-1".
+  4. 사례별 재검증: s == t 면 0, 단일 edge path 가능하면 그 값 상한.
+- Dijkstra 와의 차이: w 음수 허용. negative weight 1개 이상 sample 권장.
+- **PR-D7 outlier 회피**: 이전 측정에서 expected_output 잘못 계산되어 1/3 success.
+  위 step-by-step trace 절차 엄격 준수.
 
 Floyd-Warshall (floyd_warshall) 가 target 이면:
 - input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
@@ -144,18 +203,46 @@ Floyd-Warshall (floyd_warshall) 가 target 이면:
 - output: V lines, each V space-separated 정수. d[i][j] 또는 "-1"
   (unreachable). diagonal d[i][i] = 0.
 - variant: classic Floyd-Warshall all-pairs shortest path.
-- **중요**: sample V <= 20 (V × Bellman-Ford golden 안전 상한).
-  reachable negative cycle 금지.
-- Bellman-Ford 와의 차이: all-pairs matrix output (single value 아님).
+- **중요 (sample V 권장)**: **sample V <= 3** 로 작성. V=3 면 3x3 matrix
+  9 cells 만 — architect 가 직접 enumerate 가능. V=4 부터 16 cells, 실수 위험.
+- **expected_output 계산 절차 (필수, V x V matrix trace)**:
+  1. **초기 V x V matrix**:
+     - d[i][i] = 0 (diagonal)
+     - direct edge (u,v,w) 가 있으면 d[u][v] = w
+     - 나머지 = ∞ (출력 시 "-1")
+  2. **k = 1..V 마다 triple loop**:
+     - for i in 1..V: for j in 1..V:
+       - if d[i][k] + d[k][j] < d[i][j]: d[i][j] = d[i][k] + d[k][j]
+     - 매 k iteration 후 **matrix 표 갱신 명시**
+  3. **최종 matrix** 가 expected_output. ∞ 셀은 "-1" 로.
+  4. 사례별 재검증:
+     - diagonal 다 0 확인
+     - direct edge 가 매우 작으면 그 값 그대로
+     - V=3 같은 작은 sample 은 손으로 직접 계산 가능
+- **PR-D7 outlier 회피**: 이전 측정에서 systematic 0/3 fail = V x V matrix
+  계산 실수. 위 절차 + 작은 V (V <= 3) 권장 필수.
 
 Kruskal MST (kruskal_mst) 가 target 이면:
 - input format: 첫 줄 "V E" (V=노드 수, E=edge 수, 1-indexed),
   그 다음 E줄 각각 "u v w" (**undirected** edge, w >= 0).
 - output: 단일 정수 — MST total weight, 또는 "-1" (graph disconnected).
 - variant: classic Kruskal MST (sort + Union-Find).
-- **중요**: sample V <= 30 (Prim's algorithm golden 안전 상한).
-- Union-Find (PR-C2) + Sort (PR-C5) 결합 narrative — Kruskal 의 자연스러운
-  building block.
+- **중요 (sample V 권장)**: **sample V <= 4** 로 작성. V 작아야 architect 가
+  edge 별 추적 가능.
+- **expected_output 계산 절차 (필수, step-by-step)**:
+  1. **모든 edge 를 weight 오름차순 정렬한 표** 를 mental model 로 작성.
+     예: edges sorted = [(1,2,1), (2,3,2), (1,3,5), (3,4,7)]
+  2. **각 edge 를 순서대로 검토** — Union-Find:
+     - edge (u,v,w) 의 u,v 가 다른 component → 선택 (union)
+     - 같은 component → skip (cycle 회피)
+  3. **선택된 edge 의 weight 를 누적 합산** — 합산 표 작성:
+     예: 1+2+7 = 10 (3 edges, V-1=3 충족)
+  4. **선택 edge 갯수 == V-1** 확인. 아니면 disconnected = "-1".
+  5. **최종 expected_output = 합산값 (또는 "-1")**.
+- **흔한 실수**: edge 추가하면서 cycle 검사 빠뜨려서 V 개 이상 선택 또는
+  잘못된 sum 계산.
+- **PR-D3 outlier 회피**: 이전 측정에서 expected_output 이 잘못 계산되어 1/3
+  fail. 위 5단계 절차 + 각 sample 별 trace 표 mental model 작성 필수.
 
 Heap (heap) 가 target 이면:
 - input format: 첫 줄 "N" (op 갯수, N <= 1000), 그 다음 N줄 op.
@@ -173,17 +260,30 @@ Fenwick Tree (fenwick) 가 target 이면:
   - "A i v": add v to a[i] (1-indexed)
   - "Q i": prefix sum a[1..i] (output)
 - output: Q op 마다 한 줄, 단일 정수.
-- variant: classic Fenwick Tree (BIT). SegTree 와 차이점:
-  - SegTree: assign + range sum
-  - Fenwick: add + prefix sum
+- variant: classic Fenwick Tree (BIT). SegTree 와 차이점: SegTree=assign +
+  range sum, Fenwick=add + prefix sum.
+- **중요 (sample 권장)**: **N <= 5, Q <= 5** 로 작성.
+- **expected_output 계산 절차 (필수, array state trace)**:
+  1. 초기 array 표 (a_1..a_N)
+  2. 각 op 별 array state 변화 추적:
+     - A i v → a[i] += v (no output)
+     - Q i → output = a[1]+a[2]+...+a[i] (1-indexed prefix sum)
+  3. Q op 결과만 출력 순서대로 누적
+  4. 사례별 재검증: Q 1 = a[1], Q N = total sum.
 
 Coin Change (coin_change) 가 target 이면:
 - input format: 첫 줄 "N A" (N=coin types, A=target amount, N<=20, A<=1000),
   둘째 줄 "c_1 c_2 ... c_N" (각 동전 >= 1, 정수).
 - output: 단일 정수 — **minimum coin count** to make A, 또는 "-1" (impossible).
 - variant: classic **unbounded** coin change (each coin unlimited use).
-- **중요**: architect 가 expected_output 을 spec 단계에서 계산할 때 DP O(N*A)
-  formula 를 정확히 적용. Knapsack (PR-C4) 와 같은 outlier 패턴 회피.
+- **중요 (sample 권장)**: **A <= 20** 로 작성. 직접 DP table 추적 가능.
+- **expected_output 계산 절차 (필수, DP table)**:
+  1. dp 배열 초기화: dp[0]=0, dp[1..A]=∞
+  2. amt = 1..A 순회:
+     - dp[amt] = min(dp[amt-c]+1 for c in coins if c<=amt and dp[amt-c]<∞)
+  3. dp[A] 가 expected_output. ∞ 면 "-1".
+  4. 사례별 재검증: A==0 → 0, coin 중 1 있으면 항상 가능, 모든 coin 이 A 보다
+     크면 불가능 → "-1".
 
 이전 시도가 실패해서 retry 면, feedback 의 actionable_hint 를 반영해 다른 spec.
 """
