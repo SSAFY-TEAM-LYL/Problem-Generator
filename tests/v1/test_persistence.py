@@ -159,6 +159,47 @@ def test_persist_str_path_accepted(tmp_path: Path) -> None:
     assert paths.run_dir.exists()
 
 
+def test_problem_md_includes_title_and_samples(tmp_path: Path) -> None:
+    state = initial_state("run-md", TargetAlgorithm.DIJKSTRA).model_copy(
+        update={"spec": _spec()}
+    )
+    paths = persist_run_outputs(state, output_dir=tmp_path)
+    assert paths.problem_md is not None
+    md = paths.problem_md.read_text()
+    assert "# shortest path s->t" in md
+    assert "## 입력" in md
+    assert "## 출력" in md
+    assert "## 샘플" in md
+    assert "### 샘플 1" in md
+    assert "### 샘플 3" in md
+    assert "0 1 5" in md  # sample 1 input
+    assert "5" in md  # sample 1 output
+
+
+def test_samples_dir_writes_in_out_files(tmp_path: Path) -> None:
+    state = initial_state("run-samples", TargetAlgorithm.DIJKSTRA).model_copy(
+        update={"spec": _spec()}
+    )
+    paths = persist_run_outputs(state, output_dir=tmp_path)
+    assert paths.samples_dir is not None
+    assert paths.samples_dir.is_dir()
+    assert (paths.samples_dir / "1.in").exists()
+    assert (paths.samples_dir / "1.out").exists()
+    assert (paths.samples_dir / "3.in").exists()
+    assert (paths.samples_dir / "3.out").exists()
+    assert (paths.samples_dir / "1.in").read_text() == "2 1 0 1\n0 1 5"
+    assert (paths.samples_dir / "1.out").read_text() == "5"
+    assert (paths.samples_dir / "3.in").read_text() == "2 0 0 1"
+    assert (paths.samples_dir / "3.out").read_text() == "-1"
+
+
+def test_no_spec_skips_problem_md_and_samples(tmp_path: Path) -> None:
+    state = initial_state("run-no-spec", TargetAlgorithm.DIJKSTRA)
+    paths = persist_run_outputs(state, output_dir=tmp_path)
+    assert paths.problem_md is None
+    assert paths.samples_dir is None
+
+
 def test_persist_overwrite_existing_run_dir(tmp_path: Path) -> None:
     """동일 run_id 다시 persist → 덮어쓰기 (re-run 지원)."""
     state1 = initial_state("run-rerun", TargetAlgorithm.DIJKSTRA).model_copy(

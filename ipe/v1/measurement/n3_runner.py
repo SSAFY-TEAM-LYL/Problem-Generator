@@ -21,6 +21,7 @@ from typing import Any
 
 from ..graph import build_graph
 from ..main_v1 import _normalize_final_state
+from ..persistence import persist_run_outputs
 from ..schema import TargetAlgorithm
 from ..state import V1State, initial_state
 
@@ -106,6 +107,7 @@ def run_n_measurements(
     max_iterations: int = 8,
     graph_factory: GraphFactory = build_graph,
     run_id_prefix: str = "v1-pr-a5",
+    persist_output_dir: Path | None = None,
 ) -> list[RunOutcome]:
     """N runs 실행, ``RunOutcome`` list 반환.
 
@@ -133,6 +135,8 @@ def run_n_measurements(
             elapsed = time.time() - start
             outcome = _summarize_state(i, final, elapsed)
             outcomes.append(outcome)
+            if persist_output_dir is not None:
+                persist_run_outputs(final, output_dir=persist_output_dir)
             print(
                 f"[n3_runner] done  {target_algorithm.value} r{i + 1}/{n} "
                 f"status={outcome.final_status} iter={outcome.iteration_used} "
@@ -178,6 +182,7 @@ def run_phase_2b_measurements(
     max_iterations: int = 8,
     graph_factory: GraphFactory = build_graph,
     run_id_prefix: str = "v1-pr-c8",
+    persist_output_dir: Path | None = None,
 ) -> list[RunOutcome]:
     """Phase 2b deliverable — 13 algo × N runs (default 39 runs)."""
     return _run_multi_algo(
@@ -186,6 +191,7 @@ def run_phase_2b_measurements(
         max_iterations=max_iterations,
         graph_factory=graph_factory,
         run_id_prefix=run_id_prefix,
+        persist_output_dir=persist_output_dir,
     )
 
 
@@ -195,18 +201,16 @@ def run_phase_2c_measurements(
     max_iterations: int = 8,
     graph_factory: GraphFactory = build_graph,
     run_id_prefix: str = "v1-pr-d6",
+    persist_output_dir: Path | None = None,
 ) -> list[RunOutcome]:
-    """Phase 2c deliverable — 19 algo × N runs (default 57 runs).
-
-    Phase 2b 13 + PR-D 시리즈 6 = 19 algorithm. Catalog ×3.8 확장의 anchor
-    re-measurement. Knapsack outlier 재추적 + 새 6 verifier 최초 측정.
-    """
+    """Phase 2c deliverable — 19 algo × N runs (default 57 runs)."""
     return _run_multi_algo(
         algos=PHASE_2C_19_ALGORITHMS,
         n=n,
         max_iterations=max_iterations,
         graph_factory=graph_factory,
         run_id_prefix=run_id_prefix,
+        persist_output_dir=persist_output_dir,
     )
 
 
@@ -217,6 +221,7 @@ def _run_multi_algo(
     max_iterations: int,
     graph_factory: GraphFactory,
     run_id_prefix: str,
+    persist_output_dir: Path | None = None,
 ) -> list[RunOutcome]:
     import dataclasses
 
@@ -228,6 +233,7 @@ def _run_multi_algo(
             max_iterations=max_iterations,
             graph_factory=graph_factory,
             run_id_prefix=f"{run_id_prefix}-{algo.value}",
+            persist_output_dir=persist_output_dir,
         )
         for o in algo_outcomes:
             all_outcomes.append(
@@ -242,6 +248,7 @@ def run_baseline_5_measurements(
     max_iterations: int = 8,
     graph_factory: GraphFactory = build_graph,
     run_id_prefix: str = "v1-pr-b5",
+    persist_output_dir: Path | None = None,
 ) -> list[RunOutcome]:
     """Phase 2a deliverable — baseline 5 algo × N runs (default 15 runs).
 
@@ -251,22 +258,14 @@ def run_baseline_5_measurements(
     PR-B5 Gate anchor: v0 baseline N=3 와 직접 비교 가능 (룰 2 cross-algorithm
     regression check).
     """
-    import dataclasses
-
-    all_outcomes: list[RunOutcome] = []
-    for algo in BASELINE_5_ALGORITHMS:
-        algo_outcomes = run_n_measurements(
-            n=n,
-            target_algorithm=algo,
-            max_iterations=max_iterations,
-            graph_factory=graph_factory,
-            run_id_prefix=f"{run_id_prefix}-{algo.value}",
-        )
-        for o in algo_outcomes:
-            all_outcomes.append(
-                dataclasses.replace(o, run_index=len(all_outcomes))
-            )
-    return all_outcomes
+    return _run_multi_algo(
+        algos=BASELINE_5_ALGORITHMS,
+        n=n,
+        max_iterations=max_iterations,
+        graph_factory=graph_factory,
+        run_id_prefix=run_id_prefix,
+        persist_output_dir=persist_output_dir,
+    )
 
 
 def print_summary(outcomes: list[RunOutcome]) -> None:

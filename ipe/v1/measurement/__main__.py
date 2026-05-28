@@ -93,6 +93,16 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="output JSONL path (e.g. docs/baseline/data/v1-pr-a5-detailed.jsonl)",
     )
+    parser.add_argument(
+        "--persist-outputs",
+        type=Path,
+        default=None,
+        help=(
+            "optional — 각 run 의 spec/code/samples 영속화 디렉토리 "
+            "(default off, batch 측정 시 비활성 권장. 팀원 demo 용도로 "
+            "특정 run 만 확인할 때 활성. 큰 N 시 디스크 부담 주의)"
+        ),
+    )
     return parser
 
 
@@ -115,6 +125,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
+    persist = args.persist_outputs
+    if persist is not None:
+        print(f"[measurement] persist-outputs ENABLED → {persist}/")
     if args.phase_2c:
         algo_list = [a.value for a in PHASE_2C_19_ALGORITHMS]
         print(
@@ -122,7 +135,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"n_per_algo={args.n} max_iter={args.max_iter}"
         )
         outcomes = run_phase_2c_measurements(
-            n=args.n, max_iterations=args.max_iter
+            n=args.n,
+            max_iterations=args.max_iter,
+            persist_output_dir=persist,
         )
     elif args.phase_2b:
         algo_list = [a.value for a in PHASE_2B_13_ALGORITHMS]
@@ -131,7 +146,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"n_per_algo={args.n} max_iter={args.max_iter}"
         )
         outcomes = run_phase_2b_measurements(
-            n=args.n, max_iterations=args.max_iter
+            n=args.n,
+            max_iterations=args.max_iter,
+            persist_output_dir=persist,
         )
     elif args.baseline_5:
         algo_list = [a.value for a in BASELINE_5_ALGORITHMS]
@@ -140,7 +157,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"n_per_algo={args.n} max_iter={args.max_iter}"
         )
         outcomes = run_baseline_5_measurements(
-            n=args.n, max_iterations=args.max_iter
+            n=args.n,
+            max_iterations=args.max_iter,
+            persist_output_dir=persist,
         )
     else:
         print(
@@ -151,6 +170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             n=args.n,
             target_algorithm=args.algorithm,
             max_iterations=args.max_iter,
+            persist_output_dir=persist,
         )
     write_jsonl(outcomes, args.output)
     print_summary(outcomes)

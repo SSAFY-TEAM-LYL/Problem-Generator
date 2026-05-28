@@ -4861,13 +4861,44 @@ CLI flag 추가 — `ipe.v1.main_v1`:
 | P3 | outputs/ catalog UI (간단 web browser) | catalog browsing 활성화 |
 | P3 | option C (verifier expected derive) | Two Sum final fix |
 
-### 69.6 변경 파일
+### 69.6 추가 — 사람용 problem.md + samples/ 분리 + measurement opt-in
+
+사용자 의도 "실제 문제로 쓰려면 문제 지문/테케/정답" + "측정 단계는 옵션
+스위칭":
+
+**persistence.py 확장**:
+- `outputs/<run_id>/problem.md` — 사람 친화 markdown (title / description /
+  입력출력 / 제약사항 / 샘플) — competitive programming / online judge 표준
+- `outputs/<run_id>/samples/<i>.in` + `<i>.out` — 1-indexed sample 분리
+  → `diff <(python attempt.py < 1.in) 1.out` 채점 가능
+
+**measurement runner 옵션화**:
+- `measurement/__main__.py` 에 `--persist-outputs <dir>` flag 추가 (default
+  off, 큰 N 시 디스크 부담 회피)
+- `run_n_measurements` / `run_baseline_5_measurements` /
+  `run_phase_2b_measurements` / `run_phase_2c_measurements` 모두 optional
+  `persist_output_dir: Path | None = None` param 추가
+- single run (`main_v1`) 은 default ON (예시/demo 용도) 유지
+
+**검증**:
+- 11 persistence tests (8 + 3 new)
+- pytest 416 passed
+- smoke single run: outputs/demo-two-001/ 에 problem.md + samples/1.in~4.out
+  모두 생성. competitive-programming 호환 구조.
+- smoke measurement:
+  - `--algorithm dijkstra --n 1` (default): outputs/ 생성 X ✅
+  - `--algorithm dijkstra --n 1 --persist-outputs outputs/measurement-demo`:
+    outputs/measurement-demo/v1-pr-a5-dijkstra-r1/ 생성 ✅
+
+### 69.7 변경 파일
 
 | 파일 | 변경 |
 |---|---|
-| `ipe/v1/persistence.py` | 신규 — `persist_run_outputs()` + `PersistedPaths` |
+| `ipe/v1/persistence.py` | 신규 — `persist_run_outputs()` + `PersistedPaths` + `_write_problem_md()` + `_write_samples_dir()` |
 | `ipe/v1/main_v1.py` | `--output-dir` / `--no-output-dir` flag + final persist 호출 |
-| `tests/v1/test_persistence.py` | 8 단위 테스트 신규 |
+| `ipe/v1/measurement/n3_runner.py` | 4 runner 함수 모두 optional `persist_output_dir` param 추가 + `run_baseline_5_measurements` 를 `_run_multi_algo` 으로 통합 |
+| `ipe/v1/measurement/__main__.py` | `--persist-outputs <dir>` flag 추가 + 모든 mode 에 propagate |
+| `tests/v1/test_persistence.py` | 11 단위 테스트 (8 + 3 new for problem.md/samples) |
 | `CHANGES.md` §69 | 본 entry |
 >>>>>>> 7bf1d2e (docs(v1): CHANGES.md §69 — outputs/ persistence narrative)
 
