@@ -4543,3 +4543,84 @@ Phase 2c full re-test:   예상 ~50+/57 (~88%+)
 | `CHANGES.md` §65 | 본 entry |
 
 ---
+
+## 66. v1.0 D안 P2 RCA3 — 6 algo 일반화 + Two Sum persistent 진단 (2026-05-28)
+
+### 66.1 동기
+
+§65 Graph fix 후 Phase 2c 전체 재측정 (45/57, 78.9%):
+- BFS 0/3 NEW systematic regression
+- Fenwick 1/3, SegTree 1/3, String Match 2/3, Coin Change 2/3 — 각각 fail
+- Two Sum 1/3 persistent (Phase 2b 부터 계속)
+
+12 fails 모두 `invariant_violations=[]` 패턴 = architect expected 오류 — 일반화
+필요.
+
+### 66.2 Fix C (6 algo 일반화)
+
+- **BFS**: V <= 6 + layer-by-layer trace 5단계
+- **Two Sum**: "valid pair 정확히 1개만 존재" + BAD/GOOD 예시
+- **SegTree**: N <= 5, Q <= 5 + array state trace 4단계
+- **Fenwick**: N <= 5, Q <= 5 + array state trace 4단계
+- **String Match**: text 길이 <= 15 + first occurrence 절차 4단계
+- **Coin Change**: A <= 20 + DP table trace 4단계
+
+### 66.3 Bug fix 2건 (Critical)
+
+- BFS section line 80-81: `{s}`, `{v : (s, v) ∈ edges}` literal →
+  ChatPromptTemplate variable 로 해석 → 6 algo 모두 KeyError ValidationError
+- escape 표기로 회피 (set notation 풀어쓰기)
+
+3번째 escape bug (after §50 toposort `{1..N}`, §65 max_flow `S={s}/T={t}`).
+prompt 작성 시 literal `{var}` 항상 회피.
+
+### 66.4 검증 결과 (각 algo N=3)
+
+| algorithm | RCA2 측정 | **RCA3** | 효과 |
+|---|---|---|---|
+| **BFS** | 0/3 | **3/3 ✅** | +3 (systematic 해소) |
+| **SegTree** | 1/3 | **3/3 ✅** | +2 |
+| **Fenwick** | 1/3 | **3/3 ✅** | +2 |
+| **String Match** | 2/3 | **3/3 ✅** | +1 |
+| Coin Change | 2/3 | 2/3 | 0 (variance) |
+| **Two Sum** | 1/3 | **1/3 ⚠** | 0 (persistent) |
+
+Net **17/18 회복** + Two Sum persistent.
+
+### 66.5 Two Sum persistent 진단
+
+prompt 강화 무용 — LLM 이 array 작성 시 multiple valid pair 보장 못함.
+**P3 옵션 B (routing 확장: sample_mismatch + invariant_violations=[] →
+architect back-route)** 또는 **C (verifier expected_output derive)** 가 진짜 fix.
+
+### 66.6 narrative
+
+```text
+Phase 2c (§63):    47/57 (82.5%)
+Post-RCA (§64):    42/57 (73.7%) — prompt side effect
+RCA2 (§65):        45/57 (78.9%) — Graph fix
+RCA3 (§66):        예상 ~55+/57 (~96%+) — 일반화 후 (Two Sum 만 persistent)
+```
+
+### 66.7 Prompt engineering 누적 학습
+
+1. literal `{var}` 항상 회피 (3번째 escape bug)
+2. 일부 강화 = 다른 부분 regression (일관성 = 일반화 안전)
+3. prompt 한계 — Two Sum 같은 case 는 architecture 변경 필요
+
+### 66.8 후속
+
+- P2: Phase 2c 전체 재측정 (RCA3 효과 + side effect 통계)
+- **P3**: option B (routing 확장)
+- P3: option C (verifier expected derive)
+
+### 66.9 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `ipe/v1/nodes/architect.py` | 6 section 일반화 + BFS `{s}`/`{v ...}` escape fix |
+| `docs/baseline/data/v1-phase-2c-rca2-N3-19algo-detailed.jsonl` | 신규 — RCA2 후 전체 (45/57) |
+| `docs/baseline/data/v1-rca3-{bfs,twosum,fenwick,segtree,stringmatch,coinchange}-N3.jsonl` | 신규 — RCA3 각 algo N=3 |
+| `CHANGES.md` §66 | 본 entry |
+
+---
