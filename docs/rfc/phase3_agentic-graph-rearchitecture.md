@@ -38,7 +38,7 @@ v1.0 은 성공했다 — v0 27% → 91.2%, 독립 검증이라는 해자, 418 t
 ### Non-goals (이번 RFC 범위 밖)
 - greenfield 재작성 (foundation 은 사수).
 - 검증 anchor 약화 — naive single-brute-trust 는 명시적 **금지**.
-- B2C 모의고사 UI / 세트·시험 조립 — 후속 마일스톤.
+- B2C *전달/UI*·세트·시험 조립 — 후속 마일스톤. (단 **canonical 생성 모드** 자체는 본 RFC 범위 = 토픽 드릴, §10.3)
 - 신규 알고리즘 family 대량 추가 — 본 RFC 는 "깊이" 이지 "넓이" 가 아님.
 
 ---
@@ -216,17 +216,33 @@ v0 가 죽은 복잡도는 **누적된 ad-hoc safety 패치 10개**(trace 불가
 
 ---
 
-## 10. Migration — strangler-fig + 측정 게이트
+## 10. Migration — strangler-fig + 측정 게이트 (R2 / ① 결정)
 
-v0→v1 전환을 성공시킨 playbook 을 그대로 적용한다.
+v0→v1 전환 playbook 그대로: 새 아키텍처를 측정 게이트에 묶어 **anchor 를 이길 때만 전진**.
 
-1. **v2 graph 를 v1 옆에 build** — 둘 다 실행 가능. 엔트리포인트/flag 분리 (`build_graph_v2`).
-2. **compat mode** — v2 가 기존 19-algo 단일 문제도 생성 가능해야 함. 이를 **91.2% anchor 대비 측정** (룰 1 N≥3, 룰 2 cross-algorithm regression). **무회귀 시에만** 해당 마일스톤 merge.
-3. **신규 복잡문제 anchor** — v1 이 그랬듯 0부터 N≥3 로 구축, `docs/baseline/` 에 별도 보관.
-4. **룰 3** 단일 LLM baseline 유지, **룰 5** 각 마일스톤 RCA 에 rollback trigger 명시.
-5. 검증 path 는 절대 끊지 않음 — 해자이자 측정 기준.
+### 10.1 compat flag — 한 그래프, mode typed 필드
+v2 는 `mode: canonical | full` 를 blueprint 의 typed 필드로 가진다. **그래프는 하나**, 노드가 mode 로 내부 분기:
+- **`canonical`**: Strategist "숨김=False/합성=없음/target_algorithm=입력" → Narrative 직접 서술 → 합성 스킵 → 정석 단일 문제 (v1 이 만들던 것).
+- **`full`**: 은닉·합성·tiered 검증 전체.
 
-> **미해결 긴장**: compat mode 가 v2 의 복잡한 토폴로지를 단일문제에 그대로 통과시킬 수 있는가? 못 하면 anchor 비교가 깨진다. §11 참조.
+→ mode 가 artifact 에 박혀 **추적 가능**(룰 4 spirit). 두 그래프 유지 부담 없음. 분기는 "플래그 읽고 prompt/검증 경로 택" 수준으로 얕게 유지.
+
+### 10.2 anchor 2개 분업
+
+| anchor | 모드 | metric | 역할 |
+|---|---|---|---|
+| **compat** | canonical, 19-algo × N≥3 | Tier A(symbolic) 통과율 vs **91.2%** | **공유 배관 회귀 가드** (사과 대 사과) |
+| **full (①)** | full | **검증 통과율 = Tier B↑ 도달률 = 출하 가능률** | **신규 야심 측정**, 0부터 구축 |
+
+compat 이 91.2 밑 → 버그는 *공유 배관*(Formalizer/solution/검증)이지 은닉 스테이지 아님 → 깨끗한 진단. full 전용 버그는 full anchor 가 감시 (분업).
+
+### 10.3 canonical = 영구 제품 모드 (결정: 가)
+canonical 은 측정 비계로 끝나지 않고 **B2C 토픽 드릴 / 입문 연습 생성 모드**로 정식 편입. → 비계가 자산이 되고, 상시 실행되어 bit-rot 없음, strangler-fig 내내 깨끗한 anchor 제공. (B2C *전달/UI*·세트조립은 여전히 후속 — §2.)
+
+### 10.4 게이트 규율
+- 마일스톤마다 compat anchor **무회귀** 확인 (룰 1 N≥3, 룰 2 cross-algorithm).
+- 룰 3 단일 LLM baseline 유지, 룰 5 RCA 에 rollback trigger 명시.
+- 검증 path 는 절대 끊지 않음 — 해자이자 측정 기준.
 
 ---
 
@@ -235,7 +251,7 @@ v0→v1 전환을 성공시킨 playbook 을 그대로 적용한다.
 | # | 리스크 / 질문 | 비고 |
 |---|---|---|
 | R1 | ~~차분+metamorphic 이 hiring-grade 신뢰에 충분한가~~ **→ 결정됨 (§7)** | tier 게이트(A/B/C) + B2B 는 Tier B 이상만 출하 + M1 에서 Tier B≈Tier A 실측. 잔여 위협은 "상관된 오해" → 탈상관 유도 + 무모호 spec 게이트로 방어 |
-| R2 | compat mode 가 v2 복잡도와 양립하는가 | 안 되면 91.2% anchor 비교 설계 재고 |
+| R2 | ~~compat mode 가 v2 복잡도와 양립하는가~~ **→ 결정됨 (§10)** | compat flag(mode typed 필드, 한 그래프) + anchor 2개 분업(compat=배관/full=야심) + canonical 영구 제품 모드 |
 | R3 | 병렬 state reducer 설계 복잡도 | M0 스파이크로 선검증 |
 | R4 | 난이도 calibration 의 ground truth 부재 | 난이도는 별도 RFC 후속 가능 — 본 RFC 는 입력 hook 만 |
 | R5 | 비용/latency 실측치 미지 | 마일스톤별 실측 anchor |
