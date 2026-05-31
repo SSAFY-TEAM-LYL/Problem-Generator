@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — IPE</title>
-  <meta name="description" content="IPE e2e Run 1~12 실측 결과 + Sprint 진행 + Backlog">
+  <meta name="description" content="IPE 측정 여정 (v0 27% → v1.0 91.2%) + Phase 3 v2 토폴로지 + 마일스톤 추적">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="assets/style.css">
@@ -25,75 +25,70 @@
 
   <section class="hero-gradient">
     <div class="max-w-6xl mx-auto px-6 py-16 text-center">
-      <h1 class="text-5xl font-bold text-white mb-4">실측 Dashboard</h1>
-      <p class="text-gray-400">e2e Run 1~12 + Sprint 4 효과 추적 + Backlog</p>
-      <div class="flex justify-center gap-2 mt-4">
-        <span class="badge badge-accent">12 runs</span>
-        <span class="badge badge-success">DoD 4/5</span>
-        <span class="badge">v0.2.0</span>
+      <h1 class="text-5xl font-bold text-white mb-4">측정 Dashboard</h1>
+      <p class="text-gray-400">v0 27% → v1.0 91.2% 측정 여정 · Phase 3 v2 토폴로지 · 마일스톤 추적</p>
+      <div class="flex flex-wrap justify-center gap-2 mt-4">
+        <span class="badge badge-success" id="b-gate">91.2% Gate</span>
+        <span class="badge badge-accent" id="b-algos">19 algo</span>
+        <span class="badge" id="b-tests">432 tests · 87% cov</span>
+        <span class="badge badge-warning">Phase 3 진행 중</span>
       </div>
     </div>
   </section>
 
+  <!-- gate journey -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">e2e Success Rate Timeline</h2>
-    <p class="text-gray-400 mb-6">Run 1 (v0.1.1 baseline) → Run 12 (Sprint 4 R-bfs). Run 9에서 R-sandbox로 3/5 첫 도달, Run 10부터 4/5 안정.</p>
+    <h2 class="text-3xl font-bold mb-2 text-white">Gate 통과율 여정</h2>
+    <p class="text-gray-400 mb-6">v0 baseline(8/30, 27%) → typed artifact + symbolic verifier 도입 → 카탈로그 확장 → RCA 회복 → 91.2% freeze. 모든 측정은 N=3 cross-algorithm.</p>
     <div class="card">
       <div class="chart-wrap">
-        <canvas id="chart-timeline"></canvas>
+        <canvas id="chart-journey"></canvas>
       </div>
     </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">Case별 Stability Matrix</h2>
-    <p class="text-gray-400 mb-6">초록 = success, 빨강 = fail, 회색 = aborted (Run 6 API hang).</p>
-    <div class="card overflow-x-auto">
-      <table id="matrix-table">
-        <thead>
-          <tr>
-            <th>Run</th>
-            <th>Sprint</th>
-            <th id="th-cases" colspan="5">Cases</th>
-            <th>Total</th>
-            <th>분</th>
-          </tr>
-        </thead>
-        <tbody id="matrix-body"></tbody>
+    <div class="card mt-4 overflow-x-auto">
+      <table>
+        <thead><tr><th>단계</th><th class="text-center">algo</th><th class="text-center">통과율</th><th class="text-center">runs</th><th>비고</th></tr></thead>
+        <tbody id="journey-body"></tbody>
       </table>
     </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-      <div class="card">
-        <div class="text-green-400 font-bold mb-3">✅ Stable success (Run 9~12 100%)</div>
-        <div class="flex flex-wrap gap-2" id="stable-list"></div>
-      </div>
-      <div class="card">
-        <div class="text-yellow-400 font-bold mb-3">⚠️ Variance (case-by-case)</div>
-        <div class="flex flex-wrap gap-2" id="variance-list"></div>
-        <div class="text-xs text-gray-500 mt-3">prompt-side fix 한계 → v0.2.1 결정적 fix 필요 (R-gen-cap / R-osc-break)</div>
-      </div>
-    </div>
   </section>
 
   <div class="divider"></div>
 
+  <!-- catalog growth -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">실행 시간 추세</h2>
-    <p class="text-gray-400 mb-6">Run 10 (R14 fanout=3) 후 Coder 3x token으로 시간 ↑, R3 + R-bfs 후 정상화.</p>
+    <h2 class="text-3xl font-bold mb-2 text-white">Algorithm Catalog 성장</h2>
+    <p class="text-gray-400 mb-6">각 algorithm 은 수학적 invariants 를 코드로 결정론 검증하는 symbolic verifier 를 가진다 (1 enum = family 의 cluster 패턴 포함).</p>
     <div class="card">
       <div class="chart-wrap">
-        <canvas id="chart-duration"></canvas>
+        <canvas id="chart-catalog"></canvas>
       </div>
     </div>
   </section>
 
   <div class="divider"></div>
 
+  <!-- v2 topology -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">Sprint별 PR + Impact</h2>
+    <h2 class="text-3xl font-bold mb-2 text-white">Phase 3 — v2 제안 토폴로지</h2>
+    <p class="text-gray-400 mb-6">4개 병렬 영역. 각 영역은 fan-out → 결정론 aggregator fan-in. <span class="badge badge-accent" style="font-size:0.65rem;">⇉ 병렬</span> 표시 영역은 동시 실행되고 코드 노드로 수렴한다. (RFC §5)</p>
+    <div class="space-y-3" id="v2-stages"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- milestones -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">마일스톤 추적</h2>
+    <p class="text-gray-400 mb-6">각 마일스톤은 91.2% anchor 무회귀 게이트를 통과해야 전진. M1(검증 성숙)을 먼저 — 코드라 안전하고 해자를 강화한다.</p>
+    <div class="space-y-2" id="milestones-list"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- recent PRs -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">최근 대표 PR</h2>
     <div class="card">
       <table>
         <thead><tr><th>PR</th><th>제목</th><th>타입</th><th>임팩트</th></tr></thead>
@@ -104,41 +99,38 @@
 
   <div class="divider"></div>
 
+  <!-- backlog / separate tracks -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">Round 11 — 결정적 Fix Sprint</h2>
-    <p class="text-gray-400 mb-6">prompt-only fix(Sprint 1~4) 한계 너머 — 라우팅 레벨 결정적 차단</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="completed-fixes-grid"></div>
+    <h2 class="text-3xl font-bold mb-2 text-white">후속 / 별도 트랙</h2>
+    <p class="text-gray-400 mb-6">본 RFC 범위 밖이지만 추적 대상</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="backlog-grid"></div>
   </section>
 
   <div class="divider"></div>
 
+  <!-- legacy history (collapsed) -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">v0.2.1+ Backlog</h2>
-    <p class="text-gray-400 mb-6">잔존 variance 결정적 fix + 후속 확장</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="backlog-grid"></div>
+    <h2 class="text-3xl font-bold mb-2 text-white">아카이브 — v0 시절 e2e 여정</h2>
+    <p class="text-gray-400 mb-6">v1 측정 게이트 이전(v0.1~v0.2)의 5-case e2e 실측 기록. 역사적 참고용 — 현재 측정 기준은 위의 Gate 여정으로 대체됨.</p>
+    <details>
+      <summary>v0 e2e Run 1~15 매트릭스 펼치기 (sandbox 인프라 안정화 + prompt→결정론 fix 단계)</summary>
+      <div class="text-sm text-gray-400 mt-3 leading-relaxed">
+        <p class="mb-2">v0 는 5개 case(Two Sum / BFS / Dijkstra / Segment Tree / LIS)에 대한 e2e 성공률로 진행을 추적했다.
+        Run 1~8 은 0~1/5 에 머물렀고, Run 9 의 sandbox race fix(PHASE_C_WORKERS=1)에서 3/5 첫 도달, Run 10~12 에서 4/5 안정화.
+        그러나 prompt-side fix 의 한계 + case-by-case variance 가 누적돼, 결국 <strong class="text-gray-300">v1 D안에서 typed artifact + symbolic verifier 로 전면 재설계</strong>했다.
+        이 전환이 27% → 91.2% 도약의 핵심이다.</p>
+        <p class="text-xs text-gray-500 mt-2">상세 RCA: <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">CHANGES.md §1~§36 (v0 history)</a></p>
+      </div>
+    </details>
   </section>
 
   <footer class="border-t border-gray-800 mt-12">
     <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
-      <div>© 2026 LsMin124 · <span id="f-version"></span> (<span id="f-commit"></span>)</div>
+      <div>© 2026 LsMin124 · <span id="f-version"></span> · main <span id="f-commit"></span> · dev <span id="f-dev"></span></div>
       <div class="flex gap-4">
         <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">CHANGES.md</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_osc-break-deterministic.md" target="_blank">R-osc-break RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_gen-cap-deterministic.md" target="_blank">R-gen-cap RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_coder-osc-deterministic.md" target="_blank">R-coder-osc RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_sig-detail.md" target="_blank">R-sig-detail RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_r12-retry-resilience.md" target="_blank">R12 RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_docker-workdir-fix.md" target="_blank">R-docker-workdir RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-18_docker-mount-fix.md" target="_blank">R-docker-mount RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_phase-a-osc-break.md" target="_blank">R-phase-a-osc-break RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_coder-parse-fallback.md" target="_blank">R-coder-parse RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_r5-brute-oracle-phase-a.md" target="_blank">R5 RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_m2-pre-hook.md" target="_blank">M2 Hook RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_m1-sub-agent.md" target="_blank">M1 Sub-agent RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-19_m3-multi-model.md" target="_blank">M3 Multi-Model RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-20_m4-adversarial-review.md" target="_blank">M4 Adversarial Review RCA</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/rfc/v0.3.0_multi-mechanism.md" target="_blank">v0.3.0 RFC</a>
-        <a href="https://github.com/LsMin124/IPE/blob/main/docs/improvements/2026-05-14_sandbox-infra-rca.md" target="_blank">Sandbox RCA</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/rfc/phase3_agentic-graph-rearchitecture.md" target="_blank">Phase 3 RFC</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/research/2026-05-29_verification-trust-tiers.md" target="_blank">검증 신뢰 tier 연구노트</a>
         <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
       </div>
     </div>
@@ -147,165 +139,157 @@
   <script src="assets/data.js"></script>
   <script>
     const D = window.IPE_DATA;
-    document.getElementById('f-commit').textContent = D.meta.mainCommit;
-    document.getElementById('f-version').textContent = D.meta.version;
+    const M = D.meta;
+    document.getElementById('f-commit').textContent = M.mainCommit;
+    document.getElementById('f-dev').textContent = M.devCommit;
+    document.getElementById('f-version').textContent = M.version;
+    document.getElementById('b-gate').textContent = M.gatePassPct + '% Gate';
+    document.getElementById('b-algos').textContent = M.algoCatalog + ' algo';
+    document.getElementById('b-tests').textContent = `${M.tests} tests · ${M.coverage}% cov`;
 
     Chart.defaults.color = '#7d8590';
     Chart.defaults.borderColor = '#30363d';
     Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Pretendard", sans-serif';
 
-    const runs = D.e2eRuns;
-    const successCount = runs.map(r => r.results.filter(x => x === 1).length);
-    const runLabels = runs.map(r => `Run ${r.run}`);
-    new Chart(document.getElementById('chart-timeline'), {
+    const J = D.journey;
+    const jLabels = J.map(j => j.phase);
+
+    // gate journey line
+    new Chart(document.getElementById('chart-journey'), {
       type: 'line',
       data: {
-        labels: runLabels,
+        labels: jLabels,
         datasets: [{
-          label: 'success / 5',
-          data: successCount,
+          label: 'Gate 통과율 (%)',
+          data: J.map(j => j.passPct),
           borderColor: '#3fb950',
-          backgroundColor: 'rgba(63,185,80,0.15)',
-          tension: 0.3,
-          fill: true,
-          pointBackgroundColor: '#3fb950',
-          pointRadius: 6,
-          pointHoverRadius: 8,
+          backgroundColor: 'rgba(63,185,80,0.12)',
+          tension: 0.25, fill: true,
+          pointBackgroundColor: J.map(j => j.passPct >= 90 ? '#3fb950' : j.passPct >= 80 ? '#d29922' : '#f85149'),
+          pointRadius: 7, pointHoverRadius: 9,
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: {
-          y: { min: 0, max: 5, ticks: { stepSize: 1 }, grid: { color: '#21262d' } },
-          x: { grid: { color: '#21262d' } },
+          y: { min: 0, max: 100, ticks: { stepSize: 20, callback: v => v + '%' }, grid: { color: '#21262d' } },
+          x: { grid: { color: '#21262d' }, ticks: { maxRotation: 30, minRotation: 0 } },
         },
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              afterBody: (items) => {
-                const r = runs[items[0].dataIndex];
-                return `${r.label} (${r.total})`;
-              }
-            }
-          },
+          tooltip: { callbacks: {
+            label: (item) => `${J[item.dataIndex].label} (${item.parsed.y}%)`,
+            afterBody: (items) => J[items[0].dataIndex].note,
+          } },
         },
       },
     });
 
-    const th = document.getElementById('th-cases');
-    th.outerHTML = D.e2eCases.map(c => `<th class="text-center">${c}</th>`).join('');
-    const tb = document.getElementById('matrix-body');
-    runs.forEach(r => {
-      const cells = r.results.map(v => {
-        if (v === null) return `<td class="text-center"><span class="case-cell" style="background:#21262d;color:#6e7681;">−</span></td>`;
-        return `<td class="text-center"><span class="case-cell ${v === 1 ? 'case-pass' : 'case-fail'}">${v === 1 ? '✓' : '✗'}</span></td>`;
-      }).join('');
-      const tr = document.createElement('tr');
-      const totalCls = r.total.startsWith('4') ? 'text-green-400 font-bold' :
-                       r.total.startsWith('3') ? 'text-yellow-400 font-bold' :
-                       r.total === 'aborted' ? 'text-gray-500' : 'text-red-400';
-      tr.innerHTML = `
-        <td class="font-bold">Run ${r.run}</td>
-        <td class="text-gray-400 text-xs">${r.label}</td>
-        ${cells}
-        <td class="${totalCls}">${r.total}</td>
-        <td class="text-gray-500 text-xs">${r.durMin ? r.durMin + 'm' : '−'}</td>
-      `;
-      tb.appendChild(tr);
-    });
-
-    const stableRuns = runs.filter(r => r.run >= 9 && r.results.every(v => v !== null));
-    D.e2eCases.forEach((c, i) => {
-      const total = stableRuns.length;
-      const succ = stableRuns.reduce((acc, r) => acc + (r.results[i] === 1 ? 1 : 0), 0);
-      const isStable = succ === total;
-      const list = document.getElementById(isStable ? 'stable-list' : 'variance-list');
-      if (!isStable && succ === 0) return;
-      const cls = isStable ? 'badge-success' : 'badge-warning';
-      const el = document.createElement('span');
-      el.className = `badge ${cls}`;
-      el.textContent = `${c} ${succ}/${total}`;
-      list.appendChild(el);
-    });
-
-    const durData = runs.map(r => r.durMin);
-    new Chart(document.getElementById('chart-duration'), {
+    // catalog growth bar
+    new Chart(document.getElementById('chart-catalog'), {
       type: 'bar',
       data: {
-        labels: runLabels,
+        labels: jLabels,
         datasets: [{
-          label: 'minutes',
-          data: durData,
-          backgroundColor: runs.map(r => {
-            const s = parseInt(r.total) || 0;
-            if (r.total === 'aborted') return '#6e7681';
-            if (s >= 4) return '#3fb950';
-            if (s >= 3) return '#d29922';
-            return '#f85149';
-          }),
+          label: 'algorithm 수',
+          data: J.map(j => j.algos),
+          backgroundColor: '#2f81f7',
+          borderRadius: 4,
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: {
-          y: { grid: { color: '#21262d' }, title: { display: true, text: 'minutes' } },
-          x: { grid: { color: '#21262d' } },
+          y: { min: 0, max: 20, ticks: { stepSize: 5 }, grid: { color: '#21262d' }, title: { display: true, text: 'catalog size' } },
+          x: { grid: { color: '#21262d' }, ticks: { maxRotation: 30, minRotation: 0 } },
         },
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { afterBody: (items) => runs[items[0].dataIndex].label } },
-        },
+        plugins: { legend: { display: false } },
       },
     });
 
+    // journey table
+    const jBody = document.getElementById('journey-body');
+    J.forEach(j => {
+      const cls = j.passPct >= 90 ? 'text-green-400 font-bold' : j.passPct >= 80 ? 'text-yellow-400 font-bold' : 'text-red-400 font-bold';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="text-white font-semibold">${j.phase}</td>
+        <td class="text-center text-gray-400">${j.algos || '—'}</td>
+        <td class="text-center ${cls}">${j.passPct}%</td>
+        <td class="text-center text-gray-400">${j.label}</td>
+        <td class="text-gray-400 text-xs">${j.note}</td>`;
+      jBody.appendChild(tr);
+    });
+
+    // v2 stages
+    const stagesEl = document.getElementById('v2-stages');
+    D.v2Stages.forEach((s, i) => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      const chips = s.nodes.map(n => `<span class="flow-node" style="min-width:auto;padding:0.4rem 0.7rem;font-size:0.78rem;">${n}</span>`).join('');
+      el.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <span class="badge badge-accent">N${i + 1}</span>
+          <span class="font-bold text-white">${s.stage}</span>
+          ${s.parallel ? '<span class="badge badge-warning" style="font-size:0.65rem;">⇉ 병렬 → fan-in</span>' : '<span class="badge" style="font-size:0.65rem;">순차</span>'}
+        </div>
+        <div class="text-sm text-gray-400 mb-3">${s.desc}</div>
+        <div class="flex flex-wrap gap-2">${chips}</div>`;
+      stagesEl.appendChild(el);
+    });
+
+    // milestones
+    const msList = document.getElementById('milestones-list');
+    const statusMeta = {
+      done:        { cls: 'badge-success', txt: '완료', dot: '✓' },
+      in_progress: { cls: 'badge-warning', txt: '진행 중', dot: '◐' },
+      planned:     { cls: 'badge',         txt: '예정', dot: '○' },
+    };
+    D.milestones.forEach(m => {
+      const s = statusMeta[m.status];
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.style.padding = '1rem 1.25rem';
+      el.innerHTML = `<div class="flex items-start gap-3">
+          <span class="badge ${s.cls} flex-shrink-0">${s.dot} ${m.id}</span>
+          <div class="flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-white">${m.title}</span>
+              ${m.ref ? `<span class="text-xs text-gray-500">${m.ref}</span>` : ''}
+              <span class="badge ${s.cls}" style="font-size:0.65rem;">${s.txt}</span>
+            </div>
+            ${m.note ? `<div class="text-xs text-gray-400 mt-1">${m.note}</div>` : ''}
+          </div>
+        </div>`;
+      msList.appendChild(el);
+    });
+
+    // PRs
     const prBody = document.getElementById('pr-tbody');
-    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge' };
+    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge', test: 'badge-success' };
     D.recentPrs.forEach(pr => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><a href="https://github.com/LsMin124/IPE/pull/${pr.num}" target="_blank">#${pr.num}</a></td>
         <td class="text-white">${pr.title}</td>
         <td><span class="badge ${typeColor[pr.type]||''}">${pr.type}</span></td>
-        <td class="text-gray-400">${pr.impact}</td>
-      `;
+        <td class="text-gray-400">${pr.impact}</td>`;
       prBody.appendChild(tr);
     });
 
-    const cfGrid = document.getElementById('completed-fixes-grid');
-    (D.completedFixes || []).forEach(c => {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = `
-        <div class="flex items-start gap-2 mb-2">
-          <span class="badge badge-success flex-shrink-0">${c.round}</span>
-          <div>
-            <div class="font-bold text-white">${c.id}</div>
-            <div class="text-sm text-gray-300 mt-1">${c.title}</div>
-            <div class="text-xs text-gray-400 mt-2">${c.desc}</div>
-            <div class="text-xs text-gray-500 mt-2">대상: ${c.target} · 테스트 +${c.tests} · ${c.date}</div>
-            <div class="text-xs mt-2"><a href="https://github.com/LsMin124/IPE/blob/main/${c.doc}" target="_blank" class="text-blue-400">RCA →</a></div>
-          </div>
-        </div>
-      `;
-      cfGrid.appendChild(div);
-    });
-
+    // backlog
     const bGrid = document.getElementById('backlog-grid');
-    const prioColor = { 'P0': 'badge-danger', 'P1': 'badge-warning', 'P2': 'badge', 'P3': 'badge' };
     D.backlog.forEach(b => {
       const div = document.createElement('div');
       div.className = 'card';
       div.innerHTML = `
         <div class="flex items-start gap-2 mb-2">
-          <span class="badge ${prioColor[b.priority] || 'badge'} flex-shrink-0">${b.priority}</span>
+          <span class="badge flex-shrink-0">${b.priority}</span>
           <div>
             <div class="font-bold text-white">${b.id}</div>
-            <div class="text-sm text-gray-300 mt-1">${b.title}</div>
             <div class="text-xs text-gray-500 mt-1">${b.desc}</div>
           </div>
-        </div>
-      `;
+        </div>`;
       bGrid.appendChild(div);
     });
   </script>

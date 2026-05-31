@@ -1,15 +1,15 @@
 # IPE 인터랙티브 사이트
 
-GitHub Pages 호스팅용 정적 HTML 사이트. v0.2.0+ 사람용 문서 (제출/외부 공유) 전용.
+GitHub Pages 호스팅용 정적 HTML 사이트. 사람용 요약 문서 (제출/외부 공유) 전용 — v1.0(anchor freeze) + Phase 3(v2) 현황 반영.
 
 ## 페이지
 
 | 파일 | 내용 |
 |---|---|
-| `index.html` | 진입점 — hero + 핵심 지표 + 아키텍처 + 최근 진행 |
-| `requirements.html` | FR 14 + NFR 10 + 인수 기준 + 알려진 한계 |
-| `tech-stack.html` | 11 deps + 4-tier sandbox + 제외 기술 + 의존성 그래프 |
-| `dashboard.html` | e2e Run 1~12 timeline (Chart.js) + case matrix + duration + Sprint PR + backlog |
+| `index.html` | 진입점 — hero + v1.0 anchor + 검증 해자 + v1 파이프라인 + Phase 3(v2) 요약 |
+| `requirements.html` | FR 14 + NFR 10 + v1.0 인수 기준 + 알려진 한계 |
+| `tech-stack.html` | 12 deps + 모델 tiering + 4-tier sandbox + 제외 기술 + 의존성 그래프 |
+| `dashboard.html` | Gate 여정(v0 27%→v1.0 91.2%, Chart.js) + 카탈로그 성장 + v2 토폴로지 + 마일스톤 + 아카이브 |
 
 ## 공통 asset
 
@@ -46,15 +46,19 @@ cd docs/site && python3 -m http.server 8000
 
 ## 데이터 갱신
 
-새 e2e Run 결과 추가 / Sprint PR 갱신 시 `assets/data.js`의 `IPE_DATA` 객체만 수정. 모든 페이지가 자동 반영.
+측정 갱신 / PR·마일스톤 진행 시 `assets/data.js`의 `IPE_DATA` 객체만 수정. 모든 페이지가 자동 반영. 모든 수치는 측정/문서 근거가 있는 값만 적는다 (narrative honesty).
 
 ```javascript
 // assets/data.js
 window.IPE_DATA = {
-  meta: { version, e2eSuccess, tests, ... },
-  e2eRuns: [{ run, label, results: [...], total, durMin }, ...],
+  meta: { version, mainCommit, devCommit, gatePassPct, tests, coverage, ... },
+  moat: [{ icon, title, desc }, ...],          // 검증 해자
+  journey: [{ phase, algos, passPct, label, note }, ...],  // v0→v1.0 측정 여정
+  v2Stages: [{ stage, nodes, parallel, desc }, ...],       // Phase 3 v2 토폴로지
+  tiers: [{ tier, label, cls, desc }, ...],    // 검증 신뢰 tier A/B/C
+  milestones: [{ id, title, status, ref, note }, ...],     // M0~M6
   recentPrs: [{ num, title, type, impact }, ...],
-  // ...
+  // fr, nfr, stack, exclusions, principles, backlog ...
 };
 ```
 
