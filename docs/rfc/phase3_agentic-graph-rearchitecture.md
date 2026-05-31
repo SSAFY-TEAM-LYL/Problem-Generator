@@ -63,7 +63,7 @@ v1.0 은 성공했다 — v0 27% → 91.2%, 독립 검증이라는 해자, 418 t
 |---|---|---|
 | **① 은닉/모델링** | 지문은 현실 시나리오, 알고리즘은 숨김 | Strategist(숨은 시드) + Narrative(시나리오) + Formalizer(형식화) 분리 |
 | **② 기법 합성** | 2~3 알고리즘 조합 | Strategist 의 composition pattern + 검증의 metamorphic/differential 의존 |
-| **③ 구조 풍부** | 다중 엔티티·쿼리/갱신·큰 N·적대 토폴로지 | 난이도 입력 + 병렬 Test-suite Generator(input family 별) |
+| **③ 구조 풍부** | 다중 엔티티·쿼리/갱신·큰 N·적대 토폴로지 | 병렬 Test-suite Generator(input family 별). 인스턴스 규모는 Formalizer 가 ad hoc 선택 (난이도 제어는 별도 RFC, R4) |
 
 세 축 모두 **검증 천장**에 막혀 있다 — 합성·은닉되면 정석 symbolic 이 안 맞는다. 그래서 §7(검증 성숙)이 전체의 전제다.
 
@@ -119,7 +119,7 @@ record → router → { 임의 스테이지 재진입 | end_success | end_* }
 
 | # | 노드 | 책임 | 구현 | 모델 tier | 병렬 |
 |---|---|---|---|---|---|
-| N1 | Strategist | 숨은 algo 시드 + composition + 난이도 + domain | LLM | Sonnet | — |
+| N1 | Strategist | 숨은 algo 시드 + composition + domain (난이도는 별도 RFC, R4) | LLM | Sonnet | — |
 | N2 | Narrative Author | 시나리오 작성 (은닉) | LLM | Sonnet | — |
 | N3 | Formalizer | 시나리오 → ProblemSpec | LLM | **Opus** (정확성 임계) | — |
 | N4a | Golden ×K | 정해 K개 (독립성 위해 모델 혼합) | LLM | Opus + Sonnet | ✅ |
@@ -252,11 +252,11 @@ canonical 은 측정 비계로 끝나지 않고 **B2C 토픽 드릴 / 입문 연
 |---|---|---|
 | R1 | ~~차분+metamorphic 이 hiring-grade 신뢰에 충분한가~~ **→ 결정됨 (§7)** | tier 게이트(A/B/C) + B2B 는 Tier B 이상만 출하 + M1 에서 Tier B≈Tier A 실측. 잔여 위협은 "상관된 오해" → 탈상관 유도 + 무모호 spec 게이트로 방어 |
 | R2 | ~~compat mode 가 v2 복잡도와 양립하는가~~ **→ 결정됨 (§10)** | compat flag(mode typed 필드, 한 그래프) + anchor 2개 분업(compat=배관/full=야심) + canonical 영구 제품 모드 |
-| R3 | 병렬 state reducer 설계 복잡도 | M0 스파이크로 선검증 |
-| R4 | 난이도 calibration 의 ground truth 부재 | 난이도는 별도 RFC 후속 가능 — 본 RFC 는 입력 hook 만 |
-| R5 | 비용/latency 실측치 미지 | 마일스톤별 실측 anchor |
-| Q1 | M3(은닉)을 더 일찍 당겨 "non-toy" 가시 성과를 먼저 낼지 | §12 순서 논점 |
-| Q2 | 유출 검사(Leakage, N10c)의 reference corpus 를 어떻게 확보할지 | 외부 문제 DB 필요할 수 있음 |
+| R3 | 병렬 state reducer 설계 복잡도 | **M0 스파이크로 선검증** (확정) |
+| R4 | 난이도 calibration | **별도 RFC 로 완전 분리** (결정 가) — 본 RFC 는 난이도-agnostic, M3 도 난이도 입력 없음. 난이도는 후속에서 *감싸는 레이어*로 |
+| R5 | 비용/latency 실측치 미지 | **마일스톤마다 run당 토큰/달러 실측 + anchor 화** (확정) |
+| Q1 | 마일스톤 순서 | **M1(검증 성숙) 먼저** (확정) — Tier B≈Tier A 를 값싸게 먼저 실증, 상한을 데이터로 확정 |
+| Q2 | 유출검사 reference corpus | **M5 진입 시 재논의** — 외부 문제 DB 확보가 별도 과제, 지금 막을 필요 없음 |
 
 ---
 
