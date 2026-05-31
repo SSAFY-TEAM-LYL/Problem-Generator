@@ -1,381 +1,222 @@
 /* IPE site — shared data for all pages
- * RCA / CHANGES / playbook의 데이터를 inline JS 상수로 노출.
+ * SPEC / ARCHITECTURE / CHANGES / RFC 의 데이터를 inline JS 상수로 노출.
  * 모든 페이지에서 import 없이 window 전역으로 접근.
+ *
+ * 모든 수치는 측정/문서 근거가 있는 값만 적는다 (narrative honesty).
+ * 갱신: 2026-06-01 — v1.0 출시(anchor freeze) + Phase 3(v2) M1 진행 반영.
  */
 
 window.IPE_DATA = {
   meta: {
-    version: "v1.0 D안 (19 algo, 91.2% Gate PASS, anchor freeze)",
+    version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "706f875",
-    updated: "2026-05-29",
-    e2eSuccess: "Phase 2c RCA3 final = 52/57 (91.2%), sample-level 97.7%, samples_engaged 99.1%, v0 baseline 27% 대비 +64pp. P3 후속 2개 merge: Option B (sample_mismatch + invariant_violations=[] → architect back-route, variance systematic 회복) + outputs/ persistence (run-id 디렉토리에 spec/design/code/verification/outcome + problem.md + samples/<i>.{in,out}, online judge 호환). 추가 측정은 diminishing returns 로 판단 → anchor freeze.",
-    tests: 418,
-    coverage: 93,
-    nodes: 4,
-    deps: 12,
+    mainCommit: "7137256",          // main HEAD — RFC #107 + M0 스파이크 #108
+    devBranch: "feat/v2-m1-verification-maturation",
+    devCommit: "f9cf1db",           // M1 dev HEAD — differential + metamorphic
+    updated: "2026-06-01",
+
+    // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
+    gatePass: "52/57",
+    gatePassPct: 91.2,
+    sampleLevel: 97.7,
+    samplesEngaged: 99.1,
+    baselineV0Pct: 27,              // v0 8/30
+    improvementPp: 64,
+    algoCatalog: 19,
+    meanIteration: 1.07,
+
+    // 코드 베이스 (측정값)
+    tests: 432,                     // 432 passed, 1 skipped (433 collected)
+    testsSkipped: 1,
+    coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
+    coverageScope: "ipe/v1",
+    nodes: 4,                       // v1 실행 파이프라인 노드 (architect→designer→coder→executor)
+    v2Nodes: 15,                    // v2 제안 토폴로지 (RFC §5)
+    deps: 12,                       // core 7 + dev 5
+
+    // honest positioning — "고품질 자체 생산" 이 아니라 검증·계약·측정·관측
+    tagline: "알고리즘 문제를, 코드가 독립적으로 검증할 수 있는 형태로 생성한다.",
+    summary:
+      "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
+      "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
+      "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
+      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (RFC #107 / M0 스파이크 #108 머지, M1 검증 성숙 진행).",
   },
 
-  // 최근 대표 PR — v1 D안 Phase 1~2c 시리즈 + RCA
-  recentPrs: [
-    { num: 93, title: "PR-C8 Sieve verifier (Phase 2b 마무리)", type: "feat", impact: "baseline ×2.6, 13 algo" },
-    { num: 94, title: "Phase 2b N=3 × 13 algo measurement", type: "test", impact: "34/39 (87.2%), 100% engaged" },
-    { num: 96, title: "PR-D2 Floyd-Warshall verifier", type: "feat", impact: "baseline ×3.0 달성" },
-    { num: 100, title: "PR-D6 Coin Change verifier (DP 2개째)", type: "feat", impact: "baseline ×3.8, 19 algo" },
-    { num: 101, title: "Phase 2c N=3 × 19 algo measurement", type: "test", impact: "47/57 (82.5%) Gate PASS" },
-    { num: 103, title: "P1+P2 RCA — Knapsack/Kruskal/Graph/6 algo 일반화", type: "fix", impact: "52/57 (91.2%), Two Sum persistent" },
-    { num: 104, title: "P3 Option B — sample_mismatch+invariant=[] architect back-route", type: "fix", impact: "variance systematic 회복 (sub-meas 14/15)" },
-    { num: 105, title: "P3 outputs/ persistence + problem.md/samples + measurement opt-in", type: "feat", impact: "online judge 호환 format, team demo" },
+  // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
+  moat: [
+    {
+      icon: "🔬",
+      title: "독립적·결정론적 검증",
+      desc: "정답을 LLM 이 아니라 코드가 알고리즘의 수학적 정의에서 유도한다 — 19개 symbolic verifier. " +
+        "지문 오독과 독립적이라 '그럴듯한 오답'을 결정론적으로 걸러낸다.",
+    },
+    {
+      icon: "📐",
+      title: "Typed artifact 계약 + 구조화 라우팅",
+      desc: "Pydantic v2 노드 계약 (ProblemSpec / AlgorithmDesign / SolutionAttempt / VerificationResult) + " +
+        "StructuredFeedback (failure_mode + target_node) → 실패가 어느 노드 책임인지 결정론적으로 라우팅.",
+    },
+    {
+      icon: "📊",
+      title: "측정 게이트 (91.2% anchor)",
+      desc: "모든 변경은 N≥3 cross-algorithm 측정 게이트를 통과해야 머지된다. " +
+        "over-correction 은 rollback (M3 가 첫 사례). 신뢰를 주장이 아니라 측정으로 획득한다.",
+    },
+    {
+      icon: "🔭",
+      title: "관측성 · 재현성",
+      desc: "모든 LLM 호출 raw trace 보존 + SqliteSaver checkpoint → replay 0-cost 재현. " +
+        "outputs/<run_id>/ 에 spec/code/verification + problem.md + samples (online judge 호환) 영속화.",
+    },
   ],
 
-  // 6 LangGraph nodes
+  // ── v0 → v1.0 측정 여정 (Gate 통과율 + 카탈로그 성장) ──────────────
+  // 출처: CHANGES §41~§67, baseline/*
+  journey: [
+    { phase: "v0 baseline",          algos: 0,  passPct: 27.0, label: "8/30",  note: "M1~M4 누적 mechanism (~120 cycle) 한계 — toy 수준 진단" },
+    { phase: "Phase 1 (Dijkstra)",   algos: 1,  passPct: 100.0, label: "3/3",  note: "typed artifact + symbolic verifier + structured routing 도입 (MVR)" },
+    { phase: "Phase 2a",             algos: 5,  passPct: 93.3, label: "14/15", note: "samples_engaged 100%, H2(verifier engagement) 강한 evidence" },
+    { phase: "Phase 2b",             algos: 13, passPct: 87.2, label: "34/39", note: "cluster verifier 패턴 (1 enum = family). Knapsack outlier 첫 식별" },
+    { phase: "Phase 2c",             algos: 19, passPct: 82.5, label: "47/57", note: "Graph+DS+DP family 확장. Knapsack/Kruskal outlier RCA candidate" },
+    { phase: "Phase 2c · RCA3",      algos: 19, passPct: 91.2, label: "52/57", note: "P1~P3 RCA 회복 + outputs 영속화 → anchor freeze (v1.0)" },
+  ],
+
+  // ── v1.0 실행 파이프라인 (실제 동작 — 4 LLM 노드) ─────────────────
+  // 출처: ipe/v1/graph.py
   graphNodes: [
-    { id: "architect", label: "Architect", desc: "문제 설계 + structured constraints + samples" },
-    { id: "coder", label: "Coder", desc: "정해(golden) + brute solution + LESSON + N-fanout" },
-    { id: "auditor", label: "Auditor", desc: "8 adversarial inputs + syntactic validator" },
-    { id: "generator", label: "Generator", desc: "5 generator scripts (4 categories) + seed" },
-    { id: "executor", label: "Executor", desc: "3-Phase 검증 + brute cross-check + sandbox" },
-    { id: "evaluator", label: "Evaluator", desc: "calibration anchor + 난이도 사후 평가" },
+    { id: "architect", label: "Architect",          model: "Opus",   desc: "ProblemSpec — storytelling + structured constraints + 3~5 sample testcases" },
+    { id: "designer",  label: "Algorithm Designer", model: "Sonnet", desc: "algorithm 선택 + pseudocode + complexity + edge cases (Coder 분해)" },
+    { id: "coder",     label: "Coder",              model: "Opus",   desc: "golden(정해) + brute oracle 동시 구현 + LESSON 누적" },
+    { id: "executor",  label: "Executor",           model: "code",   desc: "symbolic verifier + sample/brute cross-check → StructuredFeedback 라우팅" },
   ],
 
-  // 5 e2e cases
-  e2eCases: ["Two Sum", "BFS", "Dijkstra", "Segment Tree", "LIS"],
-
-  // Run 1 ~ Run 12 매트릭스 (각 case 1=success, 0=fail, null=aborted)
-  e2eRuns: [
-    { run: 1,  label: "v0.1.1 baseline",       results: [0,0,0,0,0], total: "0/5", durMin: 11.3 },
-    { run: 2,  label: "budget↑",               results: [0,0,0,0,0], total: "0/5", durMin: 9.0 },
-    { run: 3,  label: "Sprint 1 (R1+R4)",      results: [0,0,0,0,0], total: "0/5", durMin: 10.2 },
-    { run: 4,  label: "Sprint 1.5 (R11)",      results: [0,0,0,0,0], total: "0/5", durMin: 10.8 },
-    { run: 5,  label: "max_iter=10",           results: [0,1,0,0,0], total: "1/5", durMin: 8.5 },
-    { run: 6,  label: "Sprint 2 (R10) — hang", results: [null,null,null,null,null], total: "aborted", durMin: null },
-    { run: 7,  label: "Sprint 2 (R10) retry",  results: [0,0,0,0,1], total: "1/5", durMin: 9.7 },
-    { run: 8,  label: "Sprint 3 R13",          results: [0,0,0,0,0], total: "0/5", durMin: 9.0 },
-    { run: 9,  label: "R-sandbox (PHASE_C=1)", results: [1,0,1,0,1], total: "3/5", durMin: 10.4 },
-    { run: 10, label: "Sprint 4 R14 fanout=3", results: [1,1,1,0,1], total: "4/5", durMin: 18.6 },
-    { run: 11, label: "Sprint 4 R3",           results: [1,0,1,1,1], total: "4/5", durMin: 12.4 },
-    { run: 12, label: "Sprint 4 R-bfs",        results: [1,1,1,0,1], total: "4/5", durMin: 12.9 },
-    // v0.2.1 Round 15~18 — Docker tier 단일 case 측정 (5/5 set 아님, partial)
-    { run: 13, label: "v0.2.1 R-docker-workdir (BFS+ST Docker, infra still RTE)", results: [null,0,null,0,null], total: "0/2 partial", durMin: 5.0 },
-    { run: 14, label: "v0.2.1 R-docker-mount Round 16 (BFS budget_exh / ST success)", results: [null,0,null,1,null], total: "1/2 partial", durMin: 10.0 },
-    { run: 15, label: "v0.2.1 R-phase-a-osc-break Round 17 (BFS budget_exh / ST budget_exh)", results: [null,0,null,0,null], total: "0/2 partial", durMin: 8.5 },
+  // ── Phase 3 = v2 agentic graph (RFC §5 제안 토폴로지) ─────────────
+  v2Stages: [
+    { stage: "Modeling",            nodes: ["Strategist", "Narrative Author", "Formalizer"],                 parallel: false, desc: "알고리즘 은닉 — 숨은 시드 → 현실 시나리오 → 형식 ProblemSpec" },
+    { stage: "Solution Synthesis",  nodes: ["Golden ×K", "Brute Oracle", "Reconciler"],                      parallel: true,  desc: "독립 모델 정해 K개 + brute, 코드 reconcile (fan-in)" },
+    { stage: "Verification",        nodes: ["Symbolic", "Differential", "Metamorphic", "Aggregator·GATE"],   parallel: true,  desc: "Tier A/B/C 신뢰 게이트 — 적용가능 체크 전부 통과해야 verified" },
+    { stage: "Test-suite Gen",      nodes: ["edge", "large", "adversarial", "random", "Assembler"],          parallel: true,  desc: "input family 별 생성 → golden 실행 expected → 패키징" },
+    { stage: "QA / Critic",         nodes: ["Ambiguity", "Fairness", "Leakage", "Difficulty", "Aggregator"], parallel: true,  desc: "모호성/공정성/유출/난이도 (Haiku) → fail 시 back-route" },
   ],
 
-  // FR (기능 요구사항)
+  // ── 검증 신뢰 tier (RFC §7 — make-or-break 결정) ──────────────────
+  tiers: [
+    { tier: "A", label: "최고 신뢰",            cls: "success", desc: "정석 코어 존재 → symbolic 적용. 완전 신뢰. (기존 19 + 은닉돼도 코어가 symbolic-checkable)" },
+    { tier: "B", label: "높은 신뢰 · B2B 출하 하한", cls: "accent",  desc: "신뢰가능 brute differential + problem-class metamorphic + 탈상관 유도 + 무모호 spec 게이트 → hiring-grade" },
+    { tier: "C", label: "불충분 → reject",      cls: "danger",  desc: "brute 신뢰 불가 / metamorphic 뿐 → B2B reject (B2C 강등 or 폐기). 진짜 위협은 '상관된 오해'." },
+  ],
+
+  // ── Phase 3 마일스톤 (RFC §12) ────────────────────────────────────
+  milestones: [
+    { id: "M0", title: "RFC 확정 + state reducer 스파이크",                          status: "done",        ref: "#107 · #108", note: "병렬 fan-in reducer 선검증 — frozen Pydantic + reducer 동작 확인 (langgraph 1.2.2). partial dict 반환 + order-independent aggregator 필수." },
+    { id: "M1", title: "검증 성숙 — Tier B ≈ Tier A 실증",                           status: "in_progress", ref: "feat/v2-m1-…", note: "differential.py ✅ (golden↔brute 차분) · metamorphic.py ✅ (범용 관계) · tier classifier ⬜ 다음. 이후 19-algo 로 Tier B 가 Tier A 와 일치함을 실측." },
+    { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "planned",     note: "91.2% 무회귀 + run당 토큰/달러 실측 anchor 화" },
+    { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "planned", note: "toy → hiring-grade 의 체감 전환점. 신규 anchor 구축" },
+    { id: "M4", title: "Test-suite generator (풀 채점셋)",                          status: "planned",     note: "edge/large/adversarial/random family + Assembler" },
+    { id: "M5", title: "QA/Critic 병렬 스테이지 (유출/공정성/모호성/난이도)",          status: "planned",     note: "유출검사 reference corpus 확보는 진입 시 재논의" },
+    { id: "M6", title: "기법 합성 (multi-technique)",                              status: "planned",     note: "2~3 알고리즘 조합 — 검증 tier 의 metamorphic/differential 의존" },
+  ],
+
+  // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
+  recentPrs: [
+    { num: 101, title: "Phase 2c N=3 × 19 algo measurement",            type: "test", impact: "47/57 (82.5%) Gate PASS, samples_engaged 100%" },
+    { num: 103, title: "P1 RCA — Knapsack + Kruskal MST 회복",          type: "fix",  impact: "양쪽 outlier 0/3·1/3 → 3/3" },
+    { num: 104, title: "P3 Option B — sample_mismatch architect back-route", type: "fix", impact: "variance systematic 회복 (sub-meas 14/15)" },
+    { num: 105, title: "P3 outputs/ persistence + problem.md/samples",  type: "feat", impact: "online judge 호환 artifact 영속화" },
+    { num: 106, title: "v1.0 anchor freeze — site + README narrative",  type: "docs", impact: "91.2% anchor 동결, 측정 중단 판단" },
+    { num: 107, title: "Phase 3 RFC — Agentic Graph 재공사 (v2)",        type: "docs", impact: "tiered trust(A/B/C) + compat flag + M1-first 결정" },
+    { num: 108, title: "M0 — 병렬 fan-in reducer 스파이크",              type: "test", impact: "frozen Pydantic + reducer 채널 검증 (RFC R3)" },
+  ],
+
+  // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
+  backlog: [
+    { id: "R4 난이도 calibration",  priority: "별도 RFC", desc: "본 RFC 는 난이도-agnostic — 후속에서 감싸는 레이어로 분리" },
+    { id: "B2C 전달/세트 조립",     priority: "후속",     desc: "canonical 토픽 드릴 모드는 v2 범위, UI·세트·시험 조립은 후속" },
+    { id: "Multi-lang 솔루션",      priority: "v2.x",     desc: "C++ / Go / Rust — _write_source 분기 추가" },
+    { id: "M4 stress 입력 생성기",  priority: "M4",       desc: "본격 stress 입력 생성 — M1 실측은 우선 기존 sample 입력(무료)으로" },
+  ],
+
+  // ── 핵심 원칙 (PRINCIPLES.md) ─────────────────────────────────────
+  principles: [
+    { icon: "📏", title: "측정 우선", desc: "N≥3 측정 + baseline anchor 없이는 머지하지 않는다. 추가 측정이 diminishing returns 면 중단하고 freeze." },
+    { icon: "🧭", title: "해자 사수", desc: "재공사해도 typed artifact 계약 + 결정론적 검증 anchor 는 사수. 검증 path 는 절대 끊지 않는다." },
+    { icon: "🪢", title: "복잡도 규율", desc: "그래프는 ≤6 스테이지, 모든 노드는 typed artifact + structured log emit, 병렬은 반드시 deterministic aggregator 로 fan-in." },
+    { icon: "💸", title: "비용 규율",   desc: "모델 tiering 강제 (코드/Haiku 우선, Opus 는 Formalizer·Golden 에만). 검증·집계는 코드 = 비용 0. run당 비용 마일스톤마다 실측." },
+  ],
+
+  // ── FR (기능 요구사항) — v1.0 기준 ────────────────────────────────
   fr: [
-    { id: "FR-1",  title: "문제 자동 생성 (Architect)",      desc: "algorithm 키워드 → storytelling + structured constraints + 3-5 sample testcases" },
-    { id: "FR-2",  title: "정해 작성 (Coder)",               desc: "Best-of-N fanout / LESSON 누적 / brute solution 동시 작성" },
-    { id: "FR-3",  title: "적대적 입력 (Auditor)",           desc: "8 adversarial + syntactic validator" },
-    { id: "FR-4",  title: "Stress Test (Generator)",         desc: "5 script × seed, R10 cap 2MB, 카테고리별 N 가이드" },
-    { id: "FR-5",  title: "3-Phase 검증 (Executor)",         desc: "Phase A sample / B adversarial / C stress + brute cross-check" },
-    { id: "FR-6",  title: "난이도 평가 (Evaluator)",         desc: "calibration anchor 기반 사후 평가" },
-    { id: "FR-7",  title: "4-Tier Sandbox",                  desc: "Docker / nsjail / sandbox-exec / RLIMIT 자동 선택" },
-    { id: "FR-8",  title: "Resume & Replay",                 desc: "SqliteSaver checkpoint + LLM trace 0-cost 재현" },
-    { id: "FR-9",  title: "비용 가드",                       desc: "max_cost_usd 초과 시 halt, LLMCallTracker" },
-    { id: "FR-10", title: "관측성 (LLM trace)",              desc: "raw input/output 디스크 저장 + 옵션 LangSmith/OTel" },
-    { id: "FR-11", title: "산출물 영속화",                   desc: "problem.json + problem.md + tests/NN.{in,out}" },
-    { id: "FR-12", title: "반복 제어",                       desc: "max_iter + per-node budget + cost guard 3중" },
-    { id: "FR-13", title: "Oscillation 감지 (W4)",           desc: "동일 signature 2회+ 강한 경고 + R-bfs budget 흡수" },
-    { id: "FR-14", title: "다언어 솔루션",                   desc: "Python / Java (C++/Go 후속)" },
+    { id: "FR-1",  title: "문제 자동 생성 (Architect)",  desc: "algorithm 키워드 → storytelling + structured constraints + 3~5 sample testcases" },
+    { id: "FR-2",  title: "알고리즘 설계 (Designer)",    desc: "Coder 분해 — algorithm 선택 + pseudocode + complexity + edge cases" },
+    { id: "FR-3",  title: "정해+brute 작성 (Coder)",     desc: "golden(정해) 과 brute oracle 동시 구현 + LESSON 누적" },
+    { id: "FR-4",  title: "독립 검증 (Executor)",        desc: "19 symbolic verifier — 알고리즘 정의에서 답 유도, 지문 오독과 독립" },
+    { id: "FR-5",  title: "brute cross-check",           desc: "sample 불일치 시 brute oracle 로 architect expected_output 정확성 결정론 검증" },
+    { id: "FR-6",  title: "구조화 라우팅",               desc: "StructuredFeedback (failure_mode + target_node) → 실패 책임 노드로 결정론 라우팅" },
+    { id: "FR-7",  title: "4-Tier Sandbox",              desc: "Docker / nsjail / sandbox-exec / RLIMIT 자동 선택 — 생성 코드 격리 실행" },
+    { id: "FR-8",  title: "Resume & Replay",             desc: "SqliteSaver checkpoint + LLM raw trace → 0-cost 재현" },
+    { id: "FR-9",  title: "비용 가드",                   desc: "max_cost_usd 초과 시 halt + LLMCallTracker" },
+    { id: "FR-10", title: "관측성 (LLM trace)",          desc: "raw input/output 디스크 저장 + 옵션 LangSmith/OTel" },
+    { id: "FR-11", title: "산출물 영속화",               desc: "outputs/<run_id>/ — spec/design/code/verification + problem.md + samples/NN.{in,out}" },
+    { id: "FR-12", title: "반복 제어 (3중)",             desc: "max_iter (안전망) + per-node budget (정밀) + cost guard" },
+    { id: "FR-13", title: "Oscillation 차단",            desc: "동일 signature 반복 시 라우팅 레벨 결정론 차단 (architect↔coder 대칭)" },
+    { id: "FR-14", title: "측정 하네스",                 desc: "N≥3 × multi-algo Gate 측정 runner + samples_engaged 추적 + outputs opt-in" },
   ],
 
-  // NFR (비기능)
+  // ── NFR (비기능) — 측정값 반영 ────────────────────────────────────
   nfr: [
-    { id: "NFR-1",  title: "성능",         metric: "단일 문제 평균 < 10분, Phase C 정해 ≤ 50% time_limit" },
-    { id: "NFR-2",  title: "안정성",       metric: "Sandbox 격리 + checkpoint resume + race 0 (PHASE_C_WORKERS=1)" },
-    { id: "NFR-3",  title: "보안",         metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
-    { id: "NFR-4",  title: "확장성",       metric: "언어 추가 3 함수 분기 / 모델 PRICING table" },
-    { id: "NFR-5",  title: "유지보수성",   metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질",  metric: "247 passed, coverage 93%, e2e 5 cases (DoD 4+)" },
-    { id: "NFR-7",  title: "비용 효율",    metric: "list price upper bound, 실제 청구 ≈ 0.4x (Tier+cache)" },
-    { id: "NFR-8",  title: "관측성",       metric: "LLM trace + replay + LangSmith/OTel 옵션" },
-    { id: "NFR-9",  title: "운영성",       metric: "make install / ipe CLI / resume·replay / selftest-all" },
-    { id: "NFR-10", title: "재현성",       metric: "seed-deterministic generator + replay 100%" },
+    { id: "NFR-1",  title: "정확성",      metric: "Gate 52/57 (91.2%), sample-level 97.7%, samples_engaged 99.1%, mean iter 1.07" },
+    { id: "NFR-2",  title: "안정성",      metric: "Sandbox 격리 + checkpoint resume + race 0 (PHASE_C_WORKERS=1)" },
+    { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
+    { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
+    { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "432 passed · 1 skipped, coverage 87% (ipe/v1)" },
+    { id: "NFR-7",  title: "비용 효율",   metric: "list price upper bound, 실제 청구 ≈ 0.4x (Tier+cache)" },
+    { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
+    { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
+    { id: "NFR-10", title: "재현성",      metric: "seed-deterministic 검증 + replay 100% + run-id 격리 outputs" },
   ],
 
-  // Tech stack (간략 — TECH_STACK.md 그대로 미러)
+  // ── Tech stack (TECH_STACK.md 미러, v1.0 실제 반영) ───────────────
   stack: {
     runtime: [
-      { name: "Python", version: "3.11+", note: "TypedDict total=False + asyncio task group" },
+      { name: "Python", version: "3.11+", note: "Pydantic v2 typed artifacts + asyncio + mypy --strict 호환" },
       { name: "Java", version: "17 Temurin", note: "옵션 — Java 솔루션 시" },
     ],
     llm: [
-      { name: "langgraph", version: "≥0.2.0", note: "노드 그래프 오케스트레이션" },
-      { name: "langgraph-checkpoint-sqlite", version: "≥3.0.0", note: "SqliteSaver" },
+      { name: "langgraph", version: "≥0.2.0 (런타임 1.2.x)", note: "노드 그래프 오케스트레이션 — v2 병렬 reducer 채널" },
+      { name: "langgraph-checkpoint-sqlite", version: "≥3.0.0", note: "SqliteSaver — resume/replay" },
       { name: "langchain-anthropic", version: "≥0.2.0", note: "ChatAnthropic wrapper" },
       { name: "anthropic", version: "≥0.40.0", note: "SDK" },
     ],
     sandbox: [
-      { tier: "T1", name: "Docker", env: "all OS (daemon)", note: "Network 차단 + readonly mount + cgroup" },
-      { tier: "T2", name: "nsjail", env: "Linux only", note: "namespace + seccomp + cgroup" },
-      { tier: "T2.5", name: "sandbox-exec", env: "macOS only", note: "Apple Seatbelt" },
-      { tier: "T3", name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
+      { tier: "T1",   name: "Docker",       env: "all OS (daemon)", note: "Network 차단 + readonly rootfs + bind mount + cgroup" },
+      { tier: "T2",   name: "nsjail",       env: "Linux only",       note: "namespace + seccomp + cgroup" },
+      { tier: "T2.5", name: "sandbox-exec", env: "macOS only",       note: "Apple Seatbelt" },
+      { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — 432 passed" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
-      { name: "pytest-cov", version: "≥4.1.0", note: "coverage + threshold" },
-      { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM)" },
+      { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
+      { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
       { name: "mypy", version: "≥1.10.0", note: "--strict 0 errors" },
     ],
     other: [
+      { name: "pydantic", version: "≥2.0.0", note: "typed artifact 노드 계약 (v1 D안 도입)" },
       { name: "python-dotenv", version: "≥1.0.0", note: ".env 환경 변수" },
       { name: "jsonschema", version: "≥4.20.0", note: "LLM 출력 schema 검증" },
-      { name: "setuptools", version: "≥64 + wheel", note: "build backend" },
     ],
   },
 
-  // 제외 기술 + 이유
+  // ── 제외 기술 + 이유 ──────────────────────────────────────────────
   exclusions: [
-    { tech: "OpenAI SDK", reason: "Anthropic 단일 provider (langchain-anthropic으로 충분)" },
-    { tech: "FastAPI / Flask", reason: "CLI tool — web layer 불필요" },
+    { tech: "OpenAI SDK", reason: "Anthropic 단일 provider (langchain-anthropic 으로 충분)" },
+    { tech: "FastAPI / Flask", reason: "CLI tool — web layer 불필요 (B2C 전달은 후속 마일스톤)" },
     { tech: "Celery / Redis", reason: "단일 사용자/run — 큐 불필요" },
-    { tech: "PostgreSQL", reason: "출력 JSON 파일로 충분 (DB-insertable schema)" },
-    { tech: "Pydantic", reason: "TypedDict + jsonschema로 충분, dep 비용 ↓" },
+    { tech: "PostgreSQL", reason: "출력 JSON/디렉토리로 충분 (DB-insertable schema)" },
+    { tech: "TypedDict", reason: "v1 D안에서 Pydantic v2 typed artifact 로 전환 — 검증·계약 강화" },
     { tech: "Black + isort", reason: "ruff 통합 (single-tool 정책)" },
-    { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt로 충분" },
-  ],
-
-  // Backlog (v0.3.0 진행 중) — M1+M2 완료, M3/M4 남음
-  backlog: [
-    { id: "M3 Multi-model consensus", title: "Architect Opus + Sonnet voting", priority: "v0.3.0 PR #3", desc: "santa-loop generator 측 — hallucination 차단" },
-    { id: "M4 Adversarial review", title: "Solution → Reviewer gate", priority: "v0.3.0 PR #4", desc: "santa-loop reviewer 측 — complexity/edge case 검증" },
-    { id: "R-sandbox v2", title: "ulimit wrapper로 PHASE_C_WORKERS=4 복귀", priority: "P3", desc: "Phase C 성능 회복" },
-    { id: "Multi-lang", title: "C++ / Go / Rust 솔루션", priority: "v0.3.x", desc: "_write_source 분기 추가" },
-    { id: "FastAPI", title: "API화 + web UI", priority: "v0.4.0", desc: "다중 사용자" },
-  ],
-
-  // 완료된 결정적 fix (Round 11+) — dashboard에서 별도 섹션
-  completedFixes: [
-    {
-      id: "R-osc-break",
-      round: "Round 11",
-      date: "2026-05-18",
-      title: "Phase A oscillation breaker",
-      desc: "architect signature 2회+ 시 coder 강제 라우팅 (라우팅 레벨 결정적 차단)",
-      target: "BFS variance 2/4 → 결정적 차단",
-      tests: 11,
-      doc: "docs/improvements/2026-05-18_osc-break-deterministic.md",
-    },
-    {
-      id: "R-gen-cap",
-      round: "Round 11",
-      date: "2026-05-18",
-      title: "Generator hard cap validator",
-      desc: "Generator 응답 직후 sandbox 실측으로 cap 초과 generator 사전 reject (Executor 진입 전 결정적 차단)",
-      target: "Segment Tree 0/4 → 결정적 차단",
-      tests: 9,
-      doc: "docs/improvements/2026-05-18_gen-cap-deterministic.md",
-    },
-    {
-      id: "R-coder-osc",
-      round: "Round 12",
-      date: "2026-05-18",
-      title: "Coder oscillation breaker",
-      desc: "coder가 동일 signature 2회+ 시 architect로 강제 라우팅 swap (helper 일반화: architect↔coder 대칭)",
-      target: "Phase A coder 반복 fail (Docker BFS/SegTree 실측에서 발견)",
-      tests: 11,
-      doc: "docs/improvements/2026-05-18_coder-osc-deterministic.md",
-    },
-    {
-      id: "R-sig-detail",
-      round: "Round 13",
-      date: "2026-05-18",
-      title: "Phase A signature granularity",
-      desc: "coder routing feedback에 실패 sample의 expected/actual prefix 포함 — 다른 problem이 같은 X/Y로 fail해도 sig 달라짐 (R-coder-osc effective fix)",
-      target: "Round 12 SegTree에서 매 cycle oscillation_break 무의미 발동 패턴 해소",
-      tests: 12,
-      doc: "docs/improvements/2026-05-18_sig-detail.md",
-    },
-    {
-      id: "R12",
-      round: "Round 14",
-      date: "2026-05-18",
-      title: "Anthropic retry/backoff (운영 안정성)",
-      desc: "LLM 호출에 HTTP status 기반 retryable 판별 + exponential backoff (2/4/8s, max 3). 529/429/timeout 등 일시 장애 자동 복구. 4xx client error는 즉시 raise.",
-      target: "Round 12 BFS Docker run에서 발생한 Anthropic 529 Overloaded crash",
-      tests: 13,
-      doc: "docs/improvements/2026-05-18_r12-retry-resilience.md",
-    },
-    {
-      id: "R-docker-workdir",
-      round: "Round 15",
-      date: "2026-05-18",
-      title: "DockerRunner cwd 절대경로 fix (인프라)",
-      desc: "DockerRunner.run()이 spec.cwd를 자동 절대화 (Path.resolve) + main.py도 OUTPUTS_ROOT/WORKDIR_ROOT를 .resolve(). R-sig-detail 덕분에 노출된 'docker working directory not absolute' 에러 해소.",
-      target: "Round 14 e2e BFS/SegTree Docker 모든 sample RTE — sandbox 실행 자체 불가",
-      tests: 7,
-      doc: "docs/improvements/2026-05-18_docker-workdir-fix.md",
-    },
-    {
-      id: "R-docker-mount",
-      round: "Round 16",
-      date: "2026-05-18",
-      title: "DockerRunner bind mount (deeper 인프라)",
-      desc: "--tmpfs={cwd}가 호스트 파일을 mask해 'python3: can't open file' 유발. -v {cwd}:{cwd}:rw bind mount로 변경. --read-only rootfs 유지로 격리 보장. real Docker sanity check 통과.",
-      target: "Round 15 재실측에서 노출된 호스트 solution.py 안 보임 문제 (tmpfs overlay 효과)",
-      tests: 1,
-      doc: "docs/improvements/2026-05-18_docker-mount-fix.md",
-    },
-    {
-      id: "R-phase-a-osc-break",
-      round: "Round 17",
-      date: "2026-05-19",
-      title: "Phase A 라우팅 무한 반복 차단",
-      desc: "_decide_phase_a_route에 history 인지 추가 — 같은 sig로 architect 라우팅 2회+ 누적 시 (이번 포함 3회+) coder 강제. R-osc-break (decision swap)이 cover 못 하는 routing 결정 layer 차단.",
-      target: "Round 16 BFS run 1: 4/5 mismatch 무한 반복 (R-osc-break 발동했지만 swap 1 cycle만 유효)",
-      tests: 9,
-      doc: "docs/improvements/2026-05-19_phase-a-osc-break.md",
-    },
-    {
-      id: "R-coder-parse",
-      round: "Round 18",
-      date: "2026-05-19",
-      title: "Coder fenced block 누락 graceful fallback",
-      desc: "ValueError raise → coder self-loop with explicit feedback. fanout candidate 중 일부만 fail해도 나머지로 진행. crash 1종 방지.",
-      target: "Round 16 BFS variance run 2: LLM이 fenced block 없이 응답 → 프로세스 crash",
-      tests: 2,
-      doc: "docs/improvements/2026-05-19_coder-parse-fallback.md",
-    },
-    {
-      id: "R5",
-      round: "Round 19 (v0.2.2 진입)",
-      date: "2026-05-19",
-      title: "Brute oracle Phase A cross-check",
-      desc: "Phase A 실패 시 brute solution을 sample stdin에 실행 → architect expected 정확성 결정적 검증. brute가 모든 sample confirm → coder 강제 (1 cycle). brute가 다른 답 → architect feedback에 brute output 노출.",
-      target: "BFS sample-wrong 오진단 첫 cycle에 차단 (R-phase-a-osc-break의 3 cycle threshold 보다 빠름)",
-      tests: 9,
-      doc: "docs/improvements/2026-05-19_r5-brute-oracle-phase-a.md",
-    },
-    {
-      id: "M2",
-      round: "Round 20 (v0.3.0 RFC PR #1)",
-      date: "2026-05-19",
-      title: "Pre-Hook Infrastructure",
-      desc: "ECC PreToolUse 패턴을 LangGraph 노드 진입 직전 적용 — registry + decorator + wrap. 첫 3 builtin hook: check_problem_complete (coder), check_solution_code_present (executor), check_solution_imports (executor, stdlib 외 reject).",
-      target: "LLM call 비용 지불 전에 invalid state reject — coder가 빈 solution / numpy import 등 명백한 실패 사전 차단",
-      tests: 24,
-      doc: "docs/improvements/2026-05-19_m2-pre-hook.md",
-    },
-    {
-      id: "M1",
-      round: "Round 21 (v0.3.0 RFC PR #2)",
-      date: "2026-05-19",
-      title: "AlgorithmDesigner sub-agent (Coder 분해)",
-      desc: "ECC subagent 패턴 — Coder를 두 단계로 분해: AlgorithmDesigner (algorithm 선택 + pseudocode + complexity + edge_cases) → Coder (implementation). graph: architect → algorithm_designer → coder. state.algorithm_design 필드 + NodeRetryBudget.algorithm_designer + DESIGNER_MODEL (Sonnet).",
-      target: "Coder 한 노드의 책임 분산 (algorithm 선택 + 구현 + brute + LESSON) → quality 분리. 통합 테스트 5개 mock 업데이트.",
-      tests: 11,
-      doc: "docs/improvements/2026-05-19_m1-sub-agent.md",
-    },
-    {
-      id: "M3",
-      round: "Round 22 (v0.3.0 RFC PR #3)",
-      date: "2026-05-19",
-      title: "Multi-Model Consensus (Architect Opus+Sonnet voting)",
-      desc: "ECC Multi-perspective Analysis 패턴 — Architect를 Opus + Sonnet 두 모델 family로 순차 dual-call 후 structural consensus voting. 5-way 결정 (match / opus_only / sonnet_only / both_invalid retry / structural diff retry). state.architect_candidates + architect_consensus 신규 필드. graph 무변경 — architect 노드 내부만 교체.",
-      target: "단일 모델 비결정성 완화 — 두 family 독립 호출 후 구조 합의 시 채택. 한쪽 fail 시 graceful degradation. 둘 다 valid인데 구조 갈리면 명세 모호 신호 → retry feedback에 양쪽 구조 요약.",
-      tests: 23,
-      doc: "docs/improvements/2026-05-19_m3-multi-model.md",
-    },
-    {
-      id: "M4",
-      round: "Round 23 (v0.3.0 RFC PR #4)",
-      date: "2026-05-20",
-      title: "Adversarial Review (Coder ↔ Reviewer gate)",
-      desc: "ECC santa-loop / code-reviewer adversarial 패턴 — Coder가 만든 solution을 별도 Reviewer LLM (Opus)가 검토. approve → executor 진입, reject → coder retry feedback에 weaknesses 동봉. state.review_status / review_reasoning / review_weaknesses 신규. graph: coder → reviewer → {executor | decision (coder retry)}. graceful approve fallback (parse 실패 시) 으로 budget 보호.",
-      target: "Executor sample run으로 안 잡히는 약점 (complexity, edge case, IO 최적화) 사전 차단. Round 22 BFS smoke의 sample wrong-answer 같은 패턴이 reviewer reject으로 1 cycle 빠르게 회복 기대.",
-      tests: 16,
-      doc: "docs/improvements/2026-05-20_m4-adversarial-review.md",
-    },
-    {
-      id: "D-Phase1",
-      round: "Phase 1 — v1 D안 architecture 시작 (PR-A1~A5)",
-      date: "2026-05-22",
-      title: "D안 — Detection Backbone + State Refactor (Dijkstra MVR)",
-      desc: "v0 (M1~M4 누적 9개 mechanism, ~120 cycle) 의 한계 (27% baseline) 를 진단하고 architecture 전면 재설계. Pydantic v2 typed artifacts (ProblemSpec/AlgorithmDesign/SolutionAttempt/VerificationResult) + 4 node LangGraph (architect/designer/coder/executor) + symbolic verifier (Dijkstra invariants 4종) + StructuredFeedback routing (failure_mode + target_node).",
-      target: "v0 baseline 27% (8/30) → v1 PR-A5 Dijkstra 100% (3/3, N=3). H1 (structured routing) 확정, budget_exhausted 0건.",
-      tests: 188,
-      doc: "CHANGES.md §37-§48",
-    },
-    {
-      id: "D-Phase2a",
-      round: "Phase 2a — baseline 5 algorithm catalog (PR-B1~B5)",
-      date: "2026-05-25",
-      title: "Algorithm-specific symbolic verifier 5개 (LIS / SegTree / Two Sum / BFS)",
-      desc: "각 algorithm 의 수학적 invariants 를 코드 결정론적으로 검증 — Dijkstra ↔ Bellman-Ford / BFS ↔ Floyd-Warshall / SegTree naive simulator 등 cross-algorithm golden. PR-B2.1 critical fix — segtree 의 architect format 과 verifier strict parse 불일치 진단 (verbose smoke 패턴 정착).",
-      target: "Phase 2a Gate PASS — N=3 × 5 algo = 14/15 (93.3%), samples_engaged 62/62 (100%). v0 27% 대비 +66pp. H2 (verifier engagement) 강한 evidence.",
-      tests: 257,
-      doc: "CHANGES.md §47, baseline/v1-pr-b5-N3-5algo.md",
-    },
-    {
-      id: "D-Phase2b",
-      round: "Phase 2b — PR-C 시리즈 8 algo 확장",
-      date: "2026-05-26",
-      title: "Binary Search / Union-Find / Toposort / Knapsack / Sort / String Match / Max Flow / Sieve",
-      desc: "8 algorithm × 4 invariants × cluster verifier 패턴 (1 enum = algorithm family — Sort/String Match/Max Flow). 100% samples_engaged 유지. PR-C3 Toposort 의 first non-unique answer pattern + PR-C5 cluster verifier 도입.",
-      target: "13 algorithm catalog (baseline ×2.6). Phase 2b N=3 × 13 algo Gate PASS — 34/39 (87.2%), samples_engaged 163/163 (100%), API error 0. Knapsack outlier 1/3 첫 식별 (P1 RCA candidate).",
-      tests: 319,
-      doc: "CHANGES.md §49-§56, baseline/v1-phase-2b-N3-13algo.md",
-    },
-    {
-      id: "D-Phase2c",
-      round: "Phase 2c — PR-D 시리즈 6 algo (Graph + DS + DP family)",
-      date: "2026-05-27",
-      title: "Bellman-Ford / Floyd-Warshall / Kruskal MST / Heap / Fenwick / Coin Change",
-      desc: "Graph family +4 (Bellman/Floyd/Kruskal + post-Knapsack DP), DS family +2 (Heap/Fenwick), DP +1 (Coin Change). negative weight cross-check + matrix output + V × Bellman-Ford golden 등 새로운 verifier 패턴.",
-      target: "19 algorithm catalog (baseline ×3.8). Phase 2c N=3 × 19 algo Gate PASS — 47/57 (82.5%), samples_engaged 241/241 (100%). NEW Kruskal MST 1/3 outlier 식별 (P1 RCA candidate).",
-      tests: 405,
-      doc: "CHANGES.md §57-§63, baseline/v1-phase-2c-N3-19algo.md",
-    },
-    {
-      id: "D-RCA-P1",
-      round: "P1 RCA — Knapsack + Kruskal architect prompt 강화",
-      date: "2026-05-28",
-      title: "outlier expected_output 오류 진단 → 절차 명시 → 양쪽 회복",
-      desc: "Phase 2c 의 outlier 2개 (Knapsack 0/3, Kruskal 1/3) 진단 — verbose smoke 로 architect 의 expected_output 직접 분석 (e.g. N=5 C=10 expected=41 vs brute=37). 모두 invariant_violations=[] 패턴 = architect 의 spec-time 정답 계산 오류. architect prompt 의 Knapsack section (brute enumerate 4단계) + Kruskal MST section (step-by-step trace 5단계) 강화.",
-      target: "Knapsack 0/3 → 3/3 ✅, Kruskal 1/3 → 3/3 ✅. RCA single-algo N=3 9/9 (100%).",
-      tests: 405,
-      doc: "CHANGES.md §64",
-    },
-    {
-      id: "D-RCA-P2",
-      round: "P2 RCA2/RCA3 — Graph + 6 algo 일반화 + Two Sum persistent",
-      date: "2026-05-28",
-      title: "Prompt engineering trade-off 발견 + 일반화 + Two Sum 한계 진단",
-      desc: "P1 fix 후 전체 재측정 = 47/57 → 42/57 (-8.8pp regression). 다른 algo 의 architect attention 분산 — prompt side effect. RCA2 (Graph family Floyd/Bellman/MaxFlow 일반화) + RCA3 (BFS/SegTree/Fenwick/String Match/Coin Change/Two Sum 6 algo 일반화). escape bug 2건 추가 fix (literal {var} → ChatPromptTemplate variable 해석).",
-      target: "11 algorithm 회복 — Knapsack/Kruskal/Floyd/Bellman/MaxFlow/BFS/SegTree/Fenwick/String Match 모두 3/3 또는 회복. Two Sum 만 persistent (1/3 — architect 의 multiple valid pair 생성, P3 routing 확장 후속). 누적 학습: literal {var} 회피, 일반화 안전, prompt 한계.",
-      tests: 405,
-      doc: "CHANGES.md §65-§66",
-    },
-    {
-      id: "D-RCA-P2-final",
-      round: "P2 final — Phase 2c RCA3 full re-test",
-      date: "2026-05-28",
-      title: "전체 재측정 = 52/57 (91.2%) Gate PASS, +8.7pp 회복",
-      desc: "RCA3 (6 algo 일반화 + escape bug fix) 적용 후 Phase 2c 전체 재측정. Phase 2c §63 47/57 (82.5%) 대비 +5 net runs 회복. sample-level 97.7%, samples_engaged 99.1%, API error 0. mean iteration 1.07 (거의 모두 1-shot). Knapsack 0/3 → 3/3, Kruskal 1/3 → 3/3, BFS 0/3 → 3/3, MaxFlow 1/3 → 3/3, Floyd 0/3 → 3/3 모두 회복 유지. 5 fails 모두 sampling variance (각 algo 2/3, persistent 없음).",
-      target: "v0 baseline 27% 대비 +64pp. 19 algorithm catalog 안정 운영. P3 후속: option B (routing 확장 — Two Sum + variance systematic 회복) / option C (verifier expected derive) / N=5 확장 측정 / Phase 2d (Trie/Modular Exp).",
-      tests: 405,
-      doc: "CHANGES.md §67",
-    },
-    {
-      id: "D-P3-OptionB",
-      round: "P3 Option B — routing 확장 (PR #104)",
-      date: "2026-05-29",
-      title: "sample_mismatch + invariant_violations=[] → ARCHITECT back-route",
-      desc: "§67 의 잔존 5 fails 가 모두 `invariant_violations=[]` 패턴 (verifier OK, 그러나 sample 불일치 = architect expected_output 오류). executor `_build_verification` 에서 이 조건 검출 시 target_node 를 CODER → ARCHITECT 로 swap, hint 에 'verifier invariants all pass — likely architect expected_output error, regenerate spec' 첨부. 5 algo sub-measurement (Two Sum / LIS / Union-Find / Bellman / Fenwick × N=3 = 15) = 14/15 (93.3%) — variance systematic 회복 evidence.",
-      target: "Two Sum persistent fail / variance 회복 routing 차원 자동화. CODER 측에 책임 전가 없이 ARCHITECT 가 재생성하도록 graph 흐름 보정.",
-      tests: 418,
-      doc: "CHANGES.md §68",
-    },
-    {
-      id: "D-P3-outputs",
-      round: "P3 outputs/ persistence (PR #105)",
-      date: "2026-05-29",
-      title: "생성된 spec/code 영속화 + problem.md/samples + measurement opt-in",
-      desc: "이전엔 RunOutcome JSONL 만 영속화. P3 에서 outputs/<run_id>/ 디렉토리에 spec.json / design.json / attempt.py / verification.json / outcome.json + problem.md (제목 + 지문 + samples) + samples/<i>.in/.out (online judge 호환 format) 저장. main_v1 default ON (--no-output-dir 로 비활성), measurement runner 는 default OFF (--persist-outputs <dir> opt-in — 큰 N 시 디스크 부담 회피). 팀원 demo 시 한두 run 만 확인 가능. unit test 11개 추가.",
-      target: "실제 문제로 사용 가능한 artifact 영속화. 측정 시 디스크 부담은 opt-in 으로 제어.",
-      tests: 418,
-      doc: "CHANGES.md §69",
-    },
+    { tech: "Poetry / Hatch", reason: "setuptools + requirements.txt 로 충분" },
   ],
 };

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPE — Infinite Problem Engine</title>
-  <meta name="description" content="LangGraph + Claude로 알고리즘 문제 자동 생성 — 정해 작성 → 적대적 엣지케이스 → stress test → 난이도 평가까지 자동화">
+  <meta name="description" content="LangGraph + Claude 알고리즘 문제 생성 엔진. 해자는 '고품질 생산'이 아니라 코드가 알고리즘 정의에서 정답을 독립 유도하는 결정론적 검증 + typed artifact 라우팅 + 측정 게이트. v1.0 91.2% anchor, Phase 3 v2 재공사 진행 중.">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -26,25 +26,29 @@
   <!-- hero -->
   <section class="hero-gradient">
     <div class="max-w-6xl mx-auto px-6 py-24 text-center">
-      <div class="inline-flex items-center gap-2 mb-6">
-        <span class="badge badge-success" id="hero-version">v0.2.0</span>
-        <span class="badge badge-accent" id="hero-success">4/5 e2e success</span>
-        <span class="badge" id="hero-tests">247 tests · 93% coverage</span>
+      <div class="inline-flex flex-wrap items-center justify-center gap-2 mb-6">
+        <span class="badge badge-success" id="hero-version">v1.0</span>
+        <span class="badge badge-accent" id="hero-gate">91.2% Gate</span>
+        <span class="badge" id="hero-tests">432 tests</span>
+        <span class="badge badge-warning">Phase 3 (v2) 진행 중</span>
       </div>
       <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
         <span class="text-white">Infinite</span><br>
         <span class="bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">Problem Engine</span>
       </h1>
-      <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-        LangGraph + Claude로 알고리즘 문제를 자체 생산한다.<br>
-        문제 설계 → 정해 → 적대적 엣지케이스 → stress test → 난이도 평가까지 한 파이프라인.
+      <p class="text-xl text-gray-300 max-w-3xl mx-auto mb-4 leading-relaxed" id="hero-tagline">
+        알고리즘 문제를, 코드가 독립적으로 검증할 수 있는 형태로 생성한다.
+      </p>
+      <p class="text-base text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+        LangGraph + Claude. 핵심은 LLM 출력 신뢰가 아니라 — 정답을 <strong class="text-gray-300">코드가 알고리즘의
+        수학적 정의에서 유도</strong>하는 결정론적 검증, typed artifact 라우팅, 그리고 모든 변경을 막아서는 측정 게이트.
       </p>
       <div class="flex flex-wrap justify-center gap-3">
-        <a href="https://github.com/LsMin124/IPE" target="_blank" class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition hover:no-underline">
-          GitHub Repo →
+        <a href="dashboard.html" class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition hover:no-underline">
+          측정 Dashboard →
         </a>
-        <a href="dashboard.html" class="px-6 py-3 border border-gray-700 rounded-lg font-semibold hover:bg-gray-800 transition hover:no-underline text-white">
-          실측 Dashboard
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/rfc/phase3_agentic-graph-rearchitecture.md" target="_blank" class="px-6 py-3 border border-gray-700 rounded-lg font-semibold hover:bg-gray-800 transition hover:no-underline text-white">
+          Phase 3 RFC 읽기
         </a>
       </div>
     </div>
@@ -52,45 +56,55 @@
 
   <!-- key metrics -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-8 text-white">핵심 지표</h2>
+    <h2 class="text-3xl font-bold mb-2 text-white">v1.0 측정 anchor</h2>
+    <p class="text-gray-400 mb-8">Phase 2c RCA3 final (CHANGES §67) — 추가 측정이 diminishing returns 라 판단해 동결(freeze)했다.</p>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="card text-center lift">
-        <div class="text-4xl font-bold text-green-400" id="m-success">4/5</div>
-        <div class="text-sm text-gray-400 mt-2">e2e success rate</div>
-        <div class="text-xs text-gray-500">Run 11/12 2회 연속</div>
+        <div class="text-4xl font-bold text-green-400" id="m-gate">91.2%</div>
+        <div class="text-sm text-gray-400 mt-2">Gate 통과율</div>
+        <div class="text-xs text-gray-500" id="m-gate-sub">52/57 · N=3</div>
       </div>
       <div class="card text-center lift">
-        <div class="text-4xl font-bold text-blue-400" id="m-tests">247</div>
-        <div class="text-sm text-gray-400 mt-2">tests passed</div>
-        <div class="text-xs text-gray-500">+ 3 skipped</div>
+        <div class="text-4xl font-bold text-blue-400" id="m-improve">+64pp</div>
+        <div class="text-sm text-gray-400 mt-2">v0 대비 개선</div>
+        <div class="text-xs text-gray-500">27% → 91.2%</div>
       </div>
       <div class="card text-center lift">
-        <div class="text-4xl font-bold text-blue-400" id="m-cov">93%</div>
-        <div class="text-sm text-gray-400 mt-2">coverage</div>
-        <div class="text-xs text-gray-500">≥ 80% 기준 통과</div>
+        <div class="text-4xl font-bold text-blue-400" id="m-algos">19</div>
+        <div class="text-sm text-gray-400 mt-2">algorithm catalog</div>
+        <div class="text-xs text-gray-500">symbolic verifier</div>
       </div>
       <div class="card text-center lift">
-        <div class="text-4xl font-bold text-blue-400" id="m-deps">11</div>
-        <div class="text-sm text-gray-400 mt-2">dependencies</div>
-        <div class="text-xs text-gray-500">Core 6 + Dev 5</div>
+        <div class="text-4xl font-bold text-blue-400" id="m-engaged">99.1%</div>
+        <div class="text-sm text-gray-400 mt-2">samples_engaged</div>
+        <div class="text-xs text-gray-500">verifier 실제 발동률</div>
       </div>
     </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- architecture diagram -->
+  <!-- moat -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">아키텍처</h2>
-    <p class="text-gray-400 mb-8">LangGraph 6 노드 + decision routing — 단일 ProblemState dict가 모든 노드 사이를 흐른다.</p>
+    <h2 class="text-3xl font-bold mb-2 text-white">왜 이 산출물을 신뢰할 수 있나</h2>
+    <p class="text-gray-400 mb-8">해자는 "LLM 이 좋은 문제를 만든다"가 아니다. 네 가지 결정론적 장치다.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="moat-grid"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- v1 pipeline -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">v1.0 실행 파이프라인</h2>
+    <p class="text-gray-400 mb-8">4개 LLM 노드 + 코드 검증 + 구조화 라우팅. 단일 typed state 가 노드 사이를 흐른다.</p>
     <div class="card">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="nodes-grid"></div>
+      <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-0" id="pipeline-flow"></div>
       <div class="mt-6 p-4 rounded-lg" style="background:rgba(47,129,247,0.08); border:1px solid rgba(47,129,247,0.3);">
         <div class="flex items-start gap-3">
-          <span class="text-2xl">🛡️</span>
+          <span class="text-2xl">🔁</span>
           <div>
-            <div class="font-semibold text-white">4-Tier Sandbox</div>
-            <div class="text-sm text-gray-400 mt-1">LLM 생성 코드는 격리된 환경에서만 실행 — Docker / nsjail / sandbox-exec / RLIMIT 자동 선택</div>
+            <div class="font-semibold text-white">StructuredFeedback 라우팅</div>
+            <div class="text-sm text-gray-400 mt-1">Executor 의 verifier 가 실패를 <code>failure_mode</code> + <code>target_node</code> 로 분류 → 책임 노드(architect/designer/coder)로 결정론 재라우팅. sample 불일치 + invariant 전부 통과면 architect expected_output 오류로 보고 back-route.</div>
           </div>
         </div>
       </div>
@@ -99,10 +113,45 @@
 
   <div class="divider"></div>
 
+  <!-- phase 3 -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">Phase 3 — v2 Agentic Graph 재공사</h2>
+    <p class="text-gray-400 mb-8">
+      v1.0 은 성공했지만 <strong class="text-gray-300">산출물 자체는 toy 수준</strong>이다 — 알고리즘이 입력으로 노출돼
+      "무엇을 쓸지 알아내는" 핵심 역량이 빠져 있다. v2 는 <strong class="text-gray-300">알고리즘 은닉 · 기법 합성 · 구조 풍부</strong>한
+      hiring-grade 문제를 목표로 토폴로지를 재설계한다 — 단 typed 계약과 검증 해자는 그대로 사수한다.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="card">
+        <div class="text-blue-400 font-bold mb-1">4 → ~15 노드</div>
+        <div class="text-sm text-gray-400">linear → 4개 병렬 영역(solution / verification / test-gen / QA). 신규 노드 다수가 코드(비용 0)거나 Haiku.</div>
+      </div>
+      <div class="card">
+        <div class="text-blue-400 font-bold mb-1">Tiered Trust (A/B/C)</div>
+        <div class="text-sm text-gray-400">문제별 검증 신뢰 tier 로 출하 게이트. B2B 는 Tier B 이상만 출하, 미달은 reject.</div>
+      </div>
+      <div class="card">
+        <div class="text-blue-400 font-bold mb-1">B2B 코테 · B2C 드릴</div>
+        <div class="text-sm text-gray-400">기업 코딩테스트 출제 중심, 동일 엔진의 canonical 모드가 B2C 토픽 드릴로 파생.</div>
+      </div>
+    </div>
+
+    <h3 class="text-xl font-bold mb-3 text-white">검증 신뢰 tier</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8" id="tiers-grid"></div>
+
+    <h3 class="text-xl font-bold mb-3 text-white">마일스톤</h3>
+    <div class="space-y-2" id="milestones-list"></div>
+    <div class="text-center mt-6">
+      <a href="dashboard.html" class="text-blue-400 hover:text-blue-300">v2 토폴로지 전체 + 측정 여정 보기 →</a>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
   <!-- recent progress -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-2 text-white">최근 진행 (v0.3.0 Round 23 M4 Adversarial Review)</h2>
-    <p class="text-gray-400 mb-8">v0.3.0 RFC PR #4 완료 — M4 Reviewer 노드 (Coder solution adversarial gate). graph: coder → reviewer → {approve→executor | reject→coder retry with weaknesses}. 7 노드 체인. 417 tests pass (+16). Next: v0.3.0 release e2e DoD 측정 (5 algorithm × 3 run, ≥80%).</p>
+    <h2 class="text-3xl font-bold mb-2 text-white">최근 진행</h2>
+    <p class="text-gray-400 mb-8">v1.0 마무리(P3 RCA + outputs 영속화 + anchor freeze) → Phase 3 착수(RFC #107 + M0 스파이크 #108). M1 은 dev 브랜치 진행 중.</p>
     <div class="card">
       <table>
         <thead>
@@ -111,48 +160,24 @@
         <tbody id="pr-tbody"></tbody>
       </table>
     </div>
-    <div class="text-center mt-6">
-      <a href="dashboard.html" class="text-blue-400 hover:text-blue-300">전체 Run 12회 결과 매트릭스 보기 →</a>
-    </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- philosophy -->
+  <!-- principles -->
   <section class="section section-sm">
-    <h2 class="text-3xl font-bold mb-8 text-white">핵심 원칙</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="card lift">
-        <div class="text-2xl mb-2">🛡️</div>
-        <h3 class="font-bold text-white text-lg mb-2">Sandboxed Local Execution</h3>
-        <p class="text-sm text-gray-400">LLM 생성 코드는 격리된 환경 (Docker / nsjail / sandbox-exec / RLIMIT 4-tier) 안에서만 실행</p>
-      </div>
-      <div class="card lift">
-        <div class="text-2xl mb-2">🔄</div>
-        <h3 class="font-bold text-white text-lg mb-2">Resumable & Observable</h3>
-        <p class="text-sm text-gray-400">LangGraph SqliteSaver checkpointing + 모든 LLM 호출 raw trace 보존 → replay 모드 0-cost 재현</p>
-      </div>
-      <div class="card lift">
-        <div class="text-2xl mb-2">📏</div>
-        <h3 class="font-bold text-white text-lg mb-2">Bounded</h3>
-        <p class="text-sm text-gray-400"><code>max_iter</code> (안전망) + per-node retry budget (정밀 제어) + <code>max_cost_usd</code> (비용 가드) 3중 제어</p>
-      </div>
-      <div class="card lift">
-        <div class="text-2xl mb-2">📊</div>
-        <h3 class="font-bold text-white text-lg mb-2">Post-Verification Difficulty</h3>
-        <p class="text-sm text-gray-400">난이도는 검증 후 사후 측정 — calibration anchor 동봉으로 분산 ↓</p>
-      </div>
-    </div>
+    <h2 class="text-3xl font-bold mb-8 text-white">운영 원칙</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="principles-grid"></div>
   </section>
 
   <!-- footer -->
   <footer class="border-t border-gray-800 mt-12">
     <div class="max-w-6xl mx-auto px-6 py-8 text-sm text-gray-500 flex flex-wrap justify-between gap-4">
-      <div>© 2026 LsMin124 · MIT-compatible deps · <span id="f-version">v0.2.0</span> (<span id="f-commit"></span>)</div>
+      <div>© 2026 LsMin124 · <span id="f-version"></span> · main <span id="f-commit"></span></div>
       <div class="flex gap-4">
         <a href="https://github.com/LsMin124/IPE" target="_blank">GitHub</a>
-        <a href="https://github.com/LsMin124/IPE/releases" target="_blank">Releases</a>
         <a href="https://github.com/LsMin124/IPE/blob/main/CHANGES.md" target="_blank">Changelog</a>
+        <a href="https://github.com/LsMin124/IPE/blob/main/docs/rfc/phase3_agentic-graph-rearchitecture.md" target="_blank">Phase 3 RFC</a>
       </div>
     </div>
   </footer>
@@ -160,36 +185,114 @@
   <script src="assets/data.js"></script>
   <script>
     const D = window.IPE_DATA;
-    document.getElementById('hero-version').textContent = D.meta.version;
-    document.getElementById('hero-success').textContent = D.meta.e2eSuccess;
-    document.getElementById('hero-tests').textContent = `${D.meta.tests} tests · ${D.meta.coverage}% coverage`;
-    document.getElementById('m-success').textContent = D.meta.e2eSuccess;
-    document.getElementById('m-tests').textContent = D.meta.tests;
-    document.getElementById('m-cov').textContent = D.meta.coverage + '%';
-    document.getElementById('m-deps').textContent = D.meta.deps;
-    document.getElementById('f-commit').textContent = D.meta.mainCommit;
-    const fv = document.getElementById('f-version');
-    if (fv) fv.textContent = D.meta.version;
+    const M = D.meta;
 
-    const nodesGrid = document.getElementById('nodes-grid');
-    D.graphNodes.forEach(n => {
+    // hero + metrics
+    document.getElementById('hero-version').textContent = 'v1.0';
+    document.getElementById('hero-gate').textContent = M.gatePassPct + '% Gate';
+    document.getElementById('hero-tests').textContent = M.tests + ' tests';
+    document.getElementById('hero-tagline').textContent = M.tagline;
+    document.getElementById('m-gate').textContent = M.gatePassPct + '%';
+    document.getElementById('m-gate-sub').textContent = M.gatePass + ' · N=3';
+    document.getElementById('m-improve').textContent = '+' + M.improvementPp + 'pp';
+    document.getElementById('m-algos').textContent = M.algoCatalog;
+    document.getElementById('m-engaged').textContent = M.samplesEngaged + '%';
+    document.getElementById('f-commit').textContent = M.mainCommit;
+    document.getElementById('f-version').textContent = M.version;
+
+    // moat
+    const moatGrid = document.getElementById('moat-grid');
+    D.moat.forEach(m => {
       const el = document.createElement('div');
-      el.className = 'flow-node';
-      el.innerHTML = `<div class="text-blue-400 font-bold mb-1">${n.label}</div><div class="text-xs text-gray-400 font-normal">${n.desc}</div>`;
-      nodesGrid.appendChild(el);
+      el.className = 'card lift';
+      el.innerHTML = `<div class="text-2xl mb-2">${m.icon}</div>
+        <h3 class="font-bold text-white text-lg mb-2">${m.title}</h3>
+        <p class="text-sm text-gray-400 leading-relaxed">${m.desc}</p>`;
+      moatGrid.appendChild(el);
     });
 
+    // v1 pipeline flow
+    const flow = document.getElementById('pipeline-flow');
+    const modelCls = { Opus: 'badge-accent', Sonnet: 'badge-warning', code: 'badge-success' };
+    D.graphNodes.forEach((n, i) => {
+      const node = document.createElement('div');
+      node.className = 'flow-node flex-1';
+      node.style.textAlign = 'left';
+      node.innerHTML = `<div class="flex items-center justify-between gap-2 mb-1">
+          <span class="text-blue-400 font-bold">${n.label}</span>
+          <span class="badge ${modelCls[n.model] || ''}" style="font-size:0.65rem;">${n.model}</span>
+        </div>
+        <div class="text-xs text-gray-400 font-normal">${n.desc}</div>`;
+      flow.appendChild(node);
+      if (i < D.graphNodes.length - 1) {
+        const arrow = document.createElement('div');
+        arrow.className = 'flow-arrow px-1 self-center';
+        arrow.textContent = '→';
+        flow.appendChild(arrow);
+      }
+    });
+
+    // tiers
+    const tiersGrid = document.getElementById('tiers-grid');
+    D.tiers.forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.innerHTML = `<div class="flex items-center gap-2 mb-2">
+          <span class="badge badge-${t.cls}">Tier ${t.tier}</span>
+          <span class="font-bold text-white text-sm">${t.label}</span>
+        </div>
+        <div class="text-xs text-gray-400 leading-relaxed">${t.desc}</div>`;
+      tiersGrid.appendChild(el);
+    });
+
+    // milestones
+    const msList = document.getElementById('milestones-list');
+    const statusMeta = {
+      done:        { cls: 'badge-success', txt: '완료', dot: '✓' },
+      in_progress: { cls: 'badge-warning', txt: '진행 중', dot: '◐' },
+      planned:     { cls: 'badge',         txt: '예정', dot: '○' },
+    };
+    D.milestones.forEach(m => {
+      const s = statusMeta[m.status];
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.style.padding = '1rem 1.25rem';
+      el.innerHTML = `<div class="flex items-start gap-3">
+          <span class="badge ${s.cls} flex-shrink-0">${s.dot} ${m.id}</span>
+          <div class="flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-white">${m.title}</span>
+              ${m.ref ? `<span class="text-xs text-gray-500">${m.ref}</span>` : ''}
+              <span class="badge ${s.cls}" style="font-size:0.65rem;">${s.txt}</span>
+            </div>
+            ${m.note ? `<div class="text-xs text-gray-400 mt-1">${m.note}</div>` : ''}
+          </div>
+        </div>`;
+      msList.appendChild(el);
+    });
+
+    // recent PRs
     const prBody = document.getElementById('pr-tbody');
-    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge' };
+    const typeColor = { fix: 'badge-danger', feat: 'badge-accent', docs: 'badge', test: 'badge-success' };
     D.recentPrs.forEach(pr => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><a href="https://github.com/LsMin124/IPE/pull/${pr.num}" target="_blank">#${pr.num}</a></td>
         <td class="text-white">${pr.title}</td>
         <td><span class="badge ${typeColor[pr.type]||''}">${pr.type}</span></td>
-        <td class="text-gray-400">${pr.impact}</td>
-      `;
+        <td class="text-gray-400">${pr.impact}</td>`;
       prBody.appendChild(tr);
+    });
+
+    // principles
+    const pGrid = document.getElementById('principles-grid');
+    D.principles.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'card lift';
+      el.innerHTML = `<div class="text-2xl mb-2">${p.icon}</div>
+        <h3 class="font-bold text-white text-lg mb-2">${p.title}</h3>
+        <p class="text-sm text-gray-400 leading-relaxed">${p.desc}</p>`;
+      pGrid.appendChild(el);
     });
   </script>
 </body>
