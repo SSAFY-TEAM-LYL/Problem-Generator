@@ -15,22 +15,21 @@ LLM 없음 (deterministic). ``runner`` 주입 — 단위 테스트는 mock 으�
 
 from __future__ import annotations
 
-import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Protocol
 
-from ipe.sandbox.runner import RunResult, RunSpec
-
-_DEFAULT_TIME_LIMIT_MS = 2000
-_DEFAULT_MEMORY_LIMIT_MB = 256
-
-
-class DiffRunner(Protocol):
-    """``ExecutorRunner`` 와 동일 sub-set — 의존 분리를 위해 로컬 재정의."""
-
-    def run(self, spec: RunSpec) -> RunResult: ...
+from ._exec import (
+    DEFAULT_MEMORY_LIMIT_MB as _DEFAULT_MEMORY_LIMIT_MB,
+)
+from ._exec import (
+    DEFAULT_TIME_LIMIT_MS as _DEFAULT_TIME_LIMIT_MS,
+)
+from ._exec import (
+    CodeRunner as DiffRunner,
+)
+from ._exec import (
+    run_code,
+)
 
 
 @dataclass(frozen=True)
@@ -80,25 +79,6 @@ def _normalize(text: str) -> str:
     return "\n".join(line.strip() for line in text.strip().splitlines())
 
 
-def _run_code(
-    runner: DiffRunner,
-    code: str,
-    stdin: str,
-    time_limit_ms: int,
-    memory_limit_mb: int,
-) -> RunResult:
-    with tempfile.TemporaryDirectory() as wd:
-        (Path(wd) / "sol.py").write_text(code, encoding="utf-8")
-        spec = RunSpec(
-            cmd=["python3", "sol.py"],
-            cwd=wd,
-            stdin=stdin,
-            time_limit_ms=time_limit_ms,
-            memory_limit_mb=memory_limit_mb,
-        )
-        return runner.run(spec)
-
-
 def run_differential(
     *,
     golden_code: str,
@@ -115,8 +95,8 @@ def run_differential(
     """
     cases: list[DifferentialCase] = []
     for inp in inputs:
-        g = _run_code(runner, golden_code, inp, time_limit_ms, memory_limit_mb)
-        b = _run_code(runner, brute_code, inp, time_limit_ms, memory_limit_mb)
+        g = run_code(runner, golden_code, inp, time_limit_ms, memory_limit_mb)
+        b = run_code(runner, brute_code, inp, time_limit_ms, memory_limit_mb)
         g_out = _normalize(g.stdout) if g.status == "OK" else ""
         b_out = _normalize(b.stdout) if b.status == "OK" else ""
         agreed = g.status == "OK" and b.status == "OK" and g_out == b_out

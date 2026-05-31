@@ -13,10 +13,22 @@ from .differential import (
     DiffRunner,
     run_differential,
 )
+from .metamorphic import (
+    MetamorphicReport,
+    MetamorphicResult,
+    check_determinism,
+    check_well_formed,
+    run_metamorphic,
+)
 
 __all__ = [
     "DiffRunner",
     "DifferentialCase",
     "DifferentialReport",
+    "MetamorphicReport",
+    "MetamorphicResult",
+    "check_determinism",
+    "check_well_formed",
     "run_differential",
+    "run_metamorphic",
 ]
