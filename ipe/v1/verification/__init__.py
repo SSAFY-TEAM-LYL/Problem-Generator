@@ -20,6 +20,13 @@ from .metamorphic import (
     check_well_formed,
     run_metamorphic,
 )
+from .tier import (
+    Tier,
+    TierAxis,
+    TierVerdict,
+    classify,
+    symbolic_axis,
+)
 
 __all__ = [
     "DiffRunner",
@@ -27,8 +34,13 @@ __all__ = [
     "DifferentialReport",
     "MetamorphicReport",
     "MetamorphicResult",
+    "Tier",
+    "TierAxis",
+    "TierVerdict",
     "check_determinism",
     "check_well_formed",
+    "classify",
     "run_differential",
     "run_metamorphic",
+    "symbolic_axis",
 ]

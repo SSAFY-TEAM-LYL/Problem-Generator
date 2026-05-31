@@ -31,6 +31,13 @@ from ._exec import (
     run_code,
 )
 
+__all__ = [
+    "DiffRunner",
+    "DifferentialCase",
+    "DifferentialReport",
+    "run_differential",
+]
+
 
 @dataclass(frozen=True)
 class DifferentialCase:
