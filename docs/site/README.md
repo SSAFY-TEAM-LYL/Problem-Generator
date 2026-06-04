@@ -7,6 +7,7 @@ GitHub Pages 호스팅용 정적 HTML 사이트. 사람용 요약 문서 (제출
 | 파일 | 내용 |
 |---|---|
 | `index.html` | 진입점 — hero + v1.0 anchor + 검증 해자 + v1 파이프라인 + Phase 3(v2) 요약 |
+| `how-it-works.html` | 쉬운 설명 — 비전문가용 파이프라인/검증 원리 (비유 중심, 사전지식 불필요) |
 | `requirements.html` | FR 14 + NFR 10 + v1.0 인수 기준 + 알려진 한계 |
 | `tech-stack.html` | 12 deps + 모델 tiering + 4-tier sandbox + 제외 기술 + 의존성 그래프 |
 | `dashboard.html` | Gate 여정(v0 27%→v1.0 91.2%, Chart.js) + 카탈로그 성장 + v2 토폴로지 + 마일스톤 + 아카이브 |
