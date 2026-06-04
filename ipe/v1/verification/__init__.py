@@ -20,6 +20,7 @@ from .metamorphic import (
     check_well_formed,
     run_metamorphic,
 )
+from .reconcile import reconcile
 from .tier import (
     Tier,
     TierAxis,
@@ -40,6 +41,7 @@ __all__ = [
     "check_determinism",
     "check_well_formed",
     "classify",
+    "reconcile",
     "run_differential",
     "run_metamorphic",
     "symbolic_axis",
