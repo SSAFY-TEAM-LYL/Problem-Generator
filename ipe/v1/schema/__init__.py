@@ -15,6 +15,7 @@ from .problem_spec import (
     TargetAlgorithm,
 )
 from .solution_attempt import Lesson, SolutionAttempt
+from .synthesis import ReconciliationResult, SolutionCandidate
 from .verification_result import (
     FailureMode,
     InvariantViolation,
@@ -38,9 +39,11 @@ __all__ = [
     "IterationRecord",
     "Lesson",
     "ProblemSpec",
+    "ReconciliationResult",
     "SampleResult",
     "SampleTestCase",
     "SolutionAttempt",
+    "SolutionCandidate",
     "StructuredFeedback",
     "TargetAlgorithm",
     "TargetNode",
