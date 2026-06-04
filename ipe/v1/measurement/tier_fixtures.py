@@ -22,6 +22,11 @@ from ..schema import (
     SampleTestCase,
     TargetAlgorithm,
 )
+from .tier_fixtures_opt import OPT_FIXTURES
+from .tier_fixtures_seq import SEQ_FIXTURES
+from .tier_fixtures_shortest import SHORTEST_FIXTURES
+from .tier_fixtures_struct import STRUCT_FIXTURES
+from .tier_fixtures_traverse import TRAVERSE_FIXTURES
 from .tier_measure import AlgoFixture
 
 # --- two_sum --------------------------------------------------------------
@@ -386,4 +391,19 @@ def sieve_fixture() -> AlgoFixture:
 
 
 THREE_ALGO_FIXTURES = (two_sum_fixture, binary_search_fixture, sieve_fixture)
-"""step 4a~4b 실증 대상 (3-algo proof). 4c 에서 19 확장."""
+"""step 4a~4b 실증 대상 (3-algo proof). 하위호환 유지."""
+
+ALL_FIXTURES = (
+    THREE_ALGO_FIXTURES
+    + TRAVERSE_FIXTURES
+    + SEQ_FIXTURES
+    + SHORTEST_FIXTURES
+    + STRUCT_FIXTURES
+    + OPT_FIXTURES
+)
+"""step 4c 완료: 전체 19-algo (3 + 16). 각 항목은 () → AlgoFixture 팩토리.
+
+구성: two_sum/binary_search/sieve(기존) + bfs/toposort/union_find(traverse)
++ sort/lis/knapsack/coin_change(seq) + dijkstra/bellman_ford/floyd_warshall(shortest)
++ segtree/fenwick/heap(struct) + kruskal_mst/maxflow/stringmatch(opt).
+"""

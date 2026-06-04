@@ -153,26 +153,27 @@ def test_report_aggregates_stub_cases():
 
 
 @pytest.mark.slow
-def test_three_algo_real_sandbox_tier_b_matches_tier_a():
-    """RFC §7.5 증거: 3-algo(two_sum/binary_search/sieve) golden+mutants 에서
-    Tier B 가 Tier A 와 100% 일치.
+def test_all_algo_real_sandbox_tier_b_matches_tier_a():
+    """RFC §7.5 증거: 전체 19-algo(3 + 16) golden+mutants 에서 Tier B 가 Tier A 와
+    100% 일치 (symbolic 부재 구간에 Tier B 신뢰 획득의 측정 근거).
 
+    각 algo = golden + mutants 3종 = 4 case → 19 × 4 = 76 case.
     실 subprocess sandbox — CI 기본(``not slow``)에서 제외, 로컬 검증용.
     """
     from ipe.sandbox.selector import pick_runner
-    from ipe.v1.measurement.tier_fixtures import THREE_ALGO_FIXTURES
+    from ipe.v1.measurement.tier_fixtures import ALL_FIXTURES
     from ipe.v1.verifiers import get_verifier
 
     runner = pick_runner()
     cases = []
-    for fx_fn in THREE_ALGO_FIXTURES:
+    for fx_fn in ALL_FIXTURES:
         fx = fx_fn()
         verifier = get_verifier(fx.spec.target_algorithm)
-        assert verifier is not None
+        assert verifier is not None, fx.spec.target_algorithm
         cases += measure_algorithm(fixture=fx, verifier=verifier, runner=runner)
     rep = TierSensitivityReport(cases=tuple(cases))
-    # golden 은 두 tier 통과, 모든 mutant 은 두 tier 가 함께 reject
-    assert rep.total == 12
+    # golden 은 두 tier 통과, 모든 mutant 은 Tier B 가 잡음 (miss 0)
+    assert rep.total == 76
     assert rep.golden_false_rejections == 0
     assert rep.tier_b_miss_count == 0
     assert rep.tier_b_recall == 1.0
