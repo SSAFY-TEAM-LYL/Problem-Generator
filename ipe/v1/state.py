@@ -10,7 +10,8 @@ v0 의 ``ProblemState`` TypedDict (mutable + 30+ prose fields) 후속. 모든 �
 
 from __future__ import annotations
 
-from typing import Literal
+import operator
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,7 +19,9 @@ from .schema import (
     AlgorithmDesign,
     IterationContext,
     ProblemSpec,
+    ReconciliationResult,
     SolutionAttempt,
+    SolutionCandidate,
     TargetAlgorithm,
     VerificationResult,
 )
@@ -58,6 +61,16 @@ class V1State(BaseModel):
     design: AlgorithmDesign | None = None
     attempt: SolutionAttempt | None = None
     verification: VerificationResult | None = None
+
+    # Parallel solution synthesis (Phase 3 M2) — fan-out reducer 채널 + fan-in 결과.
+    # ``candidates`` 는 golden×K + brute 병렬 노드가 각자 partial dict 로 append →
+    # ``operator.add`` 가 누적 (M0 스파이크 검증 패턴, frozen+forbid 호환). canonical
+    # mode 에서는 비어 있음 (linear 경로 무영향). full mode (step4) 에서만 채워짐.
+    candidates: Annotated[list[SolutionCandidate], operator.add] = Field(
+        default_factory=list,
+        description="병렬 golden×K + brute 후보 누적 (reducer 채널)",
+    )
+    reconciliation: ReconciliationResult | None = None
 
     # Stateful learning (D안 H3 — IterationContext)
     context: IterationContext
