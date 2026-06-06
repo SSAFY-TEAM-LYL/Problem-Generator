@@ -7,12 +7,14 @@ from __future__ import annotations
 
 from .algorithm_design import AlgorithmDesign, ComplexityBound, EdgeCase, Invariant
 from .blueprint import (
+    BlueprintFormalization,
     IOFieldSpec,
     IOSchema,
     Narrative,
     NarrativeFaithfulnessReport,
     OutputInvariant,
     ProblemBlueprint,
+    StrategySeed,
 )
 from .iteration_context import FailedStrategy, IterationContext, IterationRecord
 from .problem_spec import (
@@ -35,6 +37,7 @@ from .verification_result import (
 
 __all__ = [
     "AlgorithmDesign",
+    "BlueprintFormalization",
     "ComplexityBound",
     "ConstraintRange",
     "EdgeCase",
@@ -58,6 +61,7 @@ __all__ = [
     "SampleTestCase",
     "SolutionAttempt",
     "SolutionCandidate",
+    "StrategySeed",
     "StructuredFeedback",
     "TargetAlgorithm",
     "TargetNode",

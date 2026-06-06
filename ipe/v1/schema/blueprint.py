@@ -78,6 +78,31 @@ class OutputInvariant(BaseModel):
     description: str = Field(..., min_length=1)
 
 
+class StrategySeed(BaseModel):
+    """Strategist(발산) 산출 — 은닉할 코어 + 합성 기법 + 위장 도메인 (M3 step2).
+
+    blueprint-first 흐름의 첫 단계: ``seed_algorithm`` hint 를 받아 **무엇을 숨길지**
+    (reduction_core)와 **어떤 현실 도메인으로 위장할지**(domain)를 정한다. Formalizer
+    가 이 seed 를 받아 io_schema + output_invariants 를 붙여 ``ProblemBlueprint`` 로
+    freeze — 알고리즘 결정은 여기서, 형식 동결은 Formalizer 에서 (책임 분리, Q1).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    reduction_core: TargetAlgorithm = Field(
+        ..., description="숨은 알고리즘/환원 (solver 모름)"
+    )
+    composition: tuple[TargetAlgorithm, ...] = Field(
+        default=(), description="reduction_core 외 추가 합성 기법"
+    )
+    domain: str = Field(
+        ..., min_length=1, description="narrative 위장용 현실 도메인 (예: 'logistics')"
+    )
+    rationale: str = Field(
+        default="", description="위장 전략 근거 (traceability, 선택)"
+    )
+
+
 class ProblemBlueprint(BaseModel):
     """blueprint-first 의 **frozen formal 계약** (M3 Formalizer 산출).
 
@@ -97,6 +122,21 @@ class ProblemBlueprint(BaseModel):
     domain: str = Field(
         ..., min_length=1, description="narrative 렌더용 현실 도메인 (예: 'logistics')"
     )
+    io_schema: IOSchema
+    output_invariants: tuple[OutputInvariant, ...] = ()
+
+
+class BlueprintFormalization(BaseModel):
+    """Formalizer(동결) LLM 의 structured output — formal 면만 (io_schema + invariants).
+
+    Formalizer 노드는 이 산출을 ``StrategySeed`` (reduction_core/composition/domain)
+    와 결합해 ``ProblemBlueprint`` 로 freeze 한다. **알고리즘 결정 필드는 포함하지
+    않음** — Strategist 가 정한 것을 노드가 구조적으로 carry-over 하여 Formalizer 가
+    은닉 코어를 임의로 바꾸지 못하게 한다 (freeze 규율, 상관오독 §7 방어).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     io_schema: IOSchema
     output_invariants: tuple[OutputInvariant, ...] = ()
 
