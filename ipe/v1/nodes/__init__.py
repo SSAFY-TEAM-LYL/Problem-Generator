@@ -30,6 +30,7 @@ from .executor import (
     make_executor_node,
 )
 from .reconciler import make_reconciler_node
+from .synth_bridge import make_synth_bridge_node
 from .synthesis_coder import make_synthesis_coder_node
 
 __all__ = [
@@ -46,5 +47,6 @@ __all__ = [
     "make_designer_node",
     "make_executor_node",
     "make_reconciler_node",
+    "make_synth_bridge_node",
     "make_synthesis_coder_node",
 ]

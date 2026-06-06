@@ -71,3 +71,34 @@ def route_after_executor(state: V1State) -> RouterDecision:
         return "designer"
     # CODER + Phase 1 미사용 (AUDITOR/GENERATOR) → coder fallback
     return "coder"
+
+
+# ---- full mode (Phase 3 M2 step4) routers ----
+
+ReconcileDecision = Literal["synth_bridge", "end_synthesis_rejected"]
+FullExecutorDecision = Literal["end_success", "end_verification_fail"]
+
+
+def route_after_reconcile(state: V1State) -> ReconcileDecision:
+    """full mode fan-in 후: canonical 채택 여부로 분기.
+
+    - ``reconciliation.canonical_code`` 채택됨 → ``synth_bridge`` (attempt 로 bridge).
+    - reconcile reject (불일치/crash/golden부재/후보<2) → ``end_synthesis_rejected``.
+    """
+    r = state.reconciliation
+    if r is not None and r.canonical_code is not None:
+        return "synth_bridge"
+    return "end_synthesis_rejected"
+
+
+def route_after_full_executor(state: V1State) -> FullExecutorDecision:
+    """full mode single-shot: executor 검증 결과로 종료 분기 (fix loop 없음).
+
+    - ``verification.overall_pass`` → ``end_success``.
+    - 그 외 (sample mismatch / invariant violation / verification 부재) →
+      ``end_verification_fail``. 반복 정제는 M3+ 범위 (step4 는 단발 출하가능률 측정).
+    """
+    v = state.verification
+    if v is not None and v.overall_pass:
+        return "end_success"
+    return "end_verification_fail"
