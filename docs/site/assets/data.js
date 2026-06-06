@@ -10,10 +10,10 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "7137256",          // main HEAD — RFC #107 + M0 스파이크 #108
+    mainCommit: "8faa931",          // main HEAD — M1 완료 + M2 full mode e2e (#109~#113)
     devBranch: "feat/v2-m1-verification-maturation",
-    devCommit: "f9cf1db",           // M1 dev HEAD — differential + metamorphic
-    updated: "2026-06-01",
+    devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
+    updated: "2026-06-06",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,8 +26,8 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 432,                     // 432 passed, 1 skipped (433 collected)
-    testsSkipped: 1,
+    tests: 501,                     // 501 passed, 2 skipped (503 collected)
+    testsSkipped: 2,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
     nodes: 4,                       // v1 실행 파이프라인 노드 (architect→designer→coder→executor)
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (RFC #107 / M0 스파이크 #108 머지, M1 검증 성숙 진행).",
+      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (M0·M1 완료 — Tier B 검증 19-algo 머지, M2 병렬 solution synthesis full mode e2e 머지).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -110,8 +110,8 @@ window.IPE_DATA = {
   // ── Phase 3 마일스톤 (RFC §12) ────────────────────────────────────
   milestones: [
     { id: "M0", title: "RFC 확정 + state reducer 스파이크",                          status: "done",        ref: "#107 · #108", note: "병렬 fan-in reducer 선검증 — frozen Pydantic + reducer 동작 확인 (langgraph 1.2.2). partial dict 반환 + order-independent aggregator 필수." },
-    { id: "M1", title: "검증 성숙 — Tier B ≈ Tier A 실증",                           status: "in_progress", ref: "feat/v2-m1-…", note: "differential.py ✅ (golden↔brute 차분) · metamorphic.py ✅ (범용 관계) · tier classifier ⬜ 다음. 이후 19-algo 로 Tier B 가 Tier A 와 일치함을 실측." },
-    { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "planned",     note: "91.2% 무회귀 + run당 토큰/달러 실측 anchor 화" },
+    { id: "M1", title: "검증 성숙 — Tier B ≈ Tier A 실증",                           status: "done",        ref: "#109", note: "differential(golden↔brute) + metamorphic(범용 관계) + tier classifier(A/B/C 게이트) 완성. 19-algo tier sensitivity 일괄 배선으로 Tier B≈Tier A 실측 증거 확보." },
+    { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "in_progress", ref: "#110~#113", note: "fan-out 서브그래프 + reducer 채널 + Reconciler + compat flag(canonical|full) 머지. full mode 실 LLM e2e(distinct-model golden×2 + brute) 통과." },
     { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "planned", note: "toy → hiring-grade 의 체감 전환점. 신규 anchor 구축" },
     { id: "M4", title: "Test-suite generator (풀 채점셋)",                          status: "planned",     note: "edge/large/adversarial/random family + Assembler" },
     { id: "M5", title: "QA/Critic 병렬 스테이지 (유출/공정성/모호성/난이도)",          status: "planned",     note: "유출검사 reference corpus 확보는 진입 시 재논의" },
@@ -125,8 +125,11 @@ window.IPE_DATA = {
     { num: 104, title: "P3 Option B — sample_mismatch architect back-route", type: "fix", impact: "variance systematic 회복 (sub-meas 14/15)" },
     { num: 105, title: "P3 outputs/ persistence + problem.md/samples",  type: "feat", impact: "online judge 호환 artifact 영속화" },
     { num: 106, title: "v1.0 anchor freeze — site + README narrative",  type: "docs", impact: "91.2% anchor 동결, 측정 중단 판단" },
-    { num: 107, title: "Phase 3 RFC — Agentic Graph 재공사 (v2)",        type: "docs", impact: "tiered trust(A/B/C) + compat flag + M1-first 결정" },
     { num: 108, title: "M0 — 병렬 fan-in reducer 스파이크",              type: "test", impact: "frozen Pydantic + reducer 채널 검증 (RFC R3)" },
+    { num: 109, title: "M1 — Tier B 검증 메커니즘 + 측정 증거 (19-algo)", type: "feat", impact: "differential+metamorphic+tier classifier, Tier B≈Tier A 실측" },
+    { num: 110, title: "M2 — 병렬 Solution Synthesis 아티팩트 + Reconciler", type: "feat", impact: "fan-out 서브그래프 토대 (step 1–2)" },
+    { num: 112, title: "M2 — full mode 그래프 배선 (compat flag)",       type: "feat", impact: "canonical|full 모드 분기 (step 4)" },
+    { num: 113, title: "M2 — full mode 실 LLM e2e",                      type: "test", impact: "distinct-model golden×2 + brute 통과" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
