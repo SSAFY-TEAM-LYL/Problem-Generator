@@ -29,6 +29,8 @@ from .executor import (
     VerifierGetter,
     make_executor_node,
 )
+from .reconciler import make_reconciler_node
+from .synthesis_coder import make_synthesis_coder_node
 
 __all__ = [
     "AnthropicArchitectLLM",
@@ -43,4 +45,6 @@ __all__ = [
     "make_coder_node",
     "make_designer_node",
     "make_executor_node",
+    "make_reconciler_node",
+    "make_synthesis_coder_node",
 ]
