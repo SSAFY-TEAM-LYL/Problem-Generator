@@ -1,0 +1,96 @@
+"""Strategist 노드 — seed_algorithm hint → StrategySeed (M3 step2, blueprint-first).
+
+LLM: Sonnet 4.6 (발산적 시드). 책임 = **무엇을 숨길지**(reduction_core) + 합성 기법
++ **위장 도메인**(domain) 결정. 형식 동결(io_schema/invariants)은 Formalizer(Opus)로
+분리 — Q1 = 분리 확정.
+
+``with_structured_output(StrategySeed)`` 로 typed deserialize (prose parsing 없음).
+factory/Protocol/lazy-Anthropic 패턴은 v1 architect 와 동일.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Protocol
+
+from ipe.v1.schema import StrategySeed
+
+from ..state import V2State
+
+STRATEGIST_MODEL = "claude-sonnet-4-6"
+STRATEGIST_TEMPERATURE = 0.7  # 발산적 위장 다양성 (Formalizer 의 0.2 와 대비)
+
+
+_SYSTEM_PROMPT = """\
+당신은 algorithmic problem strategist 다. 주어진 target algorithm hint 를 받아,
+그 알고리즘을 **은닉**한 코딩테스트 문제의 전략 시드를 설계한다.
+
+typed StrategySeed (구조화된 tool call) 로 반환:
+- reduction_core: 숨길 핵심 알고리즘 (보통 hint 와 동일하거나 그 환원). solver 가
+  지문만 보고 바로 알아채지 못하게 할 대상.
+- composition: reduction_core 외 합성할 추가 기법들 (없으면 빈 list). 난이도·위장
+  강화를 위해 1~2개 결합 가능.
+- domain: 현실 세계 도메인 (예: 'logistics', 'social-network', 'genomics'). 이
+  도메인의 시나리오로 알고리즘이 자연스럽게 위장되어야 한다.
+- rationale: 이 위장이 왜 reduction_core 를 효과적으로 숨기는지 한 줄 근거.
+
+핵심 목표 (은닉): domain 시나리오만 읽고는 reduction_core 가 무엇인지 **바로 드러나지
+않아야** 한다. 그러나 형식적으로는 정확히 그 알고리즘으로 환원되어야 한다. 형식 동결
+(입출력 스키마/불변식)은 다음 단계(Formalizer)가 담당하므로 여기서는 전략만 정한다.
+"""
+
+
+def _build_user_prompt(state: V2State) -> str:
+    return "\n".join(
+        [
+            f"target algorithm hint: {state.seed_algorithm.value}",
+            f"run_id: {state.run_id}",
+        ]
+    )
+
+
+class StrategistLLM(Protocol):
+    """Strategist 의 LLM dependency. test 가 mock 주입."""
+
+    def seed(self, state: V2State) -> StrategySeed: ...
+
+
+class AnthropicStrategistLLM:
+    """production impl — Sonnet + structured output. lazy import (test 는 mock)."""
+
+    def __init__(self, model: str = STRATEGIST_MODEL) -> None:
+        from langchain_anthropic import ChatAnthropic
+        from langchain_core.prompts import ChatPromptTemplate
+
+        llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
+        prompt = ChatPromptTemplate.from_messages(
+            [("system", _SYSTEM_PROMPT), ("user", "{user}")]
+        )
+        self._chain = (prompt | llm.with_structured_output(StrategySeed)).with_retry(
+            stop_after_attempt=5, wait_exponential_jitter=True
+        )
+
+    def seed(self, state: V2State) -> StrategySeed:
+        result = self._chain.invoke({"user": _build_user_prompt(state)})
+        if not isinstance(result, StrategySeed):
+            msg = (
+                f"with_structured_output 가 {type(result).__name__} 반환 — "
+                "StrategySeed 기대"
+            )
+            raise TypeError(msg)
+        return result
+
+
+def make_strategist_node(
+    llm: StrategistLLM | None = None,
+) -> Callable[[V2State], V2State]:
+    """factory — graph build 시 호출. test 는 mock LLM 주입."""
+    resolved_llm: StrategistLLM = (
+        llm if llm is not None else AnthropicStrategistLLM()
+    )
+
+    def node(state: V2State) -> V2State:
+        seed = resolved_llm.seed(state)
+        return state.model_copy(update={"strategy": seed})
+
+    return node

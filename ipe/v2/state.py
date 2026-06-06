@@ -3,8 +3,8 @@
 canonical 의 ``V1State`` 와 분리된 fresh state. 검증 해자의 typed 계약(``ipe.v1.
 schema``)은 재사용하되, blueprint-first 흐름에 맞는 필드를 새로 구성한다:
 
-  seed → blueprint(FREEZE) → spec(파생) → candidates(synth) → reconciliation →
-  verification → narrative(late) → faithfulness
+  seed → strategy(시드) → blueprint(FREEZE) → spec(파생) → candidates(synth) →
+  reconciliation → verification → narrative(late) → faithfulness
 
 모든 transition 은 ``model_copy(update=...)`` immutable 갱신. 병렬 synthesis 노드는
 ``candidates`` reducer 채널에 partial dict append (멱등 dedup-concat — M2 step4 의
@@ -25,6 +25,7 @@ from ipe.v1.schema import (
     ProblemSpec,
     ReconciliationResult,
     SolutionCandidate,
+    StrategySeed,
     TargetAlgorithm,
     VerificationResult,
 )
@@ -56,9 +57,9 @@ def _merge_candidates(
 class V2State(BaseModel):
     """B2B blueprint-first 그래프가 운반하는 typed state.
 
-    ``seed_algorithm`` = 은닉할 코어(입력 hint). Strategist/Formalizer 가 이를
-    ``blueprint`` 로 freeze, narrative 는 last 렌더. solver/executor 는 blueprint
-    파생 ``spec`` 을 입력으로 받는다 (해자 재사용).
+    ``seed_algorithm`` = 은닉할 코어(입력 hint). Strategist 가 이를 ``strategy``
+    시드로 발산 → Formalizer 가 ``blueprint`` 로 freeze, narrative 는 last 렌더.
+    solver/executor 는 blueprint 파생 ``spec`` 을 입력으로 받는다 (해자 재사용).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -72,6 +73,7 @@ class V2State(BaseModel):
     max_iterations: int = Field(default=DEFAULT_MAX_ITERATIONS, gt=0)
 
     # blueprint-first 산출물 (단계별 lazily populate)
+    strategy: StrategySeed | None = None  # Strategist 시드 (은닉 코어+합성+도메인)
     blueprint: ProblemBlueprint | None = None  # Formalizer FREEZE
     spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 파생
     candidates: Annotated[list[SolutionCandidate], _merge_candidates] = Field(

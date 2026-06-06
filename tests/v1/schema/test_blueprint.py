@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from ipe.v1.schema import (
+    BlueprintFormalization,
     ConstraintRange,
     IOFieldSpec,
     IOSchema,
@@ -17,6 +18,7 @@ from ipe.v1.schema import (
     NarrativeFaithfulnessReport,
     OutputInvariant,
     ProblemBlueprint,
+    StrategySeed,
     TargetAlgorithm,
 )
 
@@ -147,3 +149,77 @@ def test_faithfulness_report_records_distortions() -> None:
     )
     assert r.faithful is False
     assert len(r.distortions) == 1
+
+
+# ---------- StrategySeed (M3 step2) ----------
+
+
+def test_strategy_seed_minimal_and_defaults() -> None:
+    seed = StrategySeed(reduction_core=TargetAlgorithm.DIJKSTRA, domain="logistics")
+    assert seed.reduction_core is TargetAlgorithm.DIJKSTRA
+    assert seed.composition == ()  # default
+    assert seed.domain == "logistics"
+    assert seed.rationale == ""  # default
+
+
+def test_strategy_seed_records_composition_and_rationale() -> None:
+    seed = StrategySeed(
+        reduction_core=TargetAlgorithm.KNAPSACK,
+        composition=(TargetAlgorithm.BINARY_SEARCH,),
+        domain="warehouse",
+        rationale="용량 배분을 예산 최적화로 위장",
+    )
+    assert seed.composition == (TargetAlgorithm.BINARY_SEARCH,)
+    assert seed.rationale.startswith("용량")
+
+
+def test_strategy_seed_requires_domain() -> None:
+    with pytest.raises(ValidationError):
+        StrategySeed(reduction_core=TargetAlgorithm.BFS, domain="")  # min_length=1
+
+
+def test_strategy_seed_is_frozen() -> None:
+    seed = StrategySeed(reduction_core=TargetAlgorithm.BFS, domain="d")
+    with pytest.raises(ValidationError):
+        seed.domain = "other"  # type: ignore[misc]
+
+
+def test_strategy_seed_forbids_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        StrategySeed(
+            reduction_core=TargetAlgorithm.BFS,
+            domain="d",
+            unexpected="nope",  # type: ignore[call-arg]
+        )
+
+
+# ---------- BlueprintFormalization (M3 step2) ----------
+
+
+def test_blueprint_formalization_carries_formal_face_only() -> None:
+    f = BlueprintFormalization(io_schema=_io_schema())
+    assert f.io_schema.output_type == "int"
+    assert f.output_invariants == ()  # default
+    # 알고리즘 결정 필드는 존재하지 않음 (Formalizer 가 못 바꿈 — freeze 규율)
+    assert not hasattr(f, "reduction_core")
+
+
+def test_blueprint_formalization_records_invariants() -> None:
+    f = BlueprintFormalization(
+        io_schema=_io_schema(),
+        output_invariants=(
+            OutputInvariant(kind="non_negative", description="거리는 음수 불가"),
+        ),
+    )
+    assert f.output_invariants[0].kind == "non_negative"
+
+
+def test_blueprint_formalization_is_frozen_and_forbids_extra() -> None:
+    f = BlueprintFormalization(io_schema=_io_schema())
+    with pytest.raises(ValidationError):
+        f.io_schema = _io_schema()  # type: ignore[misc]
+    with pytest.raises(ValidationError):
+        BlueprintFormalization(
+            io_schema=_io_schema(),
+            reduction_core=TargetAlgorithm.DIJKSTRA,  # type: ignore[call-arg]
+        )
