@@ -13,7 +13,7 @@ window.IPE_DATA = {
     mainCommit: "34d2b21",          // main HEAD — M3 Strategist/Formalizer 2노드 분리 (#117)
     devBranch: "feat/v2-m1-verification-maturation",
     devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
-    updated: "2026-06-06",
+    updated: "2026-06-07",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
