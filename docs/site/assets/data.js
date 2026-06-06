@@ -10,7 +10,7 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "8faa931",          // main HEAD — M1 완료 + M2 full mode e2e (#109~#113)
+    mainCommit: "989b724",          // main HEAD — M3 모델링 아티팩트 착수 (#114)
     devBranch: "feat/v2-m1-verification-maturation",
     devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
     updated: "2026-06-06",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 501,                     // 501 passed, 2 skipped (503 collected)
+    tests: 512,                     // 512 passed, 2 skipped (514 collected)
     testsSkipped: 2,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (M0·M1 완료 — Tier B 검증 19-algo 머지, M2 병렬 solution synthesis full mode e2e 머지).",
+      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (M0·M1 완료, M2 병렬 solution synthesis full mode 머지, M3 모델링 layer 착수 — blueprint-first 아티팩트).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -112,7 +112,7 @@ window.IPE_DATA = {
     { id: "M0", title: "RFC 확정 + state reducer 스파이크",                          status: "done",        ref: "#107 · #108", note: "병렬 fan-in reducer 선검증 — frozen Pydantic + reducer 동작 확인 (langgraph 1.2.2). partial dict 반환 + order-independent aggregator 필수." },
     { id: "M1", title: "검증 성숙 — Tier B ≈ Tier A 실증",                           status: "done",        ref: "#109", note: "differential(golden↔brute) + metamorphic(범용 관계) + tier classifier(A/B/C 게이트) 완성. 19-algo tier sensitivity 일괄 배선으로 Tier B≈Tier A 실측 증거 확보." },
     { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "in_progress", ref: "#110~#113", note: "fan-out 서브그래프 + reducer 채널 + Reconciler + compat flag(canonical|full) 머지. full mode 실 LLM e2e(distinct-model golden×2 + brute) 통과." },
-    { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "planned", note: "toy → hiring-grade 의 체감 전환점. 신규 anchor 구축" },
+    { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "in_progress", ref: "#114", note: "blueprint-first 모델링 아티팩트 착수 (step 1). toy → hiring-grade 의 체감 전환점, 신규 anchor 구축." },
     { id: "M4", title: "Test-suite generator (풀 채점셋)",                          status: "planned",     note: "edge/large/adversarial/random family + Assembler" },
     { id: "M5", title: "QA/Critic 병렬 스테이지 (유출/공정성/모호성/난이도)",          status: "planned",     note: "유출검사 reference corpus 확보는 진입 시 재논의" },
     { id: "M6", title: "기법 합성 (multi-technique)",                              status: "planned",     note: "2~3 알고리즘 조합 — 검증 tier 의 metamorphic/differential 의존" },
@@ -130,6 +130,7 @@ window.IPE_DATA = {
     { num: 110, title: "M2 — 병렬 Solution Synthesis 아티팩트 + Reconciler", type: "feat", impact: "fan-out 서브그래프 토대 (step 1–2)" },
     { num: 112, title: "M2 — full mode 그래프 배선 (compat flag)",       type: "feat", impact: "canonical|full 모드 분기 (step 4)" },
     { num: 113, title: "M2 — full mode 실 LLM e2e",                      type: "test", impact: "distinct-model golden×2 + brute 통과" },
+    { num: 114, title: "M3 — blueprint-first 모델링 아티팩트 (step 1)",   type: "feat", impact: "알고리즘 은닉 모델링 layer 착수" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
