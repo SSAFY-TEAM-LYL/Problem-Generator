@@ -6,6 +6,14 @@ v0 ``ProblemState`` (TypedDict prose) 의 후속. D안 Phase 1 PR-A1 산출.
 from __future__ import annotations
 
 from .algorithm_design import AlgorithmDesign, ComplexityBound, EdgeCase, Invariant
+from .blueprint import (
+    IOFieldSpec,
+    IOSchema,
+    Narrative,
+    NarrativeFaithfulnessReport,
+    OutputInvariant,
+    ProblemBlueprint,
+)
 from .iteration_context import FailedStrategy, IterationContext, IterationRecord
 from .problem_spec import (
     ConstraintRange,
@@ -33,11 +41,17 @@ __all__ = [
     "FailedStrategy",
     "FailureMode",
     "IOContract",
+    "IOFieldSpec",
+    "IOSchema",
     "Invariant",
     "InvariantViolation",
     "IterationContext",
     "IterationRecord",
     "Lesson",
+    "Narrative",
+    "NarrativeFaithfulnessReport",
+    "OutputInvariant",
+    "ProblemBlueprint",
     "ProblemSpec",
     "ReconciliationResult",
     "SampleResult",
