@@ -8,6 +8,11 @@ Formalizer(Opus, blueprint freeze).
 
 from __future__ import annotations
 
+from .faithfulness import (
+    AnthropicFaithfulnessLLM,
+    FaithfulnessLLM,
+    make_faithfulness_node,
+)
 from .formalizer import (
     AnthropicFormalizerLLM,
     FormalizerLLM,
@@ -25,12 +30,15 @@ from .strategist import (
 )
 
 __all__ = [
+    "AnthropicFaithfulnessLLM",
     "AnthropicFormalizerLLM",
     "AnthropicNarrativeLLM",
     "AnthropicStrategistLLM",
+    "FaithfulnessLLM",
     "FormalizerLLM",
     "NarrativeLLM",
     "StrategistLLM",
+    "make_faithfulness_node",
     "make_formalizer_node",
     "make_narrative_node",
     "make_strategist_node",
