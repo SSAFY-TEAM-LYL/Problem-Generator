@@ -13,6 +13,11 @@ from .formalizer import (
     FormalizerLLM,
     make_formalizer_node,
 )
+from .narrative import (
+    AnthropicNarrativeLLM,
+    NarrativeLLM,
+    make_narrative_node,
+)
 from .strategist import (
     AnthropicStrategistLLM,
     StrategistLLM,
@@ -21,9 +26,12 @@ from .strategist import (
 
 __all__ = [
     "AnthropicFormalizerLLM",
+    "AnthropicNarrativeLLM",
     "AnthropicStrategistLLM",
     "FormalizerLLM",
+    "NarrativeLLM",
     "StrategistLLM",
     "make_formalizer_node",
+    "make_narrative_node",
     "make_strategist_node",
 ]

@@ -15,6 +15,7 @@ from ipe.v1.schema import (
     IOFieldSpec,
     IOSchema,
     Narrative,
+    NarrativeDraft,
     NarrativeFaithfulnessReport,
     OutputInvariant,
     ProblemBlueprint,
@@ -223,3 +224,27 @@ def test_blueprint_formalization_is_frozen_and_forbids_extra() -> None:
             io_schema=_io_schema(),
             reduction_core=TargetAlgorithm.DIJKSTRA,  # type: ignore[call-arg]
         )
+
+
+# ---------- NarrativeDraft (M3 step3) ----------
+
+
+def test_narrative_draft_carries_scenario_only() -> None:
+    d = NarrativeDraft(scenario="물류 센터 시나리오 ...")
+    assert d.scenario.startswith("물류")
+    # hidden/domain 은 노드가 스탬프 — draft 에는 없음 (Author 가 못 바꿈)
+    assert not hasattr(d, "hidden")
+    assert not hasattr(d, "domain")
+
+
+def test_narrative_draft_requires_scenario() -> None:
+    with pytest.raises(ValidationError):
+        NarrativeDraft(scenario="")  # min_length=1
+
+
+def test_narrative_draft_is_frozen_and_forbids_extra() -> None:
+    d = NarrativeDraft(scenario="s")
+    with pytest.raises(ValidationError):
+        d.scenario = "other"  # type: ignore[misc]
+    with pytest.raises(ValidationError):
+        NarrativeDraft(scenario="s", hidden=True)  # type: ignore[call-arg]
