@@ -1,0 +1,127 @@
+"""Narrative 노드 — frozen ProblemBlueprint → Narrative 렌더 (M3 step3, late 렌더).
+
+LLM: Sonnet 4.6 (창작적 시나리오). blueprint-first 의 **마지막** 모델링 단계: frozen
+blueprint(io_schema/invariants/숨은 reduction_core)를 현실 도메인 시나리오로 렌더한다.
+``hidden=True`` 면 알고리즘 은닉(B2B), ``False`` 면 직접 기술(B2C 토픽드릴).
+
+freeze 규율(step2 와 동일): LLM 은 ``NarrativeDraft``(scenario 프로즈만) 산출 → 노드가
+``hidden``(graph config) + ``domain``(blueprint carry-over) 스탬프 → 렌더 모드/도메인을
+LLM 이 임의로 못 바꾼다. 충실성(왜곡 여부)은 step4 round-trip 이 사후 검증.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Protocol
+
+from ipe.v1.schema import Narrative, NarrativeDraft
+
+from ..state import V2State
+
+NARRATIVE_MODEL = "claude-sonnet-4-6"
+NARRATIVE_TEMPERATURE = 0.7  # 창작적 다양성 (Strategist 와 동급, Formalizer 0.2 대비)
+
+
+_SYSTEM_PROMPT = """\
+당신은 algorithmic problem narrative author 다. 이미 **동결된** ProblemBlueprint
+(입출력 형식 + 불변식 + 숨은 reduction_core)를 받아, 그 문제를 현실 도메인 시나리오
+지문으로 렌더한다.
+
+typed NarrativeDraft (구조화된 tool call) 로 반환 — scenario 프로즈만:
+- scenario: 주어진 domain 의 현실 상황으로 문제를 서술한 지문. io_schema 의 입출력
+  형식과 정확히 호환되어야 하며, output_invariants 와 모순되지 않아야 한다.
+
+렌더 모드:
+- hidden=True (은닉, B2B): reduction_core(숨은 알고리즘) 이름을 **절대 언급하지 말 것**.
+  domain 의 자연스러운 상황으로 위장하되, 형식적으로는 정확히 그 알고리즘으로 환원되게.
+  solver 가 지문만 보고 어떤 표준 알고리즘인지 바로 알아채지 못해야 한다.
+- hidden=False (직접, B2C): 알고리즘을 직접 명시해도 된다 (토픽 드릴 학습용).
+
+규율:
+- blueprint 의 입출력 형식/제약/불변식을 **왜곡하지 말 것** (정보 은닉은 OK, 왜곡은 금지).
+  은닉=세부 누락, 왜곡=다른 문제 기술. 후자는 다음 단계(faithfulness)가 reject 한다.
+- domain 은 blueprint 가 고정한 그대로 사용 (당신이 바꾸지 않는다).
+"""
+
+
+def _build_user_prompt(state: V2State, *, hidden: bool) -> str:
+    bp = state.blueprint
+    if bp is None:
+        msg = "narrative requires state.blueprint — formalizer must run first"
+        raise ValueError(msg)
+    invariants = [f"{iv.kind}: {iv.description}" for iv in bp.output_invariants]
+    inputs = [f"{f.name}:{f.type}" for f in bp.io_schema.inputs]
+    parts = [
+        f"render mode: {'hidden (은닉)' if hidden else 'direct (직접)'}",
+        f"domain: {bp.domain}",
+        f"reduction_core (숨은 알고리즘): {bp.reduction_core.value}",
+        f"composition: {[a.value for a in bp.composition]}",
+        "",
+        f"io_schema.inputs: {inputs}",
+        f"io_schema.output_type: {bp.io_schema.output_type}",
+        f"io_schema.output_format: {bp.io_schema.output_format}",
+        f"output_invariants: {invariants}",
+    ]
+    return "\n".join(parts)
+
+
+class NarrativeLLM(Protocol):
+    """Narrative 의 LLM dependency. test 가 mock 주입."""
+
+    def render(self, state: V2State, *, hidden: bool) -> NarrativeDraft: ...
+
+
+class AnthropicNarrativeLLM:
+    """production impl — Sonnet + structured output. lazy import (test 는 mock)."""
+
+    def __init__(self, model: str = NARRATIVE_MODEL) -> None:
+        from langchain_anthropic import ChatAnthropic
+        from langchain_core.prompts import ChatPromptTemplate
+
+        llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
+        prompt = ChatPromptTemplate.from_messages(
+            [("system", _SYSTEM_PROMPT), ("user", "{user}")]
+        )
+        self._chain = (prompt | llm.with_structured_output(NarrativeDraft)).with_retry(
+            stop_after_attempt=5, wait_exponential_jitter=True
+        )
+
+    def render(self, state: V2State, *, hidden: bool) -> NarrativeDraft:
+        result = self._chain.invoke({"user": _build_user_prompt(state, hidden=hidden)})
+        if not isinstance(result, NarrativeDraft):
+            msg = (
+                f"with_structured_output 가 {type(result).__name__} 반환 — "
+                "NarrativeDraft 기대"
+            )
+            raise TypeError(msg)
+        return result
+
+
+def make_narrative_node(
+    llm: NarrativeLLM | None = None,
+    *,
+    hidden: bool = True,
+) -> Callable[[V2State], V2State]:
+    """factory — frozen blueprint → Narrative 렌더. ``hidden`` 은 graph-time 렌더 모드.
+
+    기본 ``hidden=True`` (B2B 은닉). ``domain`` 은 blueprint 에서 carry-over,
+    ``hidden`` 은 이 인자에서 스탬프 → 렌더 모드/도메인을 LLM 이 못 바꾼다 (freeze 규율).
+    """
+    resolved_llm: NarrativeLLM = (
+        llm if llm is not None else AnthropicNarrativeLLM()
+    )
+
+    def node(state: V2State) -> V2State:
+        bp = state.blueprint
+        if bp is None:
+            msg = "narrative requires state.blueprint — formalizer must run first"
+            raise ValueError(msg)
+        draft = resolved_llm.render(state, hidden=hidden)
+        narrative = Narrative(
+            scenario=draft.scenario,
+            hidden=hidden,
+            domain=bp.domain,
+        )
+        return state.model_copy(update={"narrative": narrative})
+
+    return node

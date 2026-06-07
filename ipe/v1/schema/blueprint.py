@@ -155,6 +155,20 @@ class Narrative(BaseModel):
     domain: str = Field(..., min_length=1)
 
 
+class NarrativeDraft(BaseModel):
+    """Narrative Author(창작) LLM 의 structured output — scenario 프로즈만 (M3 step3).
+
+    Narrative 노드는 이 draft 에 ``hidden``(렌더 모드, graph config)과 ``domain``
+    (frozen blueprint 에서 carry-over)을 스탬프해 ``Narrative`` 로 완성한다. LLM 은
+    **시나리오 지문만** 쓰고 hidden/domain 은 노드가 authoritative — Formalizer 의
+    carry-over 규율과 동일 (렌더 모드/도메인을 LLM 이 임의로 못 바꿈).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scenario: str = Field(..., min_length=1, description="현실 시나리오 지문 (은닉/직접)")
+
+
 class NarrativeFaithfulnessReport(BaseModel):
     """round-trip 충실성 결과 (M3) — narrative 재형식화 schema vs frozen blueprint diff.
 
