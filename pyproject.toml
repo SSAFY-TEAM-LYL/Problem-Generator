@@ -25,6 +25,7 @@ dev = [
 
 [project.scripts]
 ipe-v1 = "ipe.v1.main_v1:main"
+ipe-v2 = "ipe.v2.main_v2:main"
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]
