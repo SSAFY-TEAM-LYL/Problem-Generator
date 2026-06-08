@@ -10,7 +10,7 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "4b62a82",          // main HEAD — v2 모델링 CLI(main_v2) + 실LLM e2e (#121)
+    mainCommit: "514bb79",          // main HEAD — v2 통합: 모델링+synthesis 그래프 배선 (#122~#124)
     devBranch: "feat/v2-m1-verification-maturation",
     devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
     updated: "2026-06-08",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 553,                     // v1 523 + v2 30 passed, 3 skipped (556 collected)
+    tests: 569,                     // v1 523 + v2 46 passed, 3 skipped (572 collected)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -138,6 +138,8 @@ window.IPE_DATA = {
     { num: 119, title: "M3 — Faithfulness round-trip 노드 (step 4)",      type: "feat", impact: "지문↔알고리즘 의도 충실성 검증" },
     { num: 120, title: "M3 — 모델링 layer 그래프 배선 (step 5, M3 종료)", type: "feat", impact: "알고리즘 은닉 4노드 graph 통합 완료" },
     { num: 121, title: "v2 모델링 CLI(main_v2) + 실LLM e2e (M3 follow-up)", type: "feat", impact: "v2 파이프라인 실행 진입점 + 검증 경로" },
+    { num: 122, title: "v2 통합 — blueprint→spec 브리지 노드 (step1)",     type: "feat", impact: "모델링(M3) → solution synthesis 연결" },
+    { num: 124, title: "v2 통합 — synthesis 그래프 배선 완성 (step2b)",     type: "feat", impact: "M2+M3 v2 그래프 통합 완성" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
