@@ -18,12 +18,14 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ipe.v1.schema import (
+    AlgorithmDesign,
     IterationContext,
     Narrative,
     NarrativeFaithfulnessReport,
     ProblemBlueprint,
     ProblemSpec,
     ReconciliationResult,
+    SolutionAttempt,
     SolutionCandidate,
     StrategySeed,
     TargetAlgorithm,
@@ -76,10 +78,12 @@ class V2State(BaseModel):
     strategy: StrategySeed | None = None  # Strategist 시드 (은닉 코어+합성+도메인)
     blueprint: ProblemBlueprint | None = None  # Formalizer FREEZE
     spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 파생
+    design: AlgorithmDesign | None = None  # spec → solver invariants (M2 designer 재사용)
     candidates: Annotated[list[SolutionCandidate], _merge_candidates] = Field(
         default_factory=list, description="golden×K + brute 병렬 후보 (reducer)"
     )
     reconciliation: ReconciliationResult | None = None
+    attempt: SolutionAttempt | None = None  # reconciled canonical → executor 입력
     verification: VerificationResult | None = None
     narrative: Narrative | None = None  # late 렌더 (은닉)
     faithfulness: NarrativeFaithfulnessReport | None = None
@@ -89,6 +93,22 @@ class V2State(BaseModel):
 
     # Control
     final_status: V2FinalStatus | None = None
+
+    @property
+    def target_algorithm(self) -> TargetAlgorithm:
+        """verifier dispatch 용 실 알고리즘 (M2 노드 재사용 어댑터).
+
+        v1 executor/designer 는 ``state.target_algorithm`` 으로 verifier 를 dispatch
+        한다. v2 는 ``seed_algorithm``(은닉 hint)만 top-level 로 갖고 실 알고리즘은
+        ``spec.target_algorithm``(= blueprint.reduction_core, spec_bridge 가 carry-over)
+        에 있다. spec 미생성(모델링 단계)이면 seed 로 fallback. computed property 라
+        langgraph 채널이 아니다 (직렬화/reducer 무관).
+        """
+        return (
+            self.spec.target_algorithm
+            if self.spec is not None
+            else self.seed_algorithm
+        )
 
 
 def initial_v2_state(
