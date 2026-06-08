@@ -10,7 +10,7 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "3327ddb",          // main HEAD — M3 모델링 layer 그래프 배선 완료 (#120)
+    mainCommit: "4b62a82",          // main HEAD — v2 모델링 CLI(main_v2) + 실LLM e2e (#121)
     devBranch: "feat/v2-m1-verification-maturation",
     devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
     updated: "2026-06-08",
@@ -26,8 +26,8 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 548,                     // v1 523 + v2 25 passed, 2 skipped (550 collected)
-    testsSkipped: 2,
+    tests: 553,                     // v1 523 + v2 30 passed, 3 skipped (556 collected)
+    testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
     nodes: 4,                       // v1 실행 파이프라인 노드 (architect→designer→coder→executor)
@@ -137,6 +137,7 @@ window.IPE_DATA = {
     { num: 118, title: "M3 — Narrative 노드 은닉 렌더 (step 3)",          type: "feat", impact: "시나리오로 알고리즘 정체 은닉" },
     { num: 119, title: "M3 — Faithfulness round-trip 노드 (step 4)",      type: "feat", impact: "지문↔알고리즘 의도 충실성 검증" },
     { num: 120, title: "M3 — 모델링 layer 그래프 배선 (step 5, M3 종료)", type: "feat", impact: "알고리즘 은닉 4노드 graph 통합 완료" },
+    { num: 121, title: "v2 모델링 CLI(main_v2) + 실LLM e2e (M3 follow-up)", type: "feat", impact: "v2 파이프라인 실행 진입점 + 검증 경로" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
