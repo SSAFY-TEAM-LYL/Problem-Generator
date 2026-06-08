@@ -23,6 +23,11 @@ from .narrative import (
     NarrativeLLM,
     make_narrative_node,
 )
+from .spec_bridge import (
+    AnthropicSpecBridgeLLM,
+    SpecBridgeLLM,
+    make_spec_bridge_node,
+)
 from .strategist import (
     AnthropicStrategistLLM,
     StrategistLLM,
@@ -33,13 +38,16 @@ __all__ = [
     "AnthropicFaithfulnessLLM",
     "AnthropicFormalizerLLM",
     "AnthropicNarrativeLLM",
+    "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
     "NarrativeLLM",
+    "SpecBridgeLLM",
     "StrategistLLM",
     "make_faithfulness_node",
     "make_formalizer_node",
     "make_narrative_node",
+    "make_spec_bridge_node",
     "make_strategist_node",
 ]
