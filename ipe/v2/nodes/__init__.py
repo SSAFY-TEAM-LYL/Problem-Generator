@@ -39,6 +39,7 @@ from .strategist import (
     StrategistLLM,
     make_strategist_node,
 )
+from .suite_assembler import make_suite_assembler_node
 
 __all__ = [
     "AnthropicFaithfulnessLLM",
@@ -60,4 +61,5 @@ __all__ = [
     "make_narrative_node",
     "make_spec_bridge_node",
     "make_strategist_node",
+    "make_suite_assembler_node",
 ]
