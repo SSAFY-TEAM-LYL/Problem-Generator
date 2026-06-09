@@ -30,6 +30,7 @@ from ipe.v1.schema import (
     SolutionCandidate,
     StrategySeed,
     TargetAlgorithm,
+    TestSuite,
     VerificationResult,
 )
 
@@ -89,6 +90,7 @@ class V2State(BaseModel):
     verification: VerificationResult | None = None
     narrative: Narrative | None = None  # late 렌더 (은닉)
     faithfulness: NarrativeFaithfulnessReport | None = None
+    test_suite: TestSuite | None = None  # M4 풀 채점셋 (입력 생성 → assembler 가 expected)
 
     # Stateful learning (해자 재사용)
     context: IterationContext

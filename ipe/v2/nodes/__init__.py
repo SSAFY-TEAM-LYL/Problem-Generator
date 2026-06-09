@@ -23,6 +23,7 @@ from .generator_designer import (
     GeneratorDesignerLLM,
     make_generator_designer_node,
 )
+from .input_generator import make_input_generator_node
 from .narrative import (
     AnthropicNarrativeLLM,
     NarrativeLLM,
@@ -55,6 +56,7 @@ __all__ = [
     "make_faithfulness_node",
     "make_formalizer_node",
     "make_generator_designer_node",
+    "make_input_generator_node",
     "make_narrative_node",
     "make_spec_bridge_node",
     "make_strategist_node",
