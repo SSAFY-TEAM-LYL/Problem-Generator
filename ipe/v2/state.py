@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ipe.v1.schema import (
     AlgorithmDesign,
+    GeneratorContract,
     IterationContext,
     Narrative,
     NarrativeFaithfulnessReport,
@@ -77,6 +78,7 @@ class V2State(BaseModel):
     # blueprint-first 산출물 (단계별 lazily populate)
     strategy: StrategySeed | None = None  # Strategist 시드 (은닉 코어+합성+도메인)
     blueprint: ProblemBlueprint | None = None  # Formalizer FREEZE
+    generator_contract: GeneratorContract | None = None  # M4 입력 생성기 계약 (LLM 저작)
     spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 파생
     design: AlgorithmDesign | None = None  # spec → solver invariants (M2 designer 재사용)
     candidates: Annotated[list[SolutionCandidate], _merge_candidates] = Field(
