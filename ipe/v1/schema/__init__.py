@@ -27,6 +27,13 @@ from .problem_spec import (
 )
 from .solution_attempt import Lesson, SolutionAttempt
 from .synthesis import ReconciliationResult, SolutionCandidate
+from .test_suite import (
+    EdgeCaseSpec,
+    GeneratedTestCase,
+    GeneratorContract,
+    ScaleFamily,
+    TestSuite,
+)
 from .verification_result import (
     FailureMode,
     InvariantViolation,
@@ -42,8 +49,11 @@ __all__ = [
     "ComplexityBound",
     "ConstraintRange",
     "EdgeCase",
+    "EdgeCaseSpec",
     "FailedStrategy",
     "FailureMode",
+    "GeneratedTestCase",
+    "GeneratorContract",
     "IOContract",
     "IOFieldSpec",
     "IOSchema",
@@ -61,11 +71,13 @@ __all__ = [
     "ReconciliationResult",
     "SampleResult",
     "SampleTestCase",
+    "ScaleFamily",
     "SolutionAttempt",
     "SolutionCandidate",
     "StrategySeed",
     "StructuredFeedback",
     "TargetAlgorithm",
     "TargetNode",
+    "TestSuite",
     "VerificationResult",
 ]
