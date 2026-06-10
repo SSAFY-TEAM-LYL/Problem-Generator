@@ -13,15 +13,18 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from ipe.v1.schema import StrategySeed
+from ipe.v1.schema import StrategySeed, TargetAlgorithm
 
 from ..state import V2State
 
 STRATEGIST_MODEL = "claude-sonnet-4-6"
 STRATEGIST_TEMPERATURE = 0.7  # 발산적 위장 다양성 (Formalizer 의 0.2 와 대비)
 
+# enum 허용값을 prompt 에 명시 — 모델이 'greedy' 같은 목록 밖 자연어 기법을 emit 해
+# structured output 검증이 retry 전부 실패하는 것을 방지 (M4 step5 e2e 실측 발견).
+_VALID_ALGORITHMS = ", ".join(a.value for a in TargetAlgorithm)
 
-_SYSTEM_PROMPT = """\
+_SYSTEM_PROMPT = f"""\
 당신은 algorithmic problem strategist 다. 주어진 target algorithm hint 를 받아,
 그 알고리즘을 **은닉**한 코딩테스트 문제의 전략 시드를 설계한다.
 
@@ -33,6 +36,12 @@ typed StrategySeed (구조화된 tool call) 로 반환:
 - domain: 현실 세계 도메인 (예: 'logistics', 'social-network', 'genomics'). 이
   도메인의 시나리오로 알고리즘이 자연스럽게 위장되어야 한다.
 - rationale: 이 위장이 왜 reduction_core 를 효과적으로 숨기는지 한 줄 근거.
+
+reduction_core 와 composition 의 모든 원소는 **반드시 다음 값 중에서만** 골라야 한다:
+{_VALID_ALGORITHMS}.
+이 목록 밖 기법(예: 'greedy', 'two_pointers', 'sliding_window')은 schema 검증에서
+거부된다 — 그런 기법을 섞고 싶으면 목록 내 가장 가까운 값을 쓰거나 composition 을
+비워 둔다.
 
 핵심 목표 (은닉): domain 시나리오만 읽고는 reduction_core 가 무엇인지 **바로 드러나지
 않아야** 한다. 그러나 형식적으로는 정확히 그 알고리즘으로 환원되어야 한다. 형식 동결

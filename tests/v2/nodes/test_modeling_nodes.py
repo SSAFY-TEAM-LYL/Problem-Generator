@@ -141,3 +141,16 @@ def test_strategist_then_formalizer_compose() -> None:
     # blueprint 의 알고리즘 필드 == strategy 의 것 (freeze carry-over)
     assert after.blueprint.reduction_core is after.strategy.reduction_core
     assert after.blueprint.domain == after.strategy.domain
+
+
+# ---------- prompt 규율 ----------
+
+
+def test_strategist_prompt_lists_all_valid_algorithms() -> None:
+    """composition/reduction_core 허용 enum 값이 prompt 에 전부 명시 — 모델이
+    'greedy' 같은 목록 밖 기법을 emit 해 structured output 이 거부되는 것 방지
+    (M4 step5 e2e 실측 발견). enum 확장 시 자동 동기화 검증."""
+    from ipe.v2.nodes.strategist import _SYSTEM_PROMPT
+
+    for algo in TargetAlgorithm:
+        assert algo.value in _SYSTEM_PROMPT
