@@ -57,7 +57,11 @@ def test_assemble_drops_cases_golden_cannot_run() -> None:
 
 
 def test_assemble_raises_when_all_cases_fail() -> None:
-    with pytest.raises(ValueError, match="하나도 실행"):
+    with pytest.raises(ValueError, match="하나도 실행") as exc_info:
         assemble_suite(
             _pending("BAD1", "BAD2"), "# g", runner=_EchoRunner(), golden_origin="g"
         )
+    msg = str(exc_info.value)
+    assert "RTE" in msg  # 첫 실패 status 진단 (e2e all-fail 원인 분석용)
+    assert "boom" in msg  # 첫 실패 stderr
+    assert "BAD1" in msg  # 첫 실패 입력 head
