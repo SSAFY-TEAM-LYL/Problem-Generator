@@ -9,14 +9,23 @@ LLM(step2)이 설계한 ``GeneratorContract``(scale_families + edge_cases)와 fr
 - ``string`` : 한 줄 영소문자 (길이=size, 최소 1 — 빈 입력 금지).
 - ``int_array`` : ``N`` 줄 + ``N`` 개 공백구분 정수 줄 (N=0 면 ``0`` 만).
 - ``int_matrix`` : ``R C`` 줄 + R 개의 (C 개 정수) 줄.
+- ``weighted_edges`` (step3b) : ``V E`` 줄 + E 줄 ``u v w`` (**1-indexed**, self-loop
+  없음, w=value_range). 랜덤 부착 backbone 으로 **연결 보장** + extra 간선(다중간선
+  허용). bias: min=트리 밀도(E=V-1) / max=조밀 / empty=``1 0`` / disconnected=정확히
+  두 컴포넌트(backbone ×2, E=V-2).
+- ``tree_edges`` (step3b) : ``V`` 줄 + (V-1) 줄 ``u v`` — value_range 있으면
+  ``u v w``. 랜덤 부착 트리(연결+무사이클 보장). empty=``1``.
+- ``grid`` (step3b) : ``int_matrix`` 와 동일 규약 (의미 구분은 blueprint 몫).
 - 여러 필드는 io_schema 순서로 줄 join.
 
-규약은 step4 골든 파서와 맞아야 한다(현재 결합 = known item, step4/5 에서 검증).
-graph/grid(``weighted_edges``/``tree_edges``/``grid``)는 cross-field(V/E 조율) 결합이라
-**step3b 로 이연** — ``NotImplementedError``.
+graph 필드는 **self-contained** (V/E 헤더 포함) — V:int 필드를 따로 두는 분리 모델링
+은 중복/모순을 낳으므로 formalizer prompt 가 단일 graph 필드로 유도한다. 정점 참조
+스칼라(s/t 등)의 value_range ↔ V 결합은 formalizer 책임(size 하한 이내). 규약↔골든
+파서 정합은 assembled 비율 anchor 로 실측(known item).
 
 tier 적용: ScaleFamily.field_bounds(이름=필드명)는 스칼라의 **값**, sized 타입의
-**크기**를 그 tier 로 좁힌다. array/matrix 의 원소 값은 io_schema.value_range.
+**크기**(graph 는 정점 수 V)를 그 tier 로 좁힌다. 원소/가중치 값은 io_schema 의
+value_range.
 """
 
 from __future__ import annotations
@@ -41,10 +50,8 @@ _DEFAULT_VALUE = (0, 100)
 _STRING_MIN_LEN = 1  # 빈 문자열 금지 (GeneratedTestCase.input_text min_length=1 보존)
 _ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 
-# graph/grid 는 V/E cross-field 결합 → step3b 로 이연
-_DEFERRED_TYPES = frozenset({"weighted_edges", "tree_edges", "grid"})
-
-_Bias = Literal["random", "empty", "min", "max"]
+# "disconnected" 는 graph 타입 전용 의미(두 컴포넌트) — 비-graph 필드에선 random 취급
+_Bias = Literal["random", "empty", "min", "max", "disconnected"]
 
 
 def seed_from_run_id(run_id: str) -> int:
@@ -99,9 +106,6 @@ def _serialize_field(
     bias: _Bias,
 ) -> str:
     t = field.type
-    if t in _DEFERRED_TYPES:
-        msg = f"io_type '{t}' 는 M4 step3b(graph/grid)에서 지원 — 현재 미지원"
-        raise NotImplementedError(msg)
     if t == "int":
         return str(_pick_value(_value_bounds(field, tier_bound), bias, rng))
     if t == "bool":
@@ -114,8 +118,12 @@ def _serialize_field(
         return "".join(rng.choice(_ALPHABET) for _ in range(n))
     if t == "int_array":
         return _serialize_int_array(field, tier_bound, rng, bias=bias)
-    if t == "int_matrix":
+    if t in ("int_matrix", "grid"):  # grid = int_matrix 와 동일 canonical 규약
         return _serialize_int_matrix(field, tier_bound, rng, bias=bias)
+    if t == "weighted_edges":
+        return _serialize_weighted_edges(field, tier_bound, rng, bias=bias)
+    if t == "tree_edges":
+        return _serialize_tree_edges(field, tier_bound, rng, bias=bias)
     msg = f"io_type '{t}' 미지원"
     raise NotImplementedError(msg)
 
@@ -152,6 +160,81 @@ def _serialize_int_matrix(
         " ".join(str(rng.randint(lo, hi)) for _ in range(c)) for _ in range(r)
     )
     return f"{r} {c}\n{rows}"
+
+
+# ---------- graph serialization (step3b) ----------
+
+
+def _backbone(start: int, end: int, rng: random.Random) -> list[tuple[int, int]]:
+    """정점 ``start..end`` 를 잇는 랜덤 부착 트리 간선 — 연결+무사이클 보장.
+
+    각 정점 i 를 이미 존재하는 정점(start..i-1) 중 하나에 붙인다 (self-loop 불가능).
+    """
+    return [(rng.randint(start, i - 1), i) for i in range(start + 1, end + 1)]
+
+
+def _graph_vertex_count(
+    field: IOFieldSpec,
+    tier_bound: ConstraintRange | None,
+    rng: random.Random,
+    bias: _Bias,
+) -> int:
+    """graph 정점 수 V — size 범위에서. disconnected 는 크기 자체는 random."""
+    size_bias: _Bias = "random" if bias == "disconnected" else bias
+    return max(_pick_size(_size_bounds(field, tier_bound), size_bias, rng), 1)
+
+
+def _serialize_weighted_edges(
+    field: IOFieldSpec,
+    tier_bound: ConstraintRange | None,
+    rng: random.Random,
+    *,
+    bias: _Bias,
+) -> str:
+    """``V E`` + E 줄 ``u v w`` (1-indexed). backbone 연결 + bias 별 밀도/구조."""
+    if bias == "empty":
+        return "1 0"  # 단일 정점, 간선 0 (퇴화 최소 그래프)
+    v = _graph_vertex_count(field, tier_bound, rng, bias)
+    if bias == "disconnected":
+        v = max(v, 2)  # 두 컴포넌트가 가능한 최소
+        half = (v + 1) // 2
+        edges = _backbone(1, half, rng) + _backbone(half + 1, v, rng)
+    else:
+        edges = _backbone(1, v, rng)
+        extra = 0 if bias == "min" else (v if bias == "max" else rng.randint(0, v))
+        if v >= 2:
+            for _ in range(extra):
+                u = rng.randint(1, v)
+                t = rng.randint(1, v - 1)
+                if t >= u:  # self-loop 회피 (다중간선은 허용)
+                    t += 1
+                edges.append((u, t))
+    lo, hi = _element_bounds(field)  # value_range = 가중치
+    lines = [f"{u} {t} {rng.randint(lo, hi)}" for u, t in edges]
+    return "\n".join([f"{v} {len(edges)}", *lines])
+
+
+def _serialize_tree_edges(
+    field: IOFieldSpec,
+    tier_bound: ConstraintRange | None,
+    rng: random.Random,
+    *,
+    bias: _Bias,
+) -> str:
+    """``V`` + (V-1) 줄 ``u v`` (value_range 있으면 ``u v w``). 랜덤 부착 트리.
+
+    트리는 정의상 연결 — disconnected bias 는 크기 random 으로만 작용.
+    """
+    if bias == "empty":
+        return "1"  # 단일 정점 트리
+    v = _graph_vertex_count(field, tier_bound, rng, bias)
+    edges = _backbone(1, v, rng)
+    if field.value_range is not None:
+        lo, hi = _element_bounds(field)
+        lines = [f"{u} {t} {rng.randint(lo, hi)}" for u, t in edges]
+    else:
+        lines = [f"{u} {t}" for u, t in edges]
+    return "\n".join([str(v), *lines])
 
 
 # ---------- bounds resolution ----------
@@ -224,6 +307,9 @@ def _bool_value(bias: _Bias, rng: random.Random) -> bool:
 def _edge_bias(name: str) -> _Bias:
     """edge 케이스 이름 → boundary 전략 (generic keyword 해석)."""
     low = name.lower()
+    # graph 전용 의미가 가장 구체적 — 먼저 매칭 ('disconnected_large' 등 복합어 보호)
+    if any(k in low for k in ("disconnect", "unreachable", "isolated")):
+        return "disconnected"
     if any(k in low for k in ("empty", "zero", "null")):
         return "empty"
     if any(k in low for k in ("max", "large", "stress", "big", "full", "huge", "upper")):
