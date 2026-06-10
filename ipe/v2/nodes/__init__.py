@@ -18,6 +18,12 @@ from .formalizer import (
     FormalizerLLM,
     make_formalizer_node,
 )
+from .generator_designer import (
+    AnthropicGeneratorDesignerLLM,
+    GeneratorDesignerLLM,
+    make_generator_designer_node,
+)
+from .input_generator import make_input_generator_node
 from .narrative import (
     AnthropicNarrativeLLM,
     NarrativeLLM,
@@ -33,21 +39,27 @@ from .strategist import (
     StrategistLLM,
     make_strategist_node,
 )
+from .suite_assembler import make_suite_assembler_node
 
 __all__ = [
     "AnthropicFaithfulnessLLM",
     "AnthropicFormalizerLLM",
+    "AnthropicGeneratorDesignerLLM",
     "AnthropicNarrativeLLM",
     "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
+    "GeneratorDesignerLLM",
     "NarrativeLLM",
     "SpecBridgeLLM",
     "StrategistLLM",
     "make_faithfulness_node",
     "make_formalizer_node",
+    "make_generator_designer_node",
+    "make_input_generator_node",
     "make_narrative_node",
     "make_spec_bridge_node",
     "make_strategist_node",
+    "make_suite_assembler_node",
 ]
