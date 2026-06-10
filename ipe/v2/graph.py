@@ -16,6 +16,12 @@
                                                           └(fail)→ end_verification
       reconciler ─(reject)→ end_synthesis_rejected
 
+``with_test_suite=True`` (M4 풀 채점셋 — with_synthesis 필수)::
+
+    executor → route ─(pass)→ generator_designer → input_generator → suite_assembler
+                                (contract 저작)     (결정론 생성)      (golden→expected)
+      suite_assembler → end_success
+
 핵심 의도:
 - 모델링 4 노드(strategist/formalizer/narrative/faithfulness) + faithful=False→narrative
   재생성(``max_iterations`` 바운드). 왜곡만 reject, 은닉은 통과.
@@ -23,10 +29,12 @@
   executor) — V2State 가 design/attempt 채널 + target_algorithm property 로 적응(step2a).
   approach (a): spec_bridge LLM 이 sample 저작, golden↔brute differential + symbolic
   verifier 가 검증. fix-loop 없음(단발, M3+ 반복정제 별개).
+- test-suite 는 **verification 통과 후에만** — expected 는 검증된 golden 실행으로
+  부트스트랩(RFC §7 순환 회피)이라 검증 실패 경로에선 채점셋을 만들지 않는다.
 - ``with_synthesis=False`` 는 모델링 layer 만 — 기존 test/CLI backward compat.
 
-recursion 주의: 모델링 루프 1회=3 step + synthesis ~6 step. ``max_iterations`` 크면
-invoke ``config={"recursion_limit": N}`` 상향.
+recursion 주의: 모델링 루프 1회=3 step + synthesis ~6 step + test-suite 3 step.
+``max_iterations`` 크면 invoke ``config={"recursion_limit": N}`` 상향.
 """
 
 from __future__ import annotations
@@ -49,14 +57,18 @@ from ipe.v1.verifiers import get_verifier
 from .nodes import (
     FaithfulnessLLM,
     FormalizerLLM,
+    GeneratorDesignerLLM,
     NarrativeLLM,
     SpecBridgeLLM,
     StrategistLLM,
     make_faithfulness_node,
     make_formalizer_node,
+    make_generator_designer_node,
+    make_input_generator_node,
     make_narrative_node,
     make_spec_bridge_node,
     make_strategist_node,
+    make_suite_assembler_node,
 )
 from .router import route_after_faithfulness
 from .state import V2FinalStatus, V2State
@@ -151,13 +163,21 @@ def build_v2_graph(
     brute_origin: str = "naive",
     runner: ExecutorRunner | None = None,
     verifier_getter: VerifierGetter = get_verifier,
+    with_test_suite: bool = False,
+    generator_designer_llm: GeneratorDesignerLLM | None = None,
 ) -> CompiledStateGraph:  # type: ignore[type-arg]
     """v2 그래프 빌드. None dependency 는 production default(Anthropic/sandbox/verifier).
 
     ``hidden`` = narrative 렌더 모드. ``with_synthesis=True`` 면 faithful 통과 후
     spec_bridge→synthesis(M2 재사용)→verification 까지 — ``golden_llms``(>=1) +
-    ``brute_llm`` 필수. test 는 모든 LLM mock 주입.
+    ``brute_llm`` 필수. ``with_test_suite=True``(M4) 면 verification 통과 후
+    generator_designer→input_generator→suite_assembler 로 풀 채점셋까지 — 검증된
+    golden 이 expected 를 채우므로 ``with_synthesis=True`` 필수. test 는 모든 LLM
+    mock 주입.
     """
+    if with_test_suite and not with_synthesis:
+        msg = "with_test_suite=True 는 with_synthesis=True 필수 (verified golden 필요)"
+        raise ValueError(msg)
     builder: StateGraph = StateGraph(V2State)  # type: ignore[type-arg]
 
     # ---- modeling nodes (always) ----
@@ -209,6 +229,8 @@ def build_v2_graph(
             brute_origin=brute_origin,
             runner=runner,
             verifier_getter=verifier_getter,
+            with_test_suite=with_test_suite,
+            generator_designer_llm=generator_designer_llm,
         )
 
     return builder.compile()
@@ -225,10 +247,13 @@ def _wire_synthesis(
     brute_origin: str,
     runner: ExecutorRunner | None,
     verifier_getter: VerifierGetter,
+    with_test_suite: bool = False,
+    generator_designer_llm: GeneratorDesignerLLM | None = None,
 ) -> None:
     """synthesis 서브그래프 — spec_bridge→designer→fan-out→reconcile→bridge→executor.
 
     v1 M2 노드를 cast(Any) duck-typing 으로 재사용(step2a 가 V2State 적응으로 검증).
+    ``with_test_suite=True`` 면 executor 통과 후 M4 채점셋 3 노드를 거쳐 end_success.
     """
     if not golden_llms or brute_llm is None:
         msg = "with_synthesis=True 는 golden_llms(>=1) + brute_llm 필수"
@@ -314,16 +339,35 @@ def _wire_synthesis(
         ),
     )
     builder.add_edge("synth_bridge", "executor")
+    # 검증 통과 시: 채점셋 생성(M4) 또는 즉시 success
+    pass_target = "generator_designer" if with_test_suite else "end_success"
     builder.add_conditional_edges(
         "executor",
         _v2_router(route_after_full_executor),
         cast(
             Any,
             {
-                "end_success": "end_success",
+                "end_success": pass_target,
                 "end_verification_fail": "end_verification",
             },
         ),
     )
     builder.add_edge("end_verification", END)
     builder.add_edge("end_synthesis_rejected", END)
+
+    if with_test_suite:
+        # M4: contract 저작(LLM) → 결정론 입력 생성 → verified golden 으로 expected.
+        # 세 노드 모두 v2-native(V2State 주석) — v1 임피던스 래퍼 불요. full-state
+        # 재emit 은 candidates dedup reducer 가 멱등 처리.
+        builder.add_node(
+            "generator_designer",
+            cast(Any, make_generator_designer_node(generator_designer_llm)),
+        )
+        builder.add_node("input_generator", cast(Any, make_input_generator_node()))
+        builder.add_node(
+            "suite_assembler",
+            cast(Any, make_suite_assembler_node(runner=synth_runner)),
+        )
+        builder.add_edge("generator_designer", "input_generator")
+        builder.add_edge("input_generator", "suite_assembler")
+        builder.add_edge("suite_assembler", "end_success")
