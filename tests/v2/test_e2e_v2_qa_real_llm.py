@@ -1,0 +1,120 @@
+"""real-LLM e2e — v2 QA 게이트 포함 풀 파이프라인 (M5 step4).
+
+Marked ``@pytest.mark.e2e`` — CI 의 ``pytest -m "not e2e"`` 는 skip.
+ANTHROPIC_API_KEY env 필요. 1 run ≈ 기존 suite 파이프라인(~10 call) + QA Haiku×4
+= approx $3 (QA 는 저가 tier 라 증분 미미).
+
+Gate 의도: **with_qa=True 그래프가 실 LLM 통합 경로에서 crash 없이 valid 종료** +
+QA 스테이지 도달 시 qa_reviews 4종/qa_report populate. ``fail_qa`` 도 valid 종료
+(게이트가 일하는 증거 — 무엇이 걸렸는지 failed_kinds 로 측정).
+
+측정(anchor, gate 아님): **QA 게이트 통과율** — 검증·채점셋까지 통과한 패키지가
+4관점 리뷰(모호성/공정성/유출/난이도)도 통과하는가의 1 data point + kind 별 판정.
+
+Run::
+
+    set -a; source .env; set +a
+    .venv/bin/pytest -m e2e tests/v2/test_e2e_v2_qa_real_llm.py -v -s
+"""
+
+from __future__ import annotations
+
+import os
+
+import pytest
+
+from ipe.v1.nodes import AnthropicCoderLLM
+from ipe.v1.schema import TargetAlgorithm
+from ipe.v2.graph import build_v2_graph
+from ipe.v2.main_v2 import _normalize_final_state
+from ipe.v2.state import initial_v2_state
+
+VALID_FINAL_STATUSES = {
+    "success",
+    "fail_synthesis_rejected",
+    "fail_verification",
+    "fail_faithfulness",
+    "fail_qa",
+    "fail_budget_exhausted",
+}
+
+_GOLDEN_MODELS = ["claude-opus-4-7", "claude-sonnet-4-6"]
+_BRUTE_MODEL = "claude-sonnet-4-6"
+
+
+@pytest.mark.e2e
+@pytest.mark.skipif(
+    not os.environ.get("ANTHROPIC_API_KEY"),
+    reason="ANTHROPIC_API_KEY missing — real LLM e2e skipped",
+)
+def test_v2_qa_pipeline_single_run_real_llm() -> None:
+    """1 run DIJKSTRA seed — 모델링+synthesis+suite+QA 4종(Haiku) 실통합.
+
+    검증(gate):
+    - ``with_qa=True`` invoke 가 crash 없이 valid final_status 로 종료.
+    - QA 스테이지 도달(suite assembled) 시: qa_reviews 4종(kind distinct) +
+      qa_report populate, final_status 는 success(전원 통과) 또는 fail_qa.
+    - success 면 qa_report.overall_pass True.
+
+    측정(anchor): kind 별 passed + final_status — QA 게이트 통과율 1 data point.
+    """
+    graph = build_v2_graph(
+        hidden=True,
+        with_synthesis=True,
+        golden_llms=[AnthropicCoderLLM(m) for m in _GOLDEN_MODELS],
+        brute_llm=AnthropicCoderLLM(_BRUTE_MODEL),
+        golden_origins=_GOLDEN_MODELS,
+        with_test_suite=True,
+        with_qa=True,
+    )
+    raw = graph.invoke(
+        initial_v2_state(
+            "e2e-v2-qa-dijkstra", TargetAlgorithm.DIJKSTRA, max_iterations=4
+        ),
+        config={"recursion_limit": 70},
+    )
+    final = _normalize_final_state(raw)
+
+    # ---- gate ----
+    assert final.final_status in VALID_FINAL_STATUSES, final.final_status
+    assert final.faithfulness is not None
+
+    suite_reached = final.test_suite is not None and final.test_suite.is_assembled
+    if suite_reached:
+        # QA 스테이지 도달 — 4 병렬 리뷰어 + 집계 populate
+        assert len(final.qa_reviews) == 4, [r.kind for r in final.qa_reviews]
+        assert {r.kind for r in final.qa_reviews} == {
+            "ambiguity",
+            "fairness",
+            "leakage",
+            "difficulty",
+        }
+        assert final.qa_report is not None
+        assert final.final_status in ("success", "fail_qa")
+        if final.final_status == "success":
+            assert final.qa_report.overall_pass is True
+    else:
+        # 상류(검증 등)에서 멈춤 — QA 미진입
+        assert final.qa_report is None
+
+    # ---- 측정: QA 게이트 anchor (1 data point) ----
+    verdicts = (
+        {r.kind: r.passed for r in final.qa_reviews} if final.qa_reviews else None
+    )
+    findings = (
+        sum(len(r.findings) for r in final.qa_reviews) if final.qa_reviews else 0
+    )
+    suite_size = len(final.test_suite.cases) if final.test_suite is not None else None
+    print(
+        f"\n[e2e-qa-anchor] final_status={final.final_status} "
+        f"suite_cases={suite_size} qa_verdicts={verdicts} "
+        f"findings_total={findings} iteration={final.iteration}"
+    )
+    if final.qa_report is not None and not final.qa_report.overall_pass:
+        for r in final.qa_report.reviews:
+            if not r.passed:
+                worst = [f"{f.severity}:{f.description[:80]}" for f in r.findings]
+                print(
+                    f"[e2e-qa-diag] kind={r.kind} rationale={r.rationale[:120]!r} "
+                    f"findings={worst}"
+                )
