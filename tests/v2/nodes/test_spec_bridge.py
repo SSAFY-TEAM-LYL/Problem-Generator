@@ -21,6 +21,7 @@ from ipe.v1.schema import (
     SampleTestCase,
     TargetAlgorithm,
 )
+from ipe.v2.generation.input_gen import render_input_format
 from ipe.v2.nodes import make_spec_bridge_node
 from ipe.v2.state import V2State, initial_v2_state
 
@@ -85,7 +86,6 @@ def test_spec_bridge_populates_spec_with_authored_fields() -> None:
     # LLM 저작 필드
     assert spec.title == "배송 경로 최적화"
     assert len(spec.sample_testcases) == 3
-    assert spec.io_contract.input_format == "N"
 
 
 def test_spec_bridge_carry_over_target_algorithm_and_description() -> None:
@@ -98,6 +98,21 @@ def test_spec_bridge_carry_over_target_algorithm_and_description() -> None:
     assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA
     # LLM 설명 대신 narrative.scenario 로 강제
     assert spec.description == "물류 센터 최소 이동 비용 지문"
+
+
+def test_spec_bridge_freezes_io_contract_to_canonical_render() -> None:
+    """io_contract 는 LLM 산출 무시 — input_format=canonical 렌더, output_format=
+    io_schema carry-over (step6: 직렬화 규약↔골든 파서 정렬, ratio 0.0 해소)."""
+    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+
+    spec = out.spec
+    assert isinstance(spec, ProblemSpec)
+    # LLM 이 'N' 이라는 prose 를 줬어도 io_schema 에서 렌더한 canonical 로 교체
+    assert spec.io_contract.input_format == render_input_format(
+        _blueprint().io_schema
+    )
+    # output_format 은 formalizer 가 동결한 io_schema.output_format carry-over
+    assert spec.io_contract.output_format == "단일 정수"
 
 
 def test_spec_bridge_requires_blueprint() -> None:

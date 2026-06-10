@@ -8,10 +8,15 @@ differential reconcile → 검증)를 v2 에서 재사용할 토대가 된다.
 expected 계산오류는 하류 synthesis(golden↔brute differential) + verification(M1 Tier B /
 M2 reconcile) 가 catch — 기존 검증 해자가 안전망.
 
-**freeze 규율** (step2~4 carry-over 와 동일): node 가 두 핵심 필드를 강제 carry-over —
+**freeze 규율** (step2~4 carry-over 와 동일): node 가 세 핵심 필드를 강제 carry-over —
 - ``target_algorithm`` = ``blueprint.reduction_core`` (verifier dispatch, LLM 못 바꿈).
 - ``description`` = ``narrative.scenario`` (faithfulness 검증된 은닉 지문, LLM 못 재작성).
-LLM 은 title/io_contract/constraints/sample_testcases 만 저작 → 검증 체인 보존.
+- ``io_contract`` = **canonical 렌더** (M4 step6): ``input_format`` 은 io_schema 에서
+  ``render_input_format`` 으로 코드 렌더(입력 생성기의 직렬화와 동일 규약), ``output_
+  format`` 은 ``io_schema.output_format`` carry-over. LLM prose 가 형식 계약을 정하면
+  생성 입력과 golden 파서가 어긋난다 — dijkstra anchor ratio 0.0 으로 실증된 불일치의
+  구조적 해소.
+LLM 은 title/constraints/sample_testcases 만 실질 저작 → 검증 체인 보존.
 """
 
 from __future__ import annotations
@@ -19,8 +24,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from ipe.v1.schema import ProblemSpec
+from ipe.v1.schema import IOContract, ProblemSpec
 
+from ..generation.input_gen import render_input_format
 from ..state import V2State
 
 SPEC_BRIDGE_MODEL = "claude-opus-4-7"
@@ -37,11 +43,12 @@ typed ProblemSpec (구조화된 tool call) 로 반환:
   node 가 어차피 강제하니 정확히 그 값으로).
 - title: 도메인에 어울리는 한 줄 제목.
 - description: 짧은 placeholder (node 가 narrative 로 대체하니 1줄이면 충분).
-- io_contract: io_schema 의 input/output 형식과 **정확히 일치**하는 input_format /
-  output_format (간결, 한 줄씩).
+- io_contract: user 메시지의 '입력 형식 (동결)' 텍스트를 input_format 에, io_schema.
+  output_format 을 output_format 에 그대로 (node 가 어차피 canonical 로 강제한다).
 - constraints: io_schema 의 size_range/value_range 를 ConstraintRange list 로.
 - sample_testcases: 3~5개. **reduction_core 알고리즘으로 직접 계산한 정확한 expected**.
-  - io_contract 입출력 형식을 정확히 준수.
+  - input_text 는 '입력 형식 (동결)' 규약을 **정확히** 준수 — 줄 구성/헤더/필드 순서/
+    인덱싱까지. 생성기와 golden 파서가 이 규약 하나를 본다.
   - **유일답 보장** (정답이 여럿이면 verifier/differential 가 false-reject) —
     작은 인스턴스로 손계산 가능하게.
   - expected 를 단계별로 직접 계산 (어림짐작 금지).
@@ -76,6 +83,9 @@ def _build_user_prompt(state: V2State) -> str:
             f"io_schema.output_type: {bp.io_schema.output_type}",
             f"io_schema.output_format: {bp.io_schema.output_format}",
             f"output_invariants: {invariants}",
+            "",
+            "입력 형식 (동결 — sample input_text 는 반드시 이 형식):",
+            render_input_format(bp.io_schema),
             "",
             "narrative (은닉 지문 — 이 문제를 푸는 것):",
             nar.scenario,
@@ -138,6 +148,11 @@ def make_spec_bridge_node(
             update={
                 "target_algorithm": bp.reduction_core,
                 "description": nar.scenario,
+                # step6: 형식 계약은 코드가 정한다 — 입력 생성기와 동일 규약 렌더
+                "io_contract": IOContract(
+                    input_format=render_input_format(bp.io_schema),
+                    output_format=bp.io_schema.output_format,
+                ),
             }
         )
         return state.model_copy(update={"spec": spec})
