@@ -25,6 +25,8 @@ from ipe.v1.schema import (
     NarrativeFaithfulnessReport,
     ProblemBlueprint,
     ProblemSpec,
+    QAReport,
+    QAReview,
     ReconciliationResult,
     SolutionAttempt,
     SolutionCandidate,
@@ -55,6 +57,15 @@ def _merge_candidates(
     """
     merged = list(left)
     merged.extend(c for c in right if c not in merged)
+    return merged
+
+
+def _merge_qa_reviews(
+    left: list[QAReview], right: list[QAReview]
+) -> list[QAReview]:
+    """``qa_reviews`` reducer — 4 병렬 리뷰어(N10a-d) fan-out 멱등 (candidates 동일)."""
+    merged = list(left)
+    merged.extend(r for r in right if r not in merged)
     return merged
 
 
@@ -91,6 +102,10 @@ class V2State(BaseModel):
     narrative: Narrative | None = None  # late 렌더 (은닉)
     faithfulness: NarrativeFaithfulnessReport | None = None
     test_suite: TestSuite | None = None  # M4 풀 채점셋 (입력 생성 → assembler 가 expected)
+    qa_reviews: Annotated[list[QAReview], _merge_qa_reviews] = Field(
+        default_factory=list, description="M5 QA 리뷰어 4종 병렬 산출 (reducer)"
+    )
+    qa_report: QAReport | None = None  # M5 aggregator 집계 (출하 게이트 근거)
 
     # Stateful learning (해자 재사용)
     context: IterationContext
