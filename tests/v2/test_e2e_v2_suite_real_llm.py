@@ -6,12 +6,16 @@ brute + generator_designer = approx 10 LLM call + sandbox, cost approx $2.5-3.5.
 
 Gate 의도(full e2e 의 확장): **with_test_suite=True 그래프가 실 LLM 통합 경로에서
 crash 없이 end 까지 도달** + 검증 통과 시 채점셋이 assembled 로 populate. seed 는
-SORT(array-친화) — 현 입력생성기 6 io_type 범위. graph io(dijkstra 등)는 step3b.
+DIJKSTRA — verification 통과 이력 1/1 인 seed (suite 단계 도달 확률 최고) + step3b
+graph io(weighted_edges 직렬화·formalizer 단일 graph 필드 규율)의 실측 경로.
+(이전 SORT 2 run 은 둘 다 fail_verification — 실패경로 배선만 검증, anchor 미확보.)
 
 측정(anchor, gate 아님): **assembled/planned 비율 = 입력 직렬화 규약↔골든 파서 정합**
 (known item — 생성 입력의 canonical 직렬화와 golden 의 파서가 독립 산출이라 실측 필요).
 - ratio 1.0 = 규약 완전 정합, 0<ratio<1 = 부분 drop, 전부실패 = assembler ValueError
   crash(테스트 실패로 표면화 — 그 자체가 known-item 측정 결과).
+- verification fail 시 sample 진단(expected vs actual/stderr) 출력 — 출하가능률
+  변동(sort 0/2)의 원인 데이터.
 
 Run::
 
@@ -43,7 +47,7 @@ _BRUTE_MODEL = "claude-sonnet-4-6"
     reason="ANTHROPIC_API_KEY missing — real LLM e2e skipped",
 )
 def test_v2_suite_pipeline_single_run_real_llm() -> None:
-    """1 run SORT seed, hidden + synthesis + test-suite — M4 풀 채점셋 실통합.
+    """1 run DIJKSTRA seed, hidden + synthesis + test-suite — M4 풀 채점셋 실통합.
 
     검증(gate):
     - ``build_v2_graph(with_test_suite=True)`` + invoke 가 실 LLM 통합 path 에서
@@ -65,7 +69,9 @@ def test_v2_suite_pipeline_single_run_real_llm() -> None:
         with_test_suite=True,
     )
     raw = graph.invoke(
-        initial_v2_state("e2e-v2-suite-sort", TargetAlgorithm.SORT, max_iterations=4),
+        initial_v2_state(
+            "e2e-v2-suite-dijkstra", TargetAlgorithm.DIJKSTRA, max_iterations=4
+        ),
         config={"recursion_limit": 60},
     )
     final = _normalize_final_state(raw)
@@ -116,3 +122,19 @@ def test_v2_suite_pipeline_single_run_real_llm() -> None:
         f"planned={planned} assembled={assembled} ratio={ratio} "
         f"iteration={final.iteration}"
     )
+
+    # ---- 진단: verification fail 의 원인 데이터 (출하가능률 변동 분석용) ----
+    v = final.verification
+    if v is not None and not v.overall_pass:
+        print(
+            f"[e2e-suite-diag] failure_mode={v.failure_mode} "
+            f"samples_engaged={v.samples_engaged} "
+            f"invariant_violations={[iv.invariant_kind for iv in v.invariant_violations]}"
+        )
+        for s in v.sample_results:
+            if not s.passed:
+                print(
+                    f"[e2e-suite-diag] sample#{s.index} "
+                    f"expected={s.expected_output[:80]!r} "
+                    f"actual={s.actual_output[:80]!r} stderr={s.stderr[:120]!r}"
+                )

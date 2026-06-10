@@ -22,6 +22,7 @@ from ipe.v1.verification._exec import (
 )
 
 if TYPE_CHECKING:
+    from ipe.sandbox.runner import RunResult
     from ipe.v1.verification._exec import CodeRunner
 
 
@@ -40,6 +41,8 @@ def assemble_suite(
     ``golden_origin`` 은 provenance(어느 golden 이 정답을 만들었나).
     """
     filled: list[GeneratedTestCase] = []
+    first_failure: RunResult | None = None
+    first_failed_input: str | None = None
     for case in pending.cases:
         result = run_code(
             runner,
@@ -52,10 +55,21 @@ def assemble_suite(
             filled.append(
                 case.model_copy(update={"expected_output": result.stdout.strip()})
             )
+        elif first_failure is None:
+            first_failure = result
+            first_failed_input = case.input_text
     if not filled:
+        detail = ""
+        if first_failure is not None and first_failed_input is not None:
+            # 전부실패는 규약 불일치 신호 — 원인 분석 가능하게 첫 실패 증거 포함
+            detail = (
+                f" — 첫 실패: status={first_failure.status}"
+                f" stderr={first_failure.stderr[:200]!r}"
+                f" input_head={first_failed_input[:80]!r}"
+            )
         msg = (
             "assemble_suite: golden 이 생성 입력을 하나도 실행하지 못함 "
-            "(입력 직렬화↔골든 파서 불일치 가능)"
+            f"(입력 직렬화↔골든 파서 불일치 가능){detail}"
         )
         raise ValueError(msg)
     return TestSuite(cases=tuple(filled), golden_origin=golden_origin)
