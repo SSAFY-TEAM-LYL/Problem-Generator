@@ -60,6 +60,53 @@ def seed_from_run_id(run_id: str) -> int:
     return int(digest[:8], 16)
 
 
+# ---------- canonical input_format 렌더 (step6) ----------
+# 위 직렬화 규약의 사람/LLM용 prose. **이 모듈의 serializer 와 같은 파일에 두는
+# 이유**: 규약이 바뀌면 렌더도 같이 바뀌어야 한다 (드리프트 = ratio 0.0 의 원인).
+
+_FORMAT_TEXT = {
+    "int": "한 줄에 정수 하나.",
+    "bool": "한 줄에 0 또는 1.",
+    "float": "한 줄에 실수 하나 (소수 4자리).",
+    "string": "한 줄에 영소문자 문자열.",
+    "int_array": (
+        "첫 줄에 원소 개수 N, 다음 줄에 N 개의 공백구분 정수 "
+        "(N=0 이면 '0' 한 줄만)."
+    ),
+    "int_matrix": "첫 줄에 'R C'(행 수, 열 수), 이어서 R 줄에 각 C 개의 공백구분 정수.",
+    "grid": "첫 줄에 'R C'(행 수, 열 수), 이어서 R 줄에 각 C 개의 공백구분 정수.",
+    "weighted_edges": (
+        "첫 줄에 'V E'(정점 수, 간선 수), 이어서 E 줄에 'u v w'(간선 u-v 와 정수 "
+        "가중치 w). 정점 번호는 1..V (1-indexed). self-loop 없음, 다중 간선 가능, "
+        "연결은 보장되지 않음(분리 컴포넌트 가능)."
+    ),
+}
+
+
+def _render_field(field: IOFieldSpec) -> str:
+    if field.type == "tree_edges":
+        edge_line = "'u v w'(간선과 정수 가중치)" if field.value_range else "'u v'"
+        return (
+            f"{field.name}: 첫 줄에 정점 수 V, 이어서 V-1 줄에 {edge_line}. "
+            "정점 번호는 1..V (1-indexed), 트리(연결·무사이클) 보장."
+        )
+    return f"{field.name}: {_FORMAT_TEXT[field.type]}"
+
+
+def render_input_format(io_schema: IOSchema) -> str:
+    """io_schema → 입력 형식 명세 prose — ``generate_inputs`` 직렬화와 동일 규약.
+
+    spec_bridge 가 ``io_contract.input_format`` 으로 freeze 해 golden 파서·sample·
+    생성 입력이 **한 규약**을 보게 한다 (M4 step6 — dijkstra anchor ratio 0.0 로
+    실증된 직렬화↔파서 불일치의 구조적 해소).
+    """
+    parts = [_render_field(f) for f in io_schema.inputs]
+    if len(parts) == 1:
+        return f"표준입력으로 주어진다. {parts[0]}"
+    numbered = "\n".join(f"{i + 1}) {p}" for i, p in enumerate(parts))
+    return "표준입력으로 다음 필드들이 순서대로 줄 단위 주어진다:\n" + numbered
+
+
 def generate_inputs(
     contract: GeneratorContract,
     io_schema: IOSchema,

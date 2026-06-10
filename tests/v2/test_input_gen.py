@@ -15,7 +15,11 @@ from ipe.v1.schema import (
     IOSchema,
     ScaleFamily,
 )
-from ipe.v2.generation.input_gen import generate_inputs, seed_from_run_id
+from ipe.v2.generation.input_gen import (
+    generate_inputs,
+    render_input_format,
+    seed_from_run_id,
+)
 
 
 def _io_schema(field: IOFieldSpec) -> IOSchema:
@@ -334,3 +338,54 @@ def test_grid_matches_int_matrix_canonical() -> None:
 def test_seed_from_run_id_is_stable_and_distinct() -> None:
     assert seed_from_run_id("run-x") == seed_from_run_id("run-x")
     assert seed_from_run_id("run-x") != seed_from_run_id("run-y")
+
+
+# ---------- canonical input_format 렌더 (step6) ----------
+
+
+def test_render_weighted_edges_states_canonical_rules() -> None:
+    schema = _io_schema(_weighted_edges_field(1, 100))
+    text = render_input_format(schema)
+    assert "V E" in text  # 헤더 규약
+    assert "u v w" in text  # 간선 줄 규약
+    assert "1-indexed" in text  # 인덱싱 — ratio 0.0 의 유력 원인이던 항목
+    assert "연결" in text  # 연결 비보장 명시
+
+
+def test_render_tree_edges_weighted_and_unweighted() -> None:
+    base = IOFieldSpec(
+        name="tree",
+        type="tree_edges",
+        size_range=ConstraintRange(name="tree", min_value=1, max_value=9),
+    )
+    unweighted = render_input_format(_io_schema(base))
+    assert "u v" in unweighted and "트리" in unweighted
+    weighted = render_input_format(
+        _io_schema(
+            base.model_copy(
+                update={
+                    "value_range": ConstraintRange(name="w", min_value=1, max_value=5)
+                }
+            )
+        )
+    )
+    assert "u v w" in weighted
+
+
+def test_render_int_array_states_count_header() -> None:
+    text = render_input_format(_io_schema(_int_array_field()))
+    assert "N" in text and "공백" in text  # 'N 줄 + 공백구분' 규약
+
+
+def test_render_multi_field_preserves_order() -> None:
+    schema = IOSchema(
+        inputs=(
+            IOFieldSpec(name="K", type="int"),
+            IOFieldSpec(name="arr", type="int_array"),
+        ),
+        output_type="int",
+        output_format="x",
+    )
+    text = render_input_format(schema)
+    assert text.index("K") < text.index("arr")  # io_schema 순서 유지
+    assert "1)" in text and "2)" in text  # 필드 순번 명시
