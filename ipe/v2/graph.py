@@ -22,6 +22,14 @@
                                 (contract 저작)     (결정론 생성)      (golden→expected)
       suite_assembler → end_success
 
+``with_qa=True`` (M5 QA/Critic 병렬 스테이지 — with_test_suite 필수)::
+
+    suite_assembler ─┬→ qa_ambiguity ──┐
+                     ├→ qa_fairness ───┤ (4 병렬 fan-out, Haiku)
+                     ├→ qa_leakage ────┤
+                     └→ qa_difficulty ─┴→ qa_aggregator → route ─(pass)→ end_success
+                                                                └(fail)→ end_qa
+
 핵심 의도:
 - 모델링 4 노드(strategist/formalizer/narrative/faithfulness) + faithful=False→narrative
   재생성(``max_iterations`` 바운드). 왜곡만 reject, 은닉은 통과.
@@ -59,6 +67,7 @@ from .nodes import (
     FormalizerLLM,
     GeneratorDesignerLLM,
     NarrativeLLM,
+    QAReviewerLLM,
     SpecBridgeLLM,
     StrategistLLM,
     make_faithfulness_node,
@@ -66,19 +75,22 @@ from .nodes import (
     make_generator_designer_node,
     make_input_generator_node,
     make_narrative_node,
+    make_qa_aggregator_node,
+    make_qa_reviewer_node,
     make_spec_bridge_node,
     make_strategist_node,
     make_suite_assembler_node,
 )
-from .router import route_after_faithfulness
+from .router import route_after_faithfulness, route_after_qa
 from .state import V2FinalStatus, V2State
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from langgraph.graph.state import CompiledStateGraph
 
     from ipe.v1.nodes import CoderLLM, DesignerLLM, ExecutorRunner, VerifierGetter
+    from ipe.v1.schema import QAReviewerKind
 
 
 def _bump_iteration(state: V2State) -> V2State:
@@ -165,6 +177,8 @@ def build_v2_graph(
     verifier_getter: VerifierGetter = get_verifier,
     with_test_suite: bool = False,
     generator_designer_llm: GeneratorDesignerLLM | None = None,
+    with_qa: bool = False,
+    qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
 ) -> CompiledStateGraph:  # type: ignore[type-arg]
     """v2 그래프 빌드. None dependency 는 production default(Anthropic/sandbox/verifier).
 
@@ -172,11 +186,16 @@ def build_v2_graph(
     spec_bridge→synthesis(M2 재사용)→verification 까지 — ``golden_llms``(>=1) +
     ``brute_llm`` 필수. ``with_test_suite=True``(M4) 면 verification 통과 후
     generator_designer→input_generator→suite_assembler 로 풀 채점셋까지 — 검증된
-    golden 이 expected 를 채우므로 ``with_synthesis=True`` 필수. test 는 모든 LLM
-    mock 주입.
+    golden 이 expected 를 채우므로 ``with_synthesis=True`` 필수. ``with_qa=True``
+    (M5) 면 suite 완성 후 QA 리뷰어 4종 병렬 게이트 — 완성 패키지를 검토하므로
+    ``with_test_suite=True`` 필수 (``qa_reviewer_llms`` 는 kind→LLM, 누락 kind 는
+    production Haiku). test 는 모든 LLM mock 주입.
     """
     if with_test_suite and not with_synthesis:
         msg = "with_test_suite=True 는 with_synthesis=True 필수 (verified golden 필요)"
+        raise ValueError(msg)
+    if with_qa and not with_test_suite:
+        msg = "with_qa=True 는 with_test_suite=True 필수 (완성 패키지를 검토)"
         raise ValueError(msg)
     builder: StateGraph = StateGraph(V2State)  # type: ignore[type-arg]
 
@@ -231,6 +250,8 @@ def build_v2_graph(
             verifier_getter=verifier_getter,
             with_test_suite=with_test_suite,
             generator_designer_llm=generator_designer_llm,
+            with_qa=with_qa,
+            qa_reviewer_llms=qa_reviewer_llms,
         )
 
     return builder.compile()
@@ -249,11 +270,14 @@ def _wire_synthesis(
     verifier_getter: VerifierGetter,
     with_test_suite: bool = False,
     generator_designer_llm: GeneratorDesignerLLM | None = None,
+    with_qa: bool = False,
+    qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
 ) -> None:
     """synthesis 서브그래프 — spec_bridge→designer→fan-out→reconcile→bridge→executor.
 
     v1 M2 노드를 cast(Any) duck-typing 으로 재사용(step2a 가 V2State 적응으로 검증).
-    ``with_test_suite=True`` 면 executor 통과 후 M4 채점셋 3 노드를 거쳐 end_success.
+    ``with_test_suite=True`` 면 executor 통과 후 M4 채점셋 3 노드를 거쳐 end_success,
+    ``with_qa=True`` 면 그 뒤 QA 4종 병렬 게이트(M5)까지.
     """
     if not golden_llms or brute_llm is None:
         msg = "with_synthesis=True 는 golden_llms(>=1) + brute_llm 필수"
@@ -370,4 +394,41 @@ def _wire_synthesis(
         )
         builder.add_edge("generator_designer", "input_generator")
         builder.add_edge("input_generator", "suite_assembler")
-        builder.add_edge("suite_assembler", "end_success")
+        if with_qa:
+            _wire_qa(builder, qa_reviewer_llms=qa_reviewer_llms)
+        else:
+            builder.add_edge("suite_assembler", "end_success")
+
+
+def _wire_qa(
+    builder: Any,
+    *,
+    qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None,
+) -> None:
+    """QA 서브그래프 (M5, RFC N10/N11) — suite 완성 패키지의 4관점 병렬 게이트.
+
+    suite_assembler 에서 4 리뷰어로 직접 fan-out(같은 superstep) → 각자 partial
+    dict 로 ``qa_reviews`` reducer 에 누적 → aggregator fan-in 집계 → 결정론 라우팅.
+    back-route(실패 kind 별 재진입)는 후속 step — 단발 게이트.
+    """
+    kinds: tuple[QAReviewerKind, ...] = (
+        "ambiguity",
+        "fairness",
+        "leakage",
+        "difficulty",
+    )
+    for kind in kinds:
+        llm = qa_reviewer_llms.get(kind) if qa_reviewer_llms is not None else None
+        builder.add_node(
+            f"qa_{kind}", cast(Any, make_qa_reviewer_node(llm, kind=kind))
+        )
+        builder.add_edge("suite_assembler", f"qa_{kind}")  # fan-out
+        builder.add_edge(f"qa_{kind}", "qa_aggregator")  # fan-in (join once)
+    builder.add_node("qa_aggregator", cast(Any, make_qa_aggregator_node()))
+    builder.add_node("end_qa", cast(Any, _make_finalizer("fail_qa")))
+    builder.add_conditional_edges(
+        "qa_aggregator",
+        route_after_qa,
+        cast(Any, {"end_success": "end_success", "end_qa": "end_qa"}),
+    )
+    builder.add_edge("end_qa", END)

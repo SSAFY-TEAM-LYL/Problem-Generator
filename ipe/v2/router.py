@@ -29,3 +29,18 @@ def route_after_faithfulness(state: V2State) -> FaithfulnessDecision:
     if state.iteration >= state.max_iterations:
         return "end_faithfulness"
     return "regen"
+
+
+QADecision = Literal["end_success", "end_qa"]
+
+
+def route_after_qa(state: V2State) -> QADecision:
+    """QA aggregator 후 출하 게이트 (M5 step3, RFC N11).
+
+    ``qa_report.overall_pass`` 만 출하 — report 부재/실패는 ``end_qa``(fail_qa).
+    back-route(실패 kind 별 스테이지 재진입)는 후속 step — 단발 게이트로 시작.
+    """
+    r = state.qa_report
+    if r is not None and r.overall_pass:
+        return "end_success"
+    return "end_qa"

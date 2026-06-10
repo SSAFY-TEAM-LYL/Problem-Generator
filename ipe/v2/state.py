@@ -41,6 +41,7 @@ V2FinalStatus = Literal[
     "fail_synthesis_rejected",  # golden/brute 합의 실패
     "fail_verification",  # canonical 이 검증 실패
     "fail_faithfulness",  # narrative round-trip 왜곡 (다른 문제 기술)
+    "fail_qa",  # QA 리뷰어 게이트 실패 (M5 — 모호성/공정성/유출/난이도)
     "fail_budget_exhausted",
 ]
 
