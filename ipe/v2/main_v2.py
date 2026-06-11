@@ -5,14 +5,19 @@ Usage::
     python -m ipe.v2.main_v2 --algorithm dijkstra
     python -m ipe.v2.main_v2 --algorithm knapsack --direct --max-iter 4
     python -m ipe.v2.main_v2 --algorithm dijkstra --with-synthesis
+    python -m ipe.v2.main_v2 --algorithm dijkstra --with-synthesis \
+        --with-test-suite --with-qa
 
 env: ``ANTHROPIC_API_KEY`` (production LLM calls).
 
 기본 범위: **모델링 layer** (strategist→formalizer→narrative→faithfulness, 4 호출).
 ``--with-synthesis`` 면 faithful 통과 후 **synthesis+verification** 까지 — spec_bridge
 → designer → golden×K/brute fan-out → reconcile → executor (검증된 정답까지 생성).
-golden 은 distinct 모델로 fan-out(차분 독립성). observability: stdout 요약(+``--verbose``
-전체). output 영속화는 미포함(follow-up).
+golden 은 distinct 모델로 fan-out(차분 독립성). ``--with-test-suite``(M4) 면 검증
+통과 후 **풀 채점셋**(generator_designer→input_generator→suite_assembler),
+``--with-qa``(M5) 면 채점셋 완성 후 **QA 4관점 게이트**(Haiku×4 병렬)까지 — 스테이지
+의존성은 CLI 가 선검증. observability: stdout 요약(+``--verbose`` 전체). output
+영속화는 미포함(follow-up).
 
 exit code: 0 on ``success``, 1 on any ``fail_*``.
 """
@@ -37,6 +42,10 @@ from .state import DEFAULT_MAX_ITERATIONS, V2State, initial_v2_state
 _RECURSION_PAD = 15
 # synthesis tail(spec_bridge→designer→fan-out→reconcile→bridge→executor) 단발 step 여유.
 _SYNTHESIS_RECURSION_PAD = 12
+# suite tail(generator_designer→input_generator→suite_assembler) 단발 step 여유.
+_SUITE_RECURSION_PAD = 6
+# qa tail(리뷰어 4종 병렬 superstep→aggregator) 단발 step 여유.
+_QA_RECURSION_PAD = 6
 
 # golden fan-out 은 distinct 모델로(차분 독립성, §7.4). brute 는 별도 origin 라벨.
 DEFAULT_GOLDEN_MODELS = "claude-opus-4-7,claude-sonnet-4-6"
@@ -105,6 +114,16 @@ def _build_parser() -> argparse.ArgumentParser:
             f"(default: {DEFAULT_BRUTE_MODEL})"
         ),
     )
+    parser.add_argument(
+        "--with-test-suite",
+        action="store_true",
+        help="검증 통과 후 풀 채점셋 생성까지 (--with-synthesis 필요, 비용↑)",
+    )
+    parser.add_argument(
+        "--with-qa",
+        action="store_true",
+        help="채점셋 완성 후 QA 4관점 게이트까지 (--with-test-suite 필요, Haiku×4)",
+    )
     return parser
 
 
@@ -161,6 +180,29 @@ def _print_synthesis_summary(final: V2State) -> None:
             print(f"  - {d}")
     if final.verification is not None:
         print(f"[v2] verification: overall_pass={final.verification.overall_pass}")
+    _print_suite_qa_summary(final)
+
+
+def _print_suite_qa_summary(final: V2State) -> None:
+    """채점셋/QA 산출물 요약 (--with-test-suite / --with-qa 시 populate)."""
+    if final.generator_contract is not None:
+        suite = final.test_suite
+        print(
+            f"[v2] test_suite: planned={final.generator_contract.total_planned_cases} "
+            f"assembled={len(suite.cases) if suite is not None else 0} "
+            f"golden_origin={suite.golden_origin if suite is not None else None}"
+        )
+    if final.qa_report is not None:
+        q = final.qa_report
+        verdicts = {r.kind: r.passed for r in q.reviews}
+        print(
+            f"[v2] qa: overall_pass={q.overall_pass} verdicts={verdicts} "
+            f"failed_kinds={list(q.failed_kinds)}"
+        )
+        for r in q.reviews:
+            if not r.passed:
+                for finding in r.findings:
+                    print(f"  - [{r.kind}] {finding.severity}: {finding.description}")
 
 
 def _print_verbose(final: V2State) -> None:
@@ -198,6 +240,9 @@ def _build_default_graph(args: argparse.Namespace, *, hidden: bool) -> Any:
         golden_llms=[AnthropicCoderLLM(m) for m in golden_models],
         brute_llm=AnthropicCoderLLM(args.brute_model),
         golden_origins=golden_models,
+        # suite/qa 노드 LLM 은 None → graph 의 production default(Opus/Haiku) 배선
+        with_test_suite=args.with_test_suite,
+        with_qa=args.with_qa,
     )
 
 
@@ -205,6 +250,14 @@ def main(argv: Sequence[str] | None = None, *, graph: Any = None) -> int:
     """CLI entrypoint. ``graph`` 주입 시 build 생략(test 결정론). exit 0=success."""
     load_dotenv()
     args = _build_parser().parse_args(argv)
+    # 스테이지 의존성은 graph 빌드 전에 검증 (graph 주입 경로 포함) — build_v2_graph
+    # 의 ValueError 가드와 동일 규칙의 CLI 선반영.
+    if args.with_test_suite and not args.with_synthesis:
+        raise SystemExit(
+            "--with-test-suite 는 --with-synthesis 필요 (verified golden 이 expected 를 채움)"
+        )
+    if args.with_qa and not args.with_test_suite:
+        raise SystemExit("--with-qa 는 --with-test-suite 필요 (완성 패키지를 검토)")
 
     run_id = args.run_id or f"v2-{uuid.uuid4().hex[:8]}"
     hidden = not args.direct
@@ -213,13 +266,20 @@ def main(argv: Sequence[str] | None = None, *, graph: Any = None) -> int:
     print(
         f"[v2] start run_id={run_id} seed={args.algorithm.value} "
         f"hidden={hidden} max_iter={args.max_iter} "
-        f"with_synthesis={args.with_synthesis}"
+        f"with_synthesis={args.with_synthesis} "
+        f"with_test_suite={args.with_test_suite} with_qa={args.with_qa}"
     )
 
     resolved = (
         graph if graph is not None else _build_default_graph(args, hidden=hidden)
     )
-    pad = _RECURSION_PAD + (_SYNTHESIS_RECURSION_PAD if args.with_synthesis else 0)
+    pad = _RECURSION_PAD
+    if args.with_synthesis:
+        pad += _SYNTHESIS_RECURSION_PAD
+    if args.with_test_suite:
+        pad += _SUITE_RECURSION_PAD
+    if args.with_qa:
+        pad += _QA_RECURSION_PAD
     raw = resolved.invoke(
         initial, config={"recursion_limit": 3 * args.max_iter + pad}
     )
