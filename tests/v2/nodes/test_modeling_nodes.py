@@ -166,3 +166,24 @@ def test_narrative_prompt_forbids_format_prose() -> None:
     assert "줄 구성" in _SYSTEM_PROMPT  # 입력 줄 구조/순서 서술 금지
     assert "단일 진실원천" in _SYSTEM_PROMPT  # 형식은 io_contract 렌더가 담당
     assert "예시" in _SYSTEM_PROMPT  # 구체 입력/출력 예시 블록 금지 (샘플이 담당)
+
+
+def test_formalizer_prompt_forbids_orphan_fields() -> None:
+    """io_schema 필드 간 의미 정합 규율이 system prompt 에 명시 — A-후 QA 재측정
+    run3 blocker(capacity_threshold 고아 필드: 비교 대상 per-edge capacity 가
+    io_schema 에 없어 풀 수 없는 문제)의 원천 차단. 규율 문구 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT
+
+    assert "고아 필드" in _SYSTEM_PROMPT  # 참조 대상 없는 필드 금지
+    assert "비교 대상" in _SYSTEM_PROMPT  # 임계값류는 per-element 데이터 필요
+    assert "의미 정합" in _SYSTEM_PROMPT  # 필드 집합의 자기완결성
+
+
+def test_faithfulness_prompt_rejects_absent_data_mechanics() -> None:
+    """'지문이 계약에 없는 데이터를 요구하는 메커니즘 = 왜곡' 규율이 system prompt
+    에 명시 — run3 에서 faithfulness 가 고아 필드 지문을 통과시킨 검출 한계 보강
+    (은닉=누락 OK 의 역방향: 계약보다 *많은* 입력 전제는 reject). 드리프트 방지."""
+    from ipe.v2.nodes.faithfulness import _SYSTEM_PROMPT
+
+    assert "없는 데이터" in _SYSTEM_PROMPT  # 계약 밖 데이터 요구 메커니즘
+    assert "풀 수 없" in _SYSTEM_PROMPT  # 주어진 입력만으로 불가 = 왜곡 근거
