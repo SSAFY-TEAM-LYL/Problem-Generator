@@ -154,3 +154,15 @@ def test_strategist_prompt_lists_all_valid_algorithms() -> None:
 
     for algo in TargetAlgorithm:
         assert algo.value in _SYSTEM_PROMPT
+
+
+def test_narrative_prompt_forbids_format_prose() -> None:
+    """지문 형식서술 금지 규율이 system prompt 에 명시 — QA anchor 0/3 의 공통
+    blocker(description 'E V'·0-indexed 서술 ↔ io_contract canonical 렌더 모순)의
+    원천 차단 (생성 구조화 > 사후 게이트). 규율 문구 드리프트 방지."""
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT
+
+    assert "인덱싱" in _SYSTEM_PROMPT  # 0-indexed/1-indexed 서술 금지
+    assert "줄 구성" in _SYSTEM_PROMPT  # 입력 줄 구조/순서 서술 금지
+    assert "단일 진실원천" in _SYSTEM_PROMPT  # 형식은 io_contract 렌더가 담당
+    assert "예시" in _SYSTEM_PROMPT  # 구체 입력/출력 예시 블록 금지 (샘플이 담당)
