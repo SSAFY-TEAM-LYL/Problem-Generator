@@ -29,6 +29,12 @@ from .narrative import (
     NarrativeLLM,
     make_narrative_node,
 )
+from .qa_aggregator import make_qa_aggregator_node
+from .qa_reviewer import (
+    AnthropicQAReviewerLLM,
+    QAReviewerLLM,
+    make_qa_reviewer_node,
+)
 from .spec_bridge import (
     AnthropicSpecBridgeLLM,
     SpecBridgeLLM,
@@ -46,12 +52,14 @@ __all__ = [
     "AnthropicFormalizerLLM",
     "AnthropicGeneratorDesignerLLM",
     "AnthropicNarrativeLLM",
+    "AnthropicQAReviewerLLM",
     "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
     "GeneratorDesignerLLM",
     "NarrativeLLM",
+    "QAReviewerLLM",
     "SpecBridgeLLM",
     "StrategistLLM",
     "make_faithfulness_node",
@@ -59,6 +67,8 @@ __all__ = [
     "make_generator_designer_node",
     "make_input_generator_node",
     "make_narrative_node",
+    "make_qa_aggregator_node",
+    "make_qa_reviewer_node",
     "make_spec_bridge_node",
     "make_strategist_node",
     "make_suite_assembler_node",

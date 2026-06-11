@@ -8,11 +8,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ipe.v1.schema import SolutionCandidate, TargetAlgorithm
+from ipe.v1.schema import QAReview, SolutionCandidate, TargetAlgorithm
 from ipe.v2.state import (
     DEFAULT_MAX_ITERATIONS,
     V2State,
     _merge_candidates,
+    _merge_qa_reviews,
     initial_v2_state,
 )
 
@@ -81,3 +82,26 @@ def test_merge_candidates_dedups_reemit() -> None:
     b = _cand("sonnet", idx=1)
     merged = _merge_candidates([a, b], [a, b])
     assert merged == [a, b]  # 중복 없음
+
+
+# ---------- qa_reviews reducer 채널 (M5 step2) ----------
+
+
+def test_initial_state_qa_channels_default_empty() -> None:
+    s = initial_v2_state("r", TargetAlgorithm.BFS)
+    assert s.qa_reviews == []
+    assert s.qa_report is None
+
+
+def test_merge_qa_reviews_accumulates_distinct() -> None:
+    a = QAReview(kind="ambiguity", passed=True)
+    b = QAReview(kind="leakage", passed=False)
+    assert _merge_qa_reviews([a], [b]) == [a, b]
+
+
+def test_merge_qa_reviews_dedups_reemit() -> None:
+    """4 병렬 리뷰어 fan-out 후 하류 full-state 재emit 에도 멱등 (candidates 동일)."""
+    a = QAReview(kind="ambiguity", passed=True)
+    b = QAReview(kind="fairness", passed=True)
+    merged = _merge_qa_reviews([a, b], [a, b])
+    assert merged == [a, b]
