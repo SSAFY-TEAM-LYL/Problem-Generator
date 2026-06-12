@@ -218,3 +218,20 @@ def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
     assert "다속성" in _FMT  # 간선 다속성 설계 금지
     assert "최소 규모" in _SPEC  # composed 샘플 크기 강제
     assert "검산" in _SPEC  # 합성 절차 단계별 수행
+
+
+def test_boundary_semantics_rules_in_prompts() -> None:
+    """경계/퇴화 케이스 의미론 규율 — step4 재측정(N=3)의 QA 도달 2/2 공통
+    ambiguity blocker(시작==끝 반환값·도달불가 vs 예산초과 구분·다중 간선 처리·
+    0 값 해석 미정의) 대응. back-route revise 로 비수선이었던 근본 원인 = 의미
+    **결정 자체가 blueprint 에 부재** → ① formalizer: 퇴화/경계 입력의 출력
+    의미를 output_invariants 로 명시 결정 강제 ② narrative: 그 의미를 지문에
+    의미 수준으로 서술(형식 서술 아님). 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FMT
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT as _NARR
+
+    assert "퇴화" in _FMT  # 퇴화/경계 케이스 의미 결정 강제
+    assert "도달 불가" in _FMT  # 대표 케이스: 도달불가 출력값
+    assert "다중 간선" in _FMT  # 대표 케이스: 중복 간선 처리
+    assert "퇴화" in _NARR  # 정의된 퇴화 의미를 지문에 서술
+    assert "출력 의미의 일부" in _NARR  # 형식 서술 금지와의 구분 근거
