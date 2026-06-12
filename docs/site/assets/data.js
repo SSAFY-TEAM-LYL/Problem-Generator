@@ -10,9 +10,9 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "d43c056",          // main HEAD — 경계/퇴화 케이스 의미론 규율 (#140), v2 M0~M6 전부 병합
+    mainCommit: "5fb370f",          // main HEAD — M6 후 견고화(#141~#143) + B2B API 계약 v1.0 문서화
     devBranch: "— (v2 M0~M6 main 병합 완료)",
-    devCommit: "d43c056",           // 활성 dev 트랙 없음 — 모든 v2 마일스톤 main 통합
+    devCommit: "5fb370f",           // 활성 dev 트랙 없음 — 모든 v2 마일스톤 main 통합
     updated: "2026-06-12",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 682,                     // v1 557 + v2 125 collected (이번 주기 collect-only 실측; v0-root 375·integration 56·sandbox 22·e2e 5 별도)
+    tests: 694,                     // v1 557 + v2 137 collected (이번 주기 collect-only 실측; #141~143 으로 v2 +12)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 B2B fresh 파이프라인. 다음은 정리 국면(CLI 패키징·leakage corpus·docs).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화하고 B2B 백엔드 API 계약 v1.0 을 문서화했다. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 B2B fresh 파이프라인. 다음은 정리 국면(CLI 패키징·leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -120,7 +120,6 @@ window.IPE_DATA = {
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 106, title: "v1.0 anchor freeze — site + README narrative",  type: "docs", impact: "91.2% anchor 동결, 측정 중단 판단" },
     { num: 109, title: "M1 — Tier B 검증 메커니즘 + 측정 증거 (19-algo)", type: "feat", impact: "differential+metamorphic+tier classifier, Tier B≈Tier A 실측" },
     { num: 113, title: "M2 — full mode 실 LLM e2e",                      type: "test", impact: "distinct-model golden×2 + brute 통과" },
     { num: 120, title: "M3 — 모델링 layer 그래프 배선 (step 5, M3 종료)", type: "feat", impact: "알고리즘 은닉 4노드 graph 통합 완료" },
@@ -138,6 +137,9 @@ window.IPE_DATA = {
     { num: 137, title: "M6 — 기법 합성 step1-2 (Tier B 스위치 + 실현 규율)", type: "feat", impact: "2~3 알고리즘 조합 합성 진입" },
     { num: 139, title: "M6 — step4 간선 다속성 금지 + composed 샘플 검산", type: "feat", impact: "다속성 모순 소멸 + composed verification 회복" },
     { num: 140, title: "v2 — 경계/퇴화 케이스 의미론 규율 (formalizer invariants)", type: "feat", impact: "명시 결정 + narrative 의미 서술" },
+    { num: 141, title: "v2 — spec 저작 가드 (structured output 전멸 → fail_spec_authoring)", type: "feat", impact: "crash 대신 결정론적 fail 종료" },
+    { num: 142, title: "v2 — composition 다양성 규율 (내장 기법 장식·최빈 패턴 고정 금지)", type: "feat", impact: "합성 다양성 ↑ — leakage 직결 변수 제어" },
+    { num: 143, title: "v2 — spec_bridge 중괄호 이스케이프 + 전 노드 템플릿 변수 무결성 게이트", type: "fix", impact: "프롬프트 템플릿 변수 누락 결정론 차단" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
@@ -181,8 +183,8 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "v1 557 + v2 125 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
-    { id: "NFR-7",  title: "비용 효율",   metric: "list price upper bound, 실제 청구 ≈ 0.4x (Tier+cache)" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 557 + v2 137 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
+    { id: "NFR-7",  title: "비용 효율",   metric: "1 run 실측 $0.4~0.6 (백엔드 계약 §5 정정), list price 대비 ≈0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
     { id: "NFR-10", title: "재현성",      metric: "seed-deterministic 검증 + replay 100% + run-id 격리 outputs" },
@@ -207,7 +209,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 557 + v2 125 collected" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 557 + v2 137 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
