@@ -108,8 +108,14 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
         sum(len(r.findings) for r in final.qa_reviews) if final.qa_reviews else 0
     )
     suite_size = len(final.test_suite.cases) if final.test_suite is not None else None
+    composition = (
+        [a.value for a in final.blueprint.composition]
+        if final.blueprint is not None
+        else None
+    )
     print(
         f"\n[e2e-qa-anchor] final_status={final.final_status} "
+        f"composition={composition} "  # M6 step3: 합성 경로 여부 (Tier B 스위치 근거)
         f"suite_cases={suite_size} qa_verdicts={verdicts} "
         f"findings_total={findings} iteration={final.iteration} "
         f"qa_routebacks={final.qa_routebacks}"
