@@ -31,6 +31,7 @@ from ipe.v2.state import initial_v2_state
 # full 파이프라인의 valid terminal — success + 각 단계 거부.
 VALID_FINAL_STATUSES = {
     "success",
+    "fail_spec_authoring",  # spec_bridge structured output 전멸 (가드 종료)
     "fail_synthesis_rejected",  # golden/brute 불합의
     "fail_verification",  # 합의했으나 canonical 이 sample 불일치
     "fail_faithfulness",  # narrative round-trip 왜곡

@@ -136,3 +136,35 @@ def test_spec_bridge_preserves_original_state() -> None:
     assert out.spec is not None
     assert out.blueprint is state.blueprint
     assert out.narrative is state.narrative
+
+
+# ---------- LLM 저작 실패 가드 (BS-run3 실측 crash 대응) ----------
+
+
+class _RaisingSpecBridgeLLM:
+    """structured output 5-retry 전멸을 모사 — author() 가 예외를 던진다."""
+
+    def author(self, state: V2State) -> ProblemSpec:
+        msg = "structured output 거부 — io_contract 가 string"
+        raise RuntimeError(msg)
+
+
+def test_spec_bridge_llm_failure_records_error_without_crash() -> None:
+    """LLM 저작 실패(BS-run3: ValidationError 5-retry 전멸이 graph 밖 crash 로
+    전파)가 노드 가드로 회수 — spec=None 유지 + spec_authoring_error 에 예외
+    요약 기록 (silent swallow 금지, 라우터가 fail_spec_authoring 으로 종료)."""
+    out = make_spec_bridge_node(_RaisingSpecBridgeLLM())(_state())
+
+    assert out.spec is None
+    assert out.spec_authoring_error is not None
+    assert "RuntimeError" in out.spec_authoring_error
+    assert "structured output" in out.spec_authoring_error
+
+
+def test_spec_bridge_precondition_violation_still_raises() -> None:
+    """blueprint/narrative 부재는 LLM 신뢰성이 아니라 배선 버그 — 가드 대상이
+    아니며 기존대로 즉시 raise (오류 은폐 방지)."""
+    bare = _state(with_blueprint=False)
+    node = make_spec_bridge_node(_RaisingSpecBridgeLLM())
+    with pytest.raises(ValueError, match="blueprint"):
+        node(bare)
