@@ -249,6 +249,10 @@ def _execute_run_subprocess(
     """
     started_at = datetime.now(UTC).isoformat(timespec="seconds")
     t0 = time.monotonic()
+    # retry 시 기존 failed 파일이 남아 있으면 자식 사망 후 stale 을 신선한
+    # 결과로 오인한다(lis r3 실측: 이전 timestamp/elapsed 그대로 반환) — 선삭제로
+    # '존재하는 파일 = 이번 자식이 쓴 것' 불변식 확보.
+    task.path.unlink(missing_ok=True)
     cmd = [
         sys.executable,
         "-m",

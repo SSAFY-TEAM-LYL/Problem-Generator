@@ -438,6 +438,45 @@ def test_apply_memory_limit_zero_is_noop() -> None:
     batch_mod._apply_memory_limit(0)  # 0=무제한 — rlimit 미접촉, 예외 없음
 
 
+def test_retry_does_not_return_stale_failed_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """retry 재실행에서 자식이 또 죽어도 stale 파일을 신선한 결과로 오인 금지."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+    (tmp_path / "dijkstra_run1.json").write_text(
+        json.dumps(
+            {
+                "batch": {"seed": "dijkstra", "elapsed_s": 738.9},
+                "status": "failed",
+                "error": "OLD-STALE-RECORD",
+            }
+        )
+    )
+
+    class _Proc:
+        returncode = -9
+        stderr = ""
+
+    monkeypatch.setattr(batch_mod.subprocess, "run", lambda *a, **k: _Proc())
+
+    code = main(
+        [
+            "--out",
+            str(tmp_path),
+            "--seeds",
+            "dijkstra",
+            "--runs-per-seed",
+            "1",
+            "--retry-failed",
+        ]
+    )
+
+    assert code == 1
+    data = _read(tmp_path, "dijkstra_run1.json")
+    assert "OLD-STALE-RECORD" not in data["error"]  # stale 반환 금지
+    assert "rc=-9" in data["error"]  # 이번 자식의 신선한 증거
+
+
 # ---------- 비용 계산 ----------
 
 
