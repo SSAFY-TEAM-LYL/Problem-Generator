@@ -1,0 +1,253 @@
+# IPE 파이프라인 ↔ 서비스 백엔드 API 계약 (v1.0)
+
+> **문서 상태**: 확정 — 2026-06-12, 파이프라인 측 작성.
+> **대상 독자**: 서비스 백엔드(BOJ 유사) 구현 개발자.
+> **변경 절차**: 본 문서가 계약의 단일 진실원천. 필드 추가는 minor(하위호환),
+> 제거/의미 변경은 major + 양측 합의.
+
+---
+
+## 0. 시스템 경계와 책임 분리
+
+```
+[서비스 백엔드 (별도 서버)]                  [IPE 파이프라인 서버 (stateless)]
+  문제/채점셋/제출/유저 DB  ◀── 영속화 전담      문제 생성 (LLM + 검증 + QA)
+  채점기 (유저 제출 채점)                       생성 중 검증용 sandbox (내부)
+  생성 배치 워커            ── HTTP/JSON ──▶    API 3 엔드포인트만 노출
+  검수 큐 → 공개
+```
+
+| 책임 | 소유 |
+|---|---|
+| 문제 생성·검증·QA·채점셋 조립 | 파이프라인 |
+| 문제·채점셋·제출 **영속화** | 백엔드 DB |
+| 유저 제출 **채점** | 백엔드 채점기 |
+| 생성 요청 큐잉·재시도·배치 스케줄 | 백엔드 워커 |
+| 검수(draft→published) 워크플로 | 백엔드 |
+
+파이프라인은 **무상태**: 생성 결과를 영속하지 않으며, 진행 중 job 상태만
+메모리에 유지한다 (서버 재시작 시 유실 — §3 재시도 규약으로 흡수).
+
+---
+
+## 1. 공통 규약
+
+- Base URL: 배포 시 공유 (예: `https://pipeline.internal:8000`)
+- 인증: 모든 요청에 `X-API-Key: <static key>` 헤더. 불일치 시 `401`.
+- Content-Type: `application/json; charset=utf-8`
+- 모든 텍스트는 UTF-8. 문제 지문은 한국어.
+- 버저닝: URL prefix `/v1` + 패키지 내 `meta.package_version`.
+
+---
+
+## 2. 엔드포인트
+
+### 2.1 `POST /v1/problems/generate` — 생성 job 시작
+
+요청:
+
+```jsonc
+{
+  "mode": "hidden",                 // "hidden"(모의고사·은닉) | "direct"(토픽드릴·알고리즘 공개)
+  "seed_algorithm": "dijkstra",     // §2.4 enum 중 하나 (필수)
+  "with_qa": true,                  // 기본 true — QA 4관점 게이트 포함 (권장)
+  "max_qa_routebacks": 1,           // QA fail 시 자동 회수 시도 횟수 (기본 1)
+  "idempotency_key": "uuid-..."     // 필수 — 재시도 이중과금 방지
+}
+```
+
+응답:
+
+- `202 Accepted` `{ "job_id": "..." }`
+- 동일 `idempotency_key` 의 job 이 살아 있으면 **기존 `job_id` 를 반환** (202).
+  서버 재시작 후에는 idempotency 미보장 — 같은 key 라도 새 job 이 생성될 수 있다.
+- `422` 요청 스키마 위반 (unknown mode/seed 등)
+- `429` 동시 생성 슬롯 초과 — `Retry-After: <sec>` 헤더 포함. 워커는 backoff 후 재요청.
+
+### 2.2 `GET /v1/jobs/{job_id}` — 상태/결과 조회
+
+```jsonc
+// 진행 중
+{ "status": "running" }
+
+// 완료 — 성공 (출하 가능)
+{
+  "status": "completed",
+  "final_status": "success",
+  "package": { /* §2.5 ProblemPackage */ }
+}
+
+// 완료 — QA 게이트만 불통 (문제+채점셋은 완성 — draft 검수 대상)
+{
+  "status": "completed",
+  "final_status": "fail_qa",
+  "package": { /* §2.5 — qa.overall_pass=false, verdicts/findings 포함 */ }
+}
+
+// 완료 — 그 외 fail (산출물 미완성 — 패키지 없음, 재시도 대상)
+{
+  "status": "completed",
+  "final_status": "fail_verification",   // §2.3 참조
+  "package": null,
+  "diagnostics": { "summary": "...", "detail": "..." }
+}
+```
+
+- `404` — 모르는 job_id (서버 재시작으로 유실 포함). 워커는 **새 generate 로 재시도**.
+- 폴링 권장 주기: 15~30초 (1 run 은 2~6분 소요).
+
+### 2.3 `final_status` 의미론 — **fail 은 에러가 아니다**
+
+생성은 확률적 공정이며 fail 은 게이트가 일한 결과다. 워커는 fail 이면
+같은 seed 로 새 run 을 시도하면 된다 (권장 재시도 예산: seed 당 3~5회).
+
+| final_status | 의미 | package | 백엔드 처리 |
+|---|---|---|---|
+| `success` | 검증+채점셋+QA 전부 통과 | 포함 | `draft` 적재 (또는 정책상 바로 `review`) |
+| `fail_qa` | 문제·채점셋 완성, QA 4관점 중 일부 불통 | **포함** (QA 리포트 동봉) | `draft` 적재 → **사람 검수로 구제 판단** |
+| `fail_verification` | 정답 코드가 샘플 검증 불통 | null | 재시도 |
+| `fail_synthesis_rejected` | 독립 정답 후보 간 불합의 | null | 재시도 |
+| `fail_faithfulness` | 지문이 형식 계약을 왜곡 | null | 재시도 |
+| `fail_spec_authoring` | 문제 명세 LLM 산출 실패 | null | 재시도 |
+| `fail_budget_exhausted` | 내부 반복 예산 소진 | null | 재시도 |
+
+> `fail_qa` 구제 운영 권고: leakage(유출) 단독 fail 은 판정 변동이 관측된
+> 클래스라 사람 검수 가치가 높다. ambiguity(모호성) fail 은 findings 를 보고
+> 지문 수동 보정 가능 여부로 판단.
+
+### 2.4 `seed_algorithm` enum (19종 — 전부 허용)
+
+```
+dijkstra, bfs, bellman_ford, floyd_warshall, kruskal_mst, max_flow,
+toposort, union_find, sort, lis, knapsack, coin_change, binary_search,
+two_sum, segtree, fenwick, heap, sieve, string_match
+```
+
+초기 문제 은행 배치는 출하 실측이 축적된 시드(`dijkstra` 등 graph 계열,
+`sort`, `bfs`)부터 채우고 나머지로 점진 확장 권고 (시드별 출하율 변동 존재).
+
+### 2.5 ProblemPackage 스키마
+
+```jsonc
+{
+  "problem": {
+    "title": "상수도 배관망 점검",
+    "description": "…(지문 전문, 한국어. hidden 모드면 알고리즘명 미포함)…",
+    "io_contract": {
+      "input_format": "…(줄 단위 형식 명세 — 코드가 렌더한 canonical, 신뢰 가능)…",
+      "output_format": "단일 정수 한 줄",
+      "example_separator": "newline"
+    },
+    "constraints": [
+      { "name": "V", "min_value": 2, "max_value": 100000, "description": "" }
+    ],
+    "sample_testcases": [
+      { "input_text": "3 2\n1 2 5\n2 3 7\n1 3", "expected_output": "12", "description": "" }
+    ]
+  },
+  "test_suite": {
+    "cases": [
+      {
+        "input_text": "…",
+        "expected_output": "…",            // 항상 채워짐 (assembled 만 출하)
+        "category": "scale:small",          // scale:* | edge:* — 분포 진단용
+        "golden_elapsed_ms": 42             // 이 케이스의 golden 실행시간 (TL 산정 근거)
+      }
+    ],
+    "origin": "claude-opus-4-7"             // expected 를 채운 검증된 golden 의 출처
+  },
+  "meta": {
+    "package_version": "1.0",
+    "mode": "hidden",                       // "hidden" | "direct"
+    "hidden_algorithm": "dijkstra",         // ⚠ 내부 전용 — 유저 응답에서 제외할 것
+    "composition": ["union_find", "toposort"],  // ⚠ 내부 전용 (합성 기법)
+    "domain": "waterworks",
+    "golden_language": "python",            // TL 언어 보정 기준
+    "qa": {
+      "overall_pass": true,
+      "verdicts": { "ambiguity": true, "fairness": true, "leakage": true, "difficulty": true },
+      "findings": [                          // fail_qa 일 때 검수 근거 (전문)
+        { "kind": "ambiguity", "severity": "blocker", "description": "…" }
+      ]
+    },
+    "verification": { "overall_pass": true },
+    "timing": { "max_golden_elapsed_ms": 180 },   // suite 전 케이스 중 최대
+    "generation": { "elapsed_s": 272, "iteration": 1, "qa_routebacks": 1 }
+  }
+}
+```
+
+필드 규약:
+
+- **`meta.hidden_algorithm`/`meta.composition` 은 유저에게 절대 노출 금지**
+  (노출 = 은닉·유출 방지 설계 무력화). DB 내부 컬럼으로만.
+- `direct` 모드에서는 지문이 알고리즘을 명시할 수 있음 — 노출 정책은 백엔드
+  product 단 결정.
+- `test_suite.cases` 수는 보장값 없음 (관측 40~60). 케이스 순서는 의미 없음.
+- 난이도 필드는 **제공하지 않음** (자동 calibration 미구현) — 백엔드에서 수동
+  태깅하거나 미표기.
+
+### 2.6 `GET /healthz`
+
+`200 { "status": "ok" }` — 로드밸런서/모니터링용. 인증 불요.
+
+---
+
+## 3. 백엔드 구현 규약 (워커)
+
+1. **재시도**: `429`→backoff 재요청 / `404`(job 유실)→새 generate / `fail_*`→
+   재시도 예산 내 새 generate / `5xx`·timeout→지수 backoff 후 재시도 (이때만
+   장애로 집계).
+2. **idempotency_key**: 워커 재시작 대비 요청마다 신규 UUID 발급·저장.
+3. **원본 보관 권장**: 수신한 package 원문(jsonb)을 `generation_requests` 류
+   테이블에 보관 — 감사/재검수/재적재 근거.
+4. **DB 최소 스키마 제안**:
+   - `problems(id, title, description, input_format, output_format,
+     constraints jsonb, samples jsonb, internal_meta jsonb, status
+     draft|review|published, time_limit_ms, created_at)`
+   - `test_cases(problem_id, seq, input text, expected text, category)`
+   - `generation_requests(idempotency_key, seed, mode, job_id, final_status,
+     attempts, raw_package jsonb, created_at)`
+
+---
+
+## 4. 채점 연동 규약
+
+- **비교 방식**: 줄 단위 exact match. 각 줄의 trailing whitespace 와 출력
+  끝의 trailing newline 은 무시(정규화 후 비교). 그 외 공백·대소문자 변형 없음
+  — expected 는 검증된 golden 의 stdout 그대로라 형식이 안정적.
+- **유일답 보장**: 파이프라인이 생성 단계에서 유일답을 강제하므로 special
+  judge 불필요.
+- **TL 산정**: `time_limit_ms = max(기본하한, meta.timing.max_golden_elapsed_ms × 배수)`
+  권장 배수 3~5, 기본하한 1000ms. golden 은 Python(`meta.golden_language`) —
+  타 언어 허용 시 언어별 배수 보정은 백엔드 정책.
+- **ML(메모리)**: 파이프라인 미제공 — 백엔드 고정 기본값(예: 256MB) 적용.
+
+---
+
+## 5. 운영 파라미터·용량 계획
+
+| 항목 | 값 |
+|---|---|
+| 1 run 소요 | 2~6분 (관측 74~343s) |
+| 1 run 비용 | ~$3.5 (QA 포함) |
+| run 당 출하 성공률 | 변동 30~50% (시드 의존) |
+| **출하 문제 1개당 실효** | **~$7~12, 10~20분** |
+| 파이프라인 동시 생성 슬롯 | 2~3 (초과 시 429) |
+
+→ 런칭에 필요한 문제 수 N 이 정해지면 `N × 15분 / 슬롯수` 로 배치 기간 역산.
+런칭 직전 몰아치지 말고 **지금부터 배치 적재 시작** 권장.
+
+---
+
+## 6. 파이프라인 측 구현 상태와 일정
+
+| 항목 | 상태 |
+|---|---|
+| 생성 파이프라인 (검증+채점셋+QA+자동회수) | ✅ 완성, 실 LLM success run 보유 |
+| `fail_spec_authoring` 가드 (crash 무발생 보장) | ✅ 머지됨 |
+| API 서버 (본 계약 3 엔드포인트) | 🔨 Slice 1 — 계약 확정 후 즉시 (반나절~1일) |
+| `golden_elapsed_ms` 메타 | 🔨 Slice 1 에 포함 |
+| 컨테이너/배포 | 🔨 Slice 2 (반나절) |
+
+문의: 파이프라인 측 (본 repo). 계약 개정은 본 문서 PR 로.
