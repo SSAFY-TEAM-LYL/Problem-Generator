@@ -92,6 +92,11 @@ class GeneratedTestCase(BaseModel):
     expected_output: str | None = Field(
         default=None, description="None=golden 미실행(pending), str=채워짐"
     )
+    golden_elapsed_ms: int | None = Field(
+        default=None,
+        ge=0,
+        description="이 케이스의 golden 실행시간 — 백엔드 TL 산정 근거 (계약 v1.0)",
+    )
 
 
 class TestSuite(BaseModel):

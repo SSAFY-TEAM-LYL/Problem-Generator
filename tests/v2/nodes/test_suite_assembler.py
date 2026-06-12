@@ -67,6 +67,15 @@ def test_assembler_node_fills_and_sets_origin() -> None:
     assert [c.expected_output for c in suite.cases] == ["out:1", "out:2"]
 
 
+def test_assembler_records_golden_elapsed_ms() -> None:
+    """B2C 계약 v1.0: 케이스별 golden 실행시간을 기록 — 백엔드가 문제별
+    TL(시간제한)을 max_golden_elapsed_ms × 배수로 산정하는 근거."""
+    out = make_suite_assembler_node(runner=_EchoRunner())(_state())
+    suite = out.test_suite
+    assert suite is not None
+    assert [c.golden_elapsed_ms for c in suite.cases] == [1, 1]
+
+
 def test_assembler_node_requires_suite_and_attempt() -> None:
     node = make_suite_assembler_node(runner=_EchoRunner())
     with pytest.raises(ValueError, match="test_suite"):
