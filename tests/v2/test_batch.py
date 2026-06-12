@@ -413,7 +413,13 @@ def test_production_run_no_result_file_synthesizes_failed(
         returncode = 1
         stderr = "MemoryError: boom"
 
-    monkeypatch.setattr(batch_mod.subprocess, "run", lambda *a, **k: _Proc())
+    captured: dict[str, Any] = {}
+
+    def fake_run(cmd: Any, **kwargs: Any) -> Any:
+        captured["cmd"] = cmd
+        return _Proc()
+
+    monkeypatch.setattr(batch_mod.subprocess, "run", fake_run)
 
     code = main(
         ["--out", str(tmp_path), "--seeds", "dijkstra", "--runs-per-seed", "1"]
@@ -424,6 +430,12 @@ def test_production_run_no_result_file_synthesizes_failed(
     assert data["status"] == "failed"
     assert "no result file" in data["error"]
     assert "MemoryError" in data["error"]
+    # 자식 자기 메모리제한 플래그가 스폰 cmd 에 전파되는지 (rc=-9 증거소실 방지)
+    assert "--mem-limit-gb" in captured["cmd"]
+
+
+def test_apply_memory_limit_zero_is_noop() -> None:
+    batch_mod._apply_memory_limit(0)  # 0=무제한 — rlimit 미접촉, 예외 없음
 
 
 # ---------- 비용 계산 ----------

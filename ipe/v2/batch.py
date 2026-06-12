@@ -72,6 +72,27 @@ class _RunTask:
     run_id: str
 
 
+def _apply_memory_limit(gb: int) -> None:
+    """single-run 자식의 자기 메모리 제한 (best-effort).
+
+    실측: 일부 run 의 입력 생성이 메모리 폭주 → OS SIGKILL(rc=-9) 로 증거·usage
+    까지 소실 + 12~27분 슬롯 점유 + 스왑으로 머신 전체 저하. 자기제한을 걸면
+    수 분 내 MemoryError 로 전환 → 격리 핸들러가 failed 로 기록(빠른 실패+증거).
+    macOS 는 RLIMIT_AS 를 안 지키는 경우가 있어 DATA 도 함께 건다. fork-안전성
+    문제(preexec_fn+threads) 회피를 위해 부모가 아닌 자식이 스스로 건다.
+    """
+    if gb <= 0:
+        return
+    import resource
+
+    limit = gb * 1024**3
+    for name in ("RLIMIT_DATA", "RLIMIT_AS"):
+        try:
+            resource.setrlimit(getattr(resource, name), (limit, limit))
+        except (ValueError, OSError):  # pragma: no cover — OS 별 미지원 무해
+            continue
+
+
 def _parse_seeds(value: str) -> list[TargetAlgorithm]:
     """``--seeds`` 파싱 — 'all'=전체 enum, 그 외 comma-sep enum 값."""
     if value.strip().lower() == "all":
@@ -216,6 +237,7 @@ def _execute_run_subprocess(
     mode: _Mode,
     max_qa_routebacks: int,
     timeout_s: int,
+    mem_limit_gb: int,
 ) -> dict[str, Any]:
     """production run 을 ``--single-run`` 자식 프로세스로 격리 실행.
 
@@ -243,6 +265,8 @@ def _execute_run_subprocess(
         mode,
         "--max-qa-routebacks",
         str(max_qa_routebacks),
+        "--mem-limit-gb",
+        str(mem_limit_gb),
     ]
     error: str
     try:
@@ -294,6 +318,7 @@ def _execute_and_persist(
     mode: _Mode,
     max_qa_routebacks: int,
     timeout_s: int,
+    mem_limit_gb: int,
 ) -> dict[str, Any]:
     """run 실행+영속화 — 주입 factory(테스트)는 in-thread, production 은 subprocess 격리."""
     if graph_factory is not None:
@@ -303,7 +328,11 @@ def _execute_and_persist(
         _write_json(task.path, body)
         return body
     return _execute_run_subprocess(
-        task, mode=mode, max_qa_routebacks=max_qa_routebacks, timeout_s=timeout_s
+        task,
+        mode=mode,
+        max_qa_routebacks=max_qa_routebacks,
+        timeout_s=timeout_s,
+        mem_limit_gb=mem_limit_gb,
     )
 
 
@@ -464,6 +493,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="(internal) 단일 run 자식 모드 — 부모 배치가 격리 실행용으로 스폰",
     )
     parser.add_argument(
+        "--mem-limit-gb",
+        type=int,
+        default=4,
+        help="single-run 자식 자기 메모리 제한 GiB, 0=무제한 (default: 4)",
+    )
+    parser.add_argument(
         "--run-index", type=int, default=1, help="(internal) --single-run 의 인덱스"
     )
     parser.add_argument(
@@ -501,6 +536,9 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
             run_id=args.run_id
             or f"bank-{seed.value}-r{args.run_index}-{uuid.uuid4().hex[:6]}",
         )
+        if graph_factory is None:
+            # production 자식만 자기제한 — 주입 테스트 경로는 호스트 프로세스라 금지.
+            _apply_memory_limit(args.mem_limit_gb)
         factory = (
             graph_factory if graph_factory is not None else _production_graph_factory
         )
@@ -543,6 +581,7 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
                 mode=mode,
                 max_qa_routebacks=args.max_qa_routebacks,
                 timeout_s=args.run_timeout,
+                mem_limit_gb=args.mem_limit_gb,
             ): t
             for t in tasks
         }
