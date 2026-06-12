@@ -63,7 +63,7 @@ typed ProblemSpec (구조화된 tool call) 로 반환:
 catch 하므로 **불확실하면 더 작고 명백한 인스턴스**로 작성.
 
 구조 주의 (tool schema 검증에서 거부되는 흔한 오류 — 재시도 전멸 시 전체 실패):
-- io_contract 는 **중첩 객체**다: {"input_format": "...", "output_format": "..."} —
+- io_contract 는 **중첩 객체**다: {{"input_format": "...", "output_format": "..."}} —
   문자열 하나로 넣지 말 것. output_format 은 io_contract **안**의 필드다 — 같은
   이름의 **최상위** 필드를 만들면 스키마에 없는 필드로 거부된다.
 - sample_testcases 는 필수 필드 — **누락 금지** (한 개라도 반드시 채울 것).
