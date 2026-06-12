@@ -156,6 +156,19 @@ def test_strategist_prompt_lists_all_valid_algorithms() -> None:
         assert algo.value in _SYSTEM_PROMPT
 
 
+def test_strategist_prompt_encourages_composition_diversity() -> None:
+    """composition 다양성 규율 — 실측: dijkstra seed 에서 heap+binary_search 가
+    9/9 고정, 그 고정이 leakage fail('임계값 이분탐색+최단경로 고전 동형')과
+    직결. ① reduction_core 표준 구현에 내장된 기법(예: dijkstra 의 heap)은
+    합성 강제력 없는 장식 — composition 금지 ② 최빈 패턴(임계값 feasibility
+    이분탐색) 고정 금지 — 출력 의미를 바꾸는 다른 합성 축 제시. 드리프트 방지."""
+    from ipe.v2.nodes.strategist import _SYSTEM_PROMPT
+
+    assert "내장된" in _SYSTEM_PROMPT  # 정석 구현 내장 기법 = 장식, 금지
+    assert "고정되지 말 것" in _SYSTEM_PROMPT  # 최빈 패턴 반복 금지
+    assert "과사용" in _SYSTEM_PROMPT  # binary_search 임계값 패턴 경고
+
+
 def test_narrative_prompt_forbids_format_prose() -> None:
     """지문 형식서술 금지 규율이 system prompt 에 명시 — QA anchor 0/3 의 공통
     blocker(description 'E V'·0-indexed 서술 ↔ io_contract canonical 렌더 모순)의
