@@ -93,6 +93,15 @@ def test_initial_state_qa_channels_default_empty() -> None:
     assert s.qa_report is None
 
 
+def test_initial_state_qa_routeback_budget_defaults() -> None:
+    """back-route 예산 채널(B) — 기본 0 소비/1 허용, initial 인자로 조정 가능."""
+    s = initial_v2_state("r", TargetAlgorithm.BFS)
+    assert s.qa_routebacks == 0
+    assert s.max_qa_routebacks == 1
+    s2 = initial_v2_state("r", TargetAlgorithm.BFS, max_qa_routebacks=0)
+    assert s2.max_qa_routebacks == 0
+
+
 def test_merge_qa_reviews_accumulates_distinct() -> None:
     a = QAReview(kind="ambiguity", passed=True)
     b = QAReview(kind="leakage", passed=False)

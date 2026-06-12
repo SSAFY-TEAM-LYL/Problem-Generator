@@ -31,16 +31,22 @@ def route_after_faithfulness(state: V2State) -> FaithfulnessDecision:
     return "regen"
 
 
-QADecision = Literal["end_success", "end_qa"]
+QADecision = Literal["end_success", "routeback", "end_qa"]
 
 
 def route_after_qa(state: V2State) -> QADecision:
-    """QA aggregator 후 출하 게이트 (M5 step3, RFC N11).
+    """QA aggregator 후 출하 게이트 + back-route (M5 RFC N11).
 
-    ``qa_report.overall_pass`` 만 출하 — report 부재/실패는 ``end_qa``(fail_qa).
-    back-route(실패 kind 별 스테이지 재진입)는 후속 step — 단발 게이트로 시작.
+    1. ``qa_report.overall_pass`` → ``end_success`` (출하).
+    2. fail 이고 back-route 예산 잔여(``qa_routebacks < max_qa_routebacks``) →
+       ``routeback`` — narrative revise 재진입 (findings 피드백, 검증·suite 보존).
+    3. fail 이고 예산 소진(또는 report 부재=집계 불능) → ``end_qa``(fail_qa).
     """
     r = state.qa_report
-    if r is not None and r.overall_pass:
+    if r is None:
+        return "end_qa"
+    if r.overall_pass:
         return "end_success"
+    if state.qa_routebacks < state.max_qa_routebacks:
+        return "routeback"
     return "end_qa"

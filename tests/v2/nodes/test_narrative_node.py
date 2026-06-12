@@ -18,6 +18,9 @@ from ipe.v1.schema import (
     NarrativeDraft,
     OutputInvariant,
     ProblemBlueprint,
+    QAFinding,
+    QAReport,
+    QAReview,
     TargetAlgorithm,
 )
 from ipe.v2.nodes import make_narrative_node
@@ -104,3 +107,47 @@ def test_narrative_preserves_original_state() -> None:
     assert state.narrative is None  # 원본 불변
     assert out.narrative is not None
     assert out.blueprint is state.blueprint  # blueprint 보존
+
+
+def test_narrative_user_prompt_includes_qa_feedback_on_routeback() -> None:
+    """back-route(B) 재진입 시 직전 QA 실패 findings 가 user prompt 에 렌더 —
+    blind re-roll 이 아니라 지적 해소 방향의 재작성. 첫 pass/통과 report 는 미포함."""
+    from ipe.v2.nodes.narrative import _build_user_prompt
+
+    base = _state_with_blueprint()
+    assert "QA" not in _build_user_prompt(base, hidden=True)
+
+    failed = base.model_copy(
+        update={
+            "qa_report": QAReport(
+                reviews=(
+                    QAReview(
+                        kind="ambiguity",
+                        passed=False,
+                        rationale="형식 모순",
+                        findings=(
+                            QAFinding(
+                                severity="blocker",
+                                description="입력 형식 모순 발견",
+                            ),
+                        ),
+                    ),
+                    QAReview(kind="fairness", passed=True),
+                )
+            )
+        }
+    )
+    prompt = _build_user_prompt(failed, hidden=True)
+    assert "QA" in prompt  # 피드백 섹션 존재
+    assert "ambiguity" in prompt  # 실패 kind
+    assert "입력 형식 모순 발견" in prompt  # finding 본문
+    assert "fairness" not in prompt  # 통과 리뷰는 미포함
+
+    ok = base.model_copy(
+        update={
+            "qa_report": QAReport(
+                reviews=(QAReview(kind="ambiguity", passed=True),)
+            )
+        }
+    )
+    assert "QA" not in _build_user_prompt(ok, hidden=True)  # 통과면 미포함

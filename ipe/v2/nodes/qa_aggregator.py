@@ -19,13 +19,20 @@ from ..state import V2State
 
 
 def make_qa_aggregator_node() -> Callable[[V2State], dict[str, Any]]:
-    """factory — ``state.qa_reviews`` → ``QAReport`` (``state.qa_report``)."""
+    """factory — ``state.qa_reviews`` → ``QAReport`` (``state.qa_report``).
+
+    back-route(B) 재리뷰 시 reducer 채널에 라운드가 누적되므로 **kind 별 최신
+    리뷰만** 집계한다 (reducer concat 순서 = append 순 → last write wins). 옛 fail
+    리뷰가 남아 있으면 수정 반영 후에도 영구 블록되기 때문. 단발 경로(라운드 1회)
+    에선 기존 동작과 동일.
+    """
 
     def node(state: V2State) -> dict[str, Any]:
         if not state.qa_reviews:
             msg = "qa_aggregator requires non-empty state.qa_reviews"
             raise ValueError(msg)
-        report = QAReport(reviews=tuple(state.qa_reviews))
+        latest = {r.kind: r for r in state.qa_reviews}
+        report = QAReport(reviews=tuple(latest.values()))
         return {"qa_report": report}
 
     return node
