@@ -3,17 +3,17 @@
  * 모든 페이지에서 import 없이 window 전역으로 접근.
  *
  * 모든 수치는 측정/문서 근거가 있는 값만 적는다 (narrative honesty).
- * 갱신: 2026-06-01 — v1.0 출시(anchor freeze) + Phase 3(v2) M1 진행 반영.
+ * 갱신: 2026-06-12 — v1.0 출시(anchor freeze) + Phase 3(v2) M0~M6 전부 구현 완료 반영.
  */
 
 window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "514bb79",          // main HEAD — v2 통합: 모델링+synthesis 그래프 배선 (#122~#124)
-    devBranch: "feat/v2-m1-verification-maturation",
-    devCommit: "540b145",           // dev HEAD — tier sensitivity 19-algo 일괄 배선
-    updated: "2026-06-08",
+    mainCommit: "d43c056",          // main HEAD — 경계/퇴화 케이스 의미론 규율 (#140), v2 M0~M6 전부 병합
+    devBranch: "— (v2 M0~M6 main 병합 완료)",
+    devCommit: "d43c056",           // 활성 dev 트랙 없음 — 모든 v2 마일스톤 main 통합
+    updated: "2026-06-12",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 569,                     // v1 523 + v2 46 passed, 3 skipped (572 collected)
+    tests: 682,                     // v1 557 + v2 125 collected (이번 주기 collect-only 실측; v0-root 375·integration 56·sandbox 22·e2e 5 별도)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "현재 Phase 3 = v2 agentic graph 재공사 진행 중 (M0·M1·M2·M3 완료 — M3 모델링 layer 그래프 배선 종료, 알고리즘 은닉 4노드 Strategist/Formalizer/Narrative/Faithfulness. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 에서 B2B fresh 파이프라인 구축. 다음은 M4 Test-suite generator).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 B2B fresh 파이프라인. 다음은 정리 국면(CLI 패키징·leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -111,35 +111,33 @@ window.IPE_DATA = {
   milestones: [
     { id: "M0", title: "RFC 확정 + state reducer 스파이크",                          status: "done",        ref: "#107 · #108", note: "병렬 fan-in reducer 선검증 — frozen Pydantic + reducer 동작 확인 (langgraph 1.2.2). partial dict 반환 + order-independent aggregator 필수." },
     { id: "M1", title: "검증 성숙 — Tier B ≈ Tier A 실증",                           status: "done",        ref: "#109", note: "differential(golden↔brute) + metamorphic(범용 관계) + tier classifier(A/B/C 게이트) 완성. 19-algo tier sensitivity 일괄 배선으로 Tier B≈Tier A 실측 증거 확보." },
-    { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "in_progress", ref: "#110~#113", note: "fan-out 서브그래프 + reducer 채널 + Reconciler + compat flag(canonical|full) 머지. full mode 실 LLM e2e(distinct-model golden×2 + brute) 통과." },
-    { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "done", ref: "#116~#120", note: "ipe/v2 V2State(#116) → Strategist/Formalizer(#117) → Narrative 은닉(#118) → Faithfulness round-trip(#119) → 그래프 배선 종료(#120). 알고리즘 은닉 4노드 + 충실성 검증 완성. v1(canonical)은 CANONICAL.md 로 동결." },
-    { id: "M4", title: "Test-suite generator (풀 채점셋)",                          status: "planned",     note: "edge/large/adversarial/random family + Assembler" },
-    { id: "M5", title: "QA/Critic 병렬 스테이지 (유출/공정성/모호성/난이도)",          status: "planned",     note: "유출검사 reference corpus 확보는 진입 시 재논의" },
-    { id: "M6", title: "기법 합성 (multi-technique)",                              status: "planned",     note: "2~3 알고리즘 조합 — 검증 tier 의 metamorphic/differential 의존" },
+    { id: "M2", title: "병렬 solution synthesis (golden×K + brute + reconciler)",   status: "done",        ref: "#110~#113", note: "fan-out 서브그래프 + reducer 채널 + Reconciler + compat flag(canonical|full). full mode 실 LLM e2e(distinct-model golden×2 + brute) 통과." },
+    { id: "M3", title: "모델링 layer — 알고리즘 은닉 (Strategist/Narrative/Formalizer)", status: "done", ref: "#116~#120", note: "ipe/v2 V2State(#116) → Strategist/Formalizer(#117) → Narrative 은닉(#118) → Faithfulness round-trip(#119) → 그래프 배선 종료(#120). 알고리즘 은닉 4노드 + 충실성 검증 완성." },
+    { id: "M4", title: "Test-suite generator (풀 채점셋)",                          status: "done",        ref: "#126~#129", note: "test-suite 스키마+producer+입력생성기(graph/grid)+assembler 배선, io_contract canonical 렌더 freeze(직렬화↔골든 파서 정렬). assembled ratio 0→1.000 실측 회복." },
+    { id: "M5", title: "QA/Critic 병렬 스테이지 (유출/공정성/모호성/난이도)",          status: "done",        ref: "#130~#136", note: "4 리뷰어 fan-out + aggregator 게이트, reconcile reject 진단, CLI --with-qa/--with-test-suite 노출. narrative 형식서술 금지(A)·formalizer 고아필드 금지(A2)·QA fail→revise→재리뷰 back-route(B) 실증." },
+    { id: "M6", title: "기법 합성 (multi-technique)",                              status: "done",        ref: "#137~#140", note: "Tier B 검증 스위치 + 합성 실현 규율, 간선 다속성 금지 + composed 샘플 검산, 경계/퇴화 의미론 규율(#140). 재측정 N=3: 다속성 모순 소멸 + composed verification 회복." },
   ],
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 101, title: "Phase 2c N=3 × 19 algo measurement",            type: "test", impact: "47/57 (82.5%) Gate PASS, samples_engaged 100%" },
-    { num: 103, title: "P1 RCA — Knapsack + Kruskal MST 회복",          type: "fix",  impact: "양쪽 outlier 0/3·1/3 → 3/3" },
-    { num: 104, title: "P3 Option B — sample_mismatch architect back-route", type: "fix", impact: "variance systematic 회복 (sub-meas 14/15)" },
-    { num: 105, title: "P3 outputs/ persistence + problem.md/samples",  type: "feat", impact: "online judge 호환 artifact 영속화" },
     { num: 106, title: "v1.0 anchor freeze — site + README narrative",  type: "docs", impact: "91.2% anchor 동결, 측정 중단 판단" },
-    { num: 108, title: "M0 — 병렬 fan-in reducer 스파이크",              type: "test", impact: "frozen Pydantic + reducer 채널 검증 (RFC R3)" },
     { num: 109, title: "M1 — Tier B 검증 메커니즘 + 측정 증거 (19-algo)", type: "feat", impact: "differential+metamorphic+tier classifier, Tier B≈Tier A 실측" },
-    { num: 110, title: "M2 — 병렬 Solution Synthesis 아티팩트 + Reconciler", type: "feat", impact: "fan-out 서브그래프 토대 (step 1–2)" },
-    { num: 112, title: "M2 — full mode 그래프 배선 (compat flag)",       type: "feat", impact: "canonical|full 모드 분기 (step 4)" },
     { num: 113, title: "M2 — full mode 실 LLM e2e",                      type: "test", impact: "distinct-model golden×2 + brute 통과" },
-    { num: 114, title: "M3 — blueprint-first 모델링 아티팩트 (step 1)",   type: "feat", impact: "알고리즘 은닉 모델링 layer 착수" },
-    { num: 115, title: "CANONICAL.md — v1 파이프라인 동결 보존 정책",      type: "docs", impact: "canonical(ipe/v1) 자산 선언 + 동결" },
-    { num: 116, title: "M3 — ipe/v2 신규 공간 scaffold (V2State)",        type: "feat", impact: "v1 분리된 B2B fresh blueprint-first 파이프라인" },
-    { num: 117, title: "M3 — Strategist/Formalizer 2노드 분리 (step 2)",  type: "feat", impact: "blueprint freeze — 모델링 노드 세분화" },
-    { num: 118, title: "M3 — Narrative 노드 은닉 렌더 (step 3)",          type: "feat", impact: "시나리오로 알고리즘 정체 은닉" },
-    { num: 119, title: "M3 — Faithfulness round-trip 노드 (step 4)",      type: "feat", impact: "지문↔알고리즘 의도 충실성 검증" },
     { num: 120, title: "M3 — 모델링 layer 그래프 배선 (step 5, M3 종료)", type: "feat", impact: "알고리즘 은닉 4노드 graph 통합 완료" },
-    { num: 121, title: "v2 모델링 CLI(main_v2) + 실LLM e2e (M3 follow-up)", type: "feat", impact: "v2 파이프라인 실행 진입점 + 검증 경로" },
-    { num: 122, title: "v2 통합 — blueprint→spec 브리지 노드 (step1)",     type: "feat", impact: "모델링(M3) → solution synthesis 연결" },
     { num: 124, title: "v2 통합 — synthesis 그래프 배선 완성 (step2b)",     type: "feat", impact: "M2+M3 v2 그래프 통합 완성" },
+    { num: 125, title: "v2-cli — --with-synthesis + full 파이프라인 실 LLM e2e", type: "feat", impact: "synthesis 경로 CLI 개방 + 종단 검증" },
+    { num: 126, title: "M4 — test-suite 스키마+producer+입력생성기+assembler", type: "feat", impact: "풀 채점셋 생성 layer 배선 (step1-5)" },
+    { num: 127, title: "M4 — graph/grid 입력 생성 (weighted/tree/grid)", type: "feat", impact: "input family 확장 (step3b)" },
+    { num: 128, title: "M4 — suite e2e dijkstra seed + assembler 진단",   type: "feat", impact: "all-fail 진단 anchor 실측" },
+    { num: 129, title: "M4 — io_contract canonical 렌더 freeze",          type: "feat", impact: "직렬화↔골든 파서 정렬, assembled ratio 0→1.000" },
+    { num: 130, title: "M5 — QA/Critic 병렬 스테이지 (4 리뷰어 fan-out)",  type: "feat", impact: "모호성/공정성/유출/난이도 + aggregator 게이트" },
+    { num: 132, title: "M5 — CLI --with-test-suite/--with-qa 노출",        type: "feat", impact: "M4/M5 스테이지 전 경로 CLI 개방" },
+    { num: 134, title: "M5 — narrative 형식서술 금지 규율 (A)",            type: "feat", impact: "지문↔io_contract 모순 원천 차단" },
+    { num: 135, title: "M5 — formalizer 고아필드 금지 + faithfulness 결손 (A2)", type: "feat", impact: "스키마 의미 정합 — 결손 데이터 왜곡 판정" },
+    { num: 136, title: "M5 — QA back-route 루프 (fail→revise→재리뷰)",     type: "feat", impact: "QA findings 피드백 → desc 패치 회수 실증 (B)" },
+    { num: 137, title: "M6 — 기법 합성 step1-2 (Tier B 스위치 + 실현 규율)", type: "feat", impact: "2~3 알고리즘 조합 합성 진입" },
+    { num: 139, title: "M6 — step4 간선 다속성 금지 + composed 샘플 검산", type: "feat", impact: "다속성 모순 소멸 + composed verification 회복" },
+    { num: 140, title: "v2 — 경계/퇴화 케이스 의미론 규율 (formalizer invariants)", type: "feat", impact: "명시 결정 + narrative 의미 서술" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
@@ -183,7 +181,7 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "432 passed · 1 skipped, coverage 87% (ipe/v1)" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 557 + v2 125 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
     { id: "NFR-7",  title: "비용 효율",   metric: "list price upper bound, 실제 청구 ≈ 0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
@@ -209,7 +207,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — 432 passed" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 557 + v2 125 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },

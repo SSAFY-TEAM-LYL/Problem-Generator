@@ -52,7 +52,7 @@
         <ul class="space-y-2 text-sm text-gray-300">
           <li>• 웹 UI / 사용자 인증 / 다중 사용자 세션 (B2C 전달은 후속)</li>
           <li>• 자동 채점 시스템 통합 (출력 schema·samples 만 호환)</li>
-          <li>• 알고리즘 은닉 · 기법 합성 · hiring-grade 난이도 → <strong class="text-gray-300">Phase 3 (v2) 진행 중</strong></li>
+          <li>• 알고리즘 은닉 · 기법 합성 · hiring-grade 난이도 → <strong class="text-gray-300">Phase 3 (v2) M0~M6 구현 완료</strong></li>
           <li>• 난이도 calibration (별도 RFC 로 분리)</li>
         </ul>
       </div>
@@ -94,7 +94,7 @@
       <div class="card">
         <div class="text-green-400 font-bold mb-3">✅ 코드 품질</div>
         <ul class="space-y-1 text-sm text-gray-300">
-          <li>✓ 569 passed · 3 skipped (572 collected) — v1 523 + v2 46</li>
+          <li>✓ v1 557 + v2 125 collected — ipe/v2 M0~M6 포함</li>
           <li>✓ coverage 87% (ipe/v1)</li>
           <li>✓ ruff 0 / mypy --strict 0</li>
           <li>✓ typed artifact 노드 계약 (Pydantic v2)</li>
@@ -122,7 +122,7 @@
     <div class="space-y-3">
       <details>
         <summary>산출물이 toy 수준 — 알고리즘이 입력으로 노출됨</summary>
-        <div class="text-sm text-gray-400 mt-2">algorithm 키워드가 입력이라 "무엇을 쓸지 알아내는" 모델링 역량이 빠져 있다. 기업 코테 수준에는 미달 — <strong class="text-gray-300">Phase 3 (v2)</strong> 의 알고리즘 은닉/기법 합성으로 해결 진행 중.</div>
+        <div class="text-sm text-gray-400 mt-2">algorithm 키워드가 입력이라 "무엇을 쓸지 알아내는" 모델링 역량이 빠져 있다. 기업 코테 수준에는 미달 — <strong class="text-gray-300">Phase 3 (v2)</strong> 의 알고리즘 은닉/기법 합성(M3·M6 구현 완료)으로 해소. v2 파이프라인은 정리 국면.</div>
       </details>
       <details>
         <summary>잔존 variance ~5/57 (각 algo 2/3, persistent 없음)</summary>
@@ -130,7 +130,7 @@
       </details>
       <details>
         <summary>검증 천장 — 합성·은닉 문제는 정석 symbolic 이 안 맞음</summary>
-        <div class="text-sm text-gray-400 mt-2">현재 검증은 symbolic(Tier A) 중심. v2 의 복잡한 산출물을 신뢰하려면 differential + metamorphic (Tier B) 가 필요 — M1 에서 Tier B≈Tier A 를 19-algo 로 실증 중.</div>
+        <div class="text-sm text-gray-400 mt-2">현재 검증은 symbolic(Tier A) 중심. v2 의 복잡한 산출물을 신뢰하려면 differential + metamorphic (Tier B) 가 필요 — M1 에서 Tier B≈Tier A 를 19-algo 로 실증 완료.</div>
       </details>
       <details>
         <summary>Java integration test: Linux CI 에서 skip</summary>

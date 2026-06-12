@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPE — Infinite Problem Engine</title>
-  <meta name="description" content="LangGraph + Claude 알고리즘 문제 생성 엔진. 해자는 '고품질 생산'이 아니라 코드가 알고리즘 정의에서 정답을 독립 유도하는 결정론적 검증 + typed artifact 라우팅 + 측정 게이트. v1.0 91.2% anchor, Phase 3 v2 재공사 진행 중.">
+  <meta name="description" content="LangGraph + Claude 알고리즘 문제 생성 엔진. 해자는 '고품질 생산'이 아니라 코드가 알고리즘 정의에서 정답을 독립 유도하는 결정론적 검증 + typed artifact 라우팅 + 측정 게이트. v1.0 91.2% anchor, Phase 3 v2 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료.">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -30,8 +30,8 @@
       <div class="inline-flex flex-wrap items-center justify-center gap-2 mb-6">
         <span class="badge badge-success" id="hero-version">v1.0</span>
         <span class="badge badge-accent" id="hero-gate">91.2% Gate</span>
-        <span class="badge" id="hero-tests">569 tests</span>
-        <span class="badge badge-warning">Phase 3 (v2) 진행 중</span>
+        <span class="badge" id="hero-tests">682 tests</span>
+        <span class="badge badge-warning">Phase 3 (v2) M0~M6 완료</span>
       </div>
       <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
         <span class="text-white">Infinite</span><br>
@@ -152,7 +152,7 @@
   <!-- recent progress -->
   <section class="section section-sm">
     <h2 class="text-3xl font-bold mb-2 text-white">최근 진행</h2>
-    <p class="text-gray-400 mb-8">v1.0 마무리(P3 RCA + outputs 영속화 + anchor freeze) → Phase 3 착수(RFC #107 + M0 스파이크 #108). M1 은 dev 브랜치 진행 중.</p>
+    <p class="text-gray-400 mb-8">v1.0 마무리(P3 RCA + outputs 영속화 + anchor freeze) → Phase 3 = v2 agentic graph 재공사. RFC 마일스톤 M0~M6 전부 구현 완료 — 검증 성숙(M1) → 병렬 synthesis(M2) → 알고리즘 은닉 모델링(M3) → 풀 채점셋(M4) → QA 4관점 게이트+back-route(M5) → 기법 합성(M6) 모두 main 병합.</p>
     <div class="card">
       <table>
         <thead>
