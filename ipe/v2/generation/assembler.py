@@ -53,7 +53,13 @@ def assemble_suite(
         )
         if result.status == "OK":
             filled.append(
-                case.model_copy(update={"expected_output": result.stdout.strip()})
+                case.model_copy(
+                    update={
+                        "expected_output": result.stdout.strip(),
+                        # 계약 v1.0: 백엔드 TL 산정 근거 (max × 배수)
+                        "golden_elapsed_ms": result.elapsed_ms,
+                    }
+                )
             )
         elif first_failure is None:
             first_failure = result
