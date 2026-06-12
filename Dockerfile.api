@@ -1,0 +1,28 @@
+# IPE 파이프라인 API 서버 이미지 (B2C 계약 v1.0 — Slice 2).
+#
+# Build: docker build -f Dockerfile.api -t ipe-api:latest .
+# Run:   docker run --rm -p 8000:8000 \
+#          -e ANTHROPIC_API_KEY=sk-ant-... -e IPE_API_KEY=... ipe-api:latest
+#
+# 주의:
+# - in-memory job 상태 → 단일 프로세스(uvicorn 워커 1) 전제. 수평 확장 시
+#   인스턴스 간 job/idempotency 가 공유되지 않으므로 단일 인스턴스 또는
+#   sticky 라우팅으로 운용 (계약 §0/§3 의 404→재시도 규약이 유실을 흡수).
+# - 컨테이너 안에는 docker 가 없어 sandbox tier 는 rlimit 으로 fallback —
+#   컨테이너 자체가 외부 격리 경계 (루트 Dockerfile=sandbox 베이스와 무관).
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 의존성 레이어 (소스와 분리해 캐시)
+COPY pyproject.toml requirements.txt ./
+COPY ipe ./ipe
+RUN pip install --no-cache-dir ".[api]"
+
+# 비특권 실행 (생성 중 골든 코드는 rlimit 서브프로세스로 실행)
+USER nobody:nogroup
+
+EXPOSE 8000
+
+CMD ["uvicorn", "ipe.v2.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

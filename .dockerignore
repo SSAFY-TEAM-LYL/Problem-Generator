@@ -1,0 +1,18 @@
+# docker build 컨텍스트 최소화 (Dockerfile.api — secrets/대용량 제외)
+.git
+.venv
+.env
+.env.local
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+docs
+archive
+outputs
+ONBOARDING.md
+TECH_STACK.md
+aa.md
