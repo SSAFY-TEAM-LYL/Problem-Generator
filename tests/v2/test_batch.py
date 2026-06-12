@@ -11,11 +11,13 @@ graph_factory 주입으로 LLM/sandbox 없이 결정론 검증 (api/main_v2 와 
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import ipe.v2.batch as batch_mod
 from ipe.v1.schema import (
     GeneratedTestCase,
     IOContract,
@@ -332,6 +334,96 @@ def test_report_only_aggregates_existing_files(tmp_path: Path) -> None:
     assert bfs["packaged"] == 0
     assert bfs["crashed"] == 1
     assert bfs["statuses"] == {"fail_verification": 1}
+
+
+# ---------- subprocess 격리 (run 폭주가 배치를 못 죽이게) ----------
+
+
+def test_single_run_mode_writes_file_and_exits_0(tmp_path: Path) -> None:
+    """--single-run = 부모 배치가 스폰하는 내부 모드 — 파일 쓰고 종료."""
+    factory = _CountingFactory("success")
+    code = main(
+        [
+            "--single-run",
+            "dijkstra",
+            "--run-index",
+            "2",
+            "--run-id",
+            "rid-1",
+            "--out",
+            str(tmp_path),
+        ],
+        graph_factory=factory,
+    )
+
+    assert code == 0
+    data = _read(tmp_path, "dijkstra_run2.json")
+    assert data["status"] == "completed"
+    assert data["batch"]["run_id"] == "rid-1"
+    assert data["batch"]["run_index"] == 2
+
+
+def test_single_run_crash_writes_failed_and_exits_1(tmp_path: Path) -> None:
+    code = main(
+        ["--single-run", "dijkstra", "--run-index", "1", "--out", str(tmp_path)],
+        graph_factory=_RaisingFactory(),
+    )
+
+    assert code == 1
+    assert _read(tmp_path, "dijkstra_run1.json")["status"] == "failed"
+
+
+def test_production_run_timeout_synthesizes_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """graph_factory 미주입(production) 경로는 subprocess — 타임아웃 시 kill 후
+    failed 파일 합성 (폭주 run 이 배치/호스트를 못 죽임)."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+
+    def fake_run(cmd: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+
+    monkeypatch.setattr(batch_mod.subprocess, "run", fake_run)
+
+    code = main(
+        [
+            "--out",
+            str(tmp_path),
+            "--seeds",
+            "dijkstra",
+            "--runs-per-seed",
+            "1",
+            "--run-timeout",
+            "5",
+        ]
+    )
+
+    assert code == 1
+    data = _read(tmp_path, "dijkstra_run1.json")
+    assert data["status"] == "failed"
+    assert "timeout" in data["error"]
+
+
+def test_production_run_no_result_file_synthesizes_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+
+    class _Proc:
+        returncode = 1
+        stderr = "MemoryError: boom"
+
+    monkeypatch.setattr(batch_mod.subprocess, "run", lambda *a, **k: _Proc())
+
+    code = main(
+        ["--out", str(tmp_path), "--seeds", "dijkstra", "--runs-per-seed", "1"]
+    )
+
+    assert code == 1
+    data = _read(tmp_path, "dijkstra_run1.json")
+    assert data["status"] == "failed"
+    assert "no result file" in data["error"]
+    assert "MemoryError" in data["error"]
 
 
 # ---------- 비용 계산 ----------

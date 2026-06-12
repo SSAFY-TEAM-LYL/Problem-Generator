@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 import uuid
@@ -209,6 +210,103 @@ def _write_json(path: Path, body: Mapping[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def _execute_run_subprocess(
+    task: _RunTask,
+    *,
+    mode: _Mode,
+    max_qa_routebacks: int,
+    timeout_s: int,
+) -> dict[str, Any]:
+    """production run 을 ``--single-run`` 자식 프로세스로 격리 실행.
+
+    근거(실측): 일부 run 이 입력 생성 단계에서 CPU/메모리 폭주(28분+ 100% CPU)
+    → 호스트가 프로세스를 kill 하면 in-flight 전체가 유실됐다. 격리하면 ①폭주
+    run 만 timeout kill(=failed 데이터로 수렴) ②메모리 폭주가 배치 본체를 못
+    죽임 ③GIL 밖이라 CPU 구간 진짜 병렬. 자식이 결과 파일을 쓰고, 부모는 그
+    파일을 읽는다 — 파일 부재/타임아웃이면 부모가 failed 를 합성해 쓴다.
+    """
+    started_at = datetime.now(UTC).isoformat(timespec="seconds")
+    t0 = time.monotonic()
+    cmd = [
+        sys.executable,
+        "-m",
+        "ipe.v2.batch",
+        "--single-run",
+        task.seed.value,
+        "--run-index",
+        str(task.run_index),
+        "--run-id",
+        task.run_id,
+        "--out",
+        str(task.path.parent),
+        "--mode",
+        mode,
+        "--max-qa-routebacks",
+        str(max_qa_routebacks),
+    ]
+    error: str
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout_s, check=False
+        )
+    except subprocess.TimeoutExpired:
+        # 완료 직전 race: 자식이 파일을 쓴 뒤 exit 전에 데드라인이 올 수 있다.
+        result = _read_result(task.path)
+        if result is not None:
+            return result
+        error = f"run timeout {timeout_s}s — subprocess killed (생성/실행 폭주 의심)"
+    else:
+        result = _read_result(task.path)
+        if result is not None:
+            return result
+        tail = (proc.stderr or "").strip()[-300:]
+        error = f"subprocess no result file (rc={proc.returncode}, stderr: {tail})"
+    body: dict[str, Any] = {
+        "status": "failed",
+        "error": error[:500],
+        "batch": {
+            "seed": task.seed.value,
+            "run_index": task.run_index,
+            "run_id": task.run_id,
+            "mode": mode,
+            "started_at": started_at,
+            "elapsed_s": round(time.monotonic() - t0, 1),
+        },
+    }
+    _write_json(task.path, body)
+    return body
+
+
+def _read_result(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _execute_and_persist(
+    task: _RunTask,
+    graph_factory: Any,
+    *,
+    mode: _Mode,
+    max_qa_routebacks: int,
+    timeout_s: int,
+) -> dict[str, Any]:
+    """run 실행+영속화 — 주입 factory(테스트)는 in-thread, production 은 subprocess 격리."""
+    if graph_factory is not None:
+        body = _execute_run(
+            task, graph_factory, mode=mode, max_qa_routebacks=max_qa_routebacks
+        )
+        _write_json(task.path, body)
+        return body
+    return _execute_run_subprocess(
+        task, mode=mode, max_qa_routebacks=max_qa_routebacks, timeout_s=timeout_s
+    )
+
+
 # ---------- 집계/리포트 ----------
 
 
@@ -354,6 +452,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="기존 crash(status=failed) run 을 재시도 (completed 는 항상 skip)",
     )
     parser.add_argument(
+        "--run-timeout",
+        type=int,
+        default=2400,
+        help="run 별 subprocess 타임아웃 초 (default: 2400 — 정상 최대 ~1700s 관측)",
+    )
+    parser.add_argument(
+        "--single-run",
+        default=None,
+        metavar="SEED",
+        help="(internal) 단일 run 자식 모드 — 부모 배치가 격리 실행용으로 스폰",
+    )
+    parser.add_argument(
+        "--run-index", type=int, default=1, help="(internal) --single-run 의 인덱스"
+    )
+    parser.add_argument(
+        "--run-id", default=None, help="(internal) --single-run 의 run_id"
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="실행 없이 계획만 출력"
     )
     parser.add_argument(
@@ -374,6 +490,29 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
         _print_report(summary)
         return 0
 
+    if args.single_run is not None:
+        # 내부 자식 모드 — 부모가 timeout/메모리 폭주를 프로세스 단위로 격리.
+        seed = _parse_seeds(args.single_run)[0]
+        out_dir.mkdir(parents=True, exist_ok=True)
+        task = _RunTask(
+            seed=seed,
+            run_index=args.run_index,
+            path=out_dir / f"{seed.value}_run{args.run_index}.json",
+            run_id=args.run_id
+            or f"bank-{seed.value}-r{args.run_index}-{uuid.uuid4().hex[:6]}",
+        )
+        factory = (
+            graph_factory if graph_factory is not None else _production_graph_factory
+        )
+        body = _execute_run(
+            task,
+            factory,
+            mode=cast(_Mode, args.mode),
+            max_qa_routebacks=args.max_qa_routebacks,
+        )
+        _write_json(task.path, body)
+        return 0 if body["status"] == "completed" else 1
+
     seeds = _parse_seeds(args.seeds)
     tasks = _plan_runs(
         seeds, args.runs_per_seed, out_dir, retry_failed=args.retry_failed
@@ -390,7 +529,6 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
         return 0
     if tasks and graph_factory is None and not os.environ.get("ANTHROPIC_API_KEY"):
         raise SystemExit("ANTHROPIC_API_KEY 가 없습니다 (.env) — production 배치 불가")
-    factory = graph_factory if graph_factory is not None else _production_graph_factory
     mode = cast(_Mode, args.mode)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -399,18 +537,18 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
     with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
         futures = {
             pool.submit(
-                _execute_run,
+                _execute_and_persist,
                 t,
-                factory,
+                graph_factory,
                 mode=mode,
                 max_qa_routebacks=args.max_qa_routebacks,
+                timeout_s=args.run_timeout,
             ): t
             for t in tasks
         }
         for future in as_completed(futures):
             task = futures[future]
-            body = future.result()  # _execute_run 은 예외를 내부 격리 — raise 없음
-            _write_json(task.path, body)
+            body = future.result()  # 드라이버가 예외를 내부 격리+영속화 — raise 없음
             done += 1
             crashed += body["status"] == "failed"
             label = body.get("final_status") or body.get("error", "?")
