@@ -203,3 +203,18 @@ def test_composition_realization_rules_in_prompts() -> None:
     assert "질문 자체" in _NARRATIVE_PROMPT  # 시나리오 질문이 기법을 요구
     assert "장식" in _NARRATIVE_PROMPT  # 장식적 합성 금지
     assert "합성된 출력 의미" in _SPEC_BRIDGE_PROMPT  # expected = 합성 의미 계산
+
+
+def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
+    """M6 step4: composed anchor 실측(N=3) 결함 대응 — ① formalizer: 간선 속성은
+    **단일 가중치 w 뿐**(weighted_edges canonical 직렬화 `u v w` 가 간선 다속성을
+    표현 불가 — run1 의 지문 4필드 vs 형식 3필드 모순 원천 차단) ② spec_bridge:
+    composed 샘플은 **최소 규모** 강제+단계별 검산(composed expected 손계산 난도
+    — run2·3 verification reject 대응). 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FMT
+    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT as _SPEC
+
+    assert "단일 가중치" in _FMT  # 간선 속성 = w 하나
+    assert "다속성" in _FMT  # 간선 다속성 설계 금지
+    assert "최소 규모" in _SPEC  # composed 샘플 크기 강제
+    assert "검산" in _SPEC  # 합성 절차 단계별 수행
