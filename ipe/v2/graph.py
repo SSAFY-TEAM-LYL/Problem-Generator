@@ -107,6 +107,34 @@ def _bump_qa_routebacks(state: V2State) -> dict[str, Any]:
     return {"qa_routebacks": state.qa_routebacks + 1}
 
 
+def _composed_aware_executor(
+    *,
+    runner: ExecutorRunner | None,
+    verifier_getter: VerifierGetter,
+) -> Callable[[V2State], V2State]:
+    """M6 step1 — 합성 문제는 symbolic verifier 미적용 (Tier B 검증 정책).
+
+    합성(blueprint.composition 비어있지 않음)되면 출력 의미가 reduction_core 단일
+    알고리즘의 정석과 달라 그 symbolic verifier 가 옳은 풀이를 false-reject 한다
+    (RFC §4 검증 천장). 합성 문제의 검증 신뢰 = 상류 reconcile(golden×K+brute
+    distinct 합의, Tier B) + 샘플 일치 — M1 이 19-algo 로 Tier B≈Tier A 를 실증한
+    근거 위에서 스위치한다. 비합성 문제는 기존 symbolic 경로 그대로 (anchor 보존).
+    """
+    symbolic = _v2_full_node(
+        make_executor_node(runner=runner, verifier_getter=verifier_getter)
+    )
+    tier_b = _v2_full_node(
+        make_executor_node(runner=runner, verifier_getter=lambda _a: None)
+    )
+
+    def node(state: V2State) -> V2State:
+        bp = state.blueprint
+        composed = bp is not None and len(bp.composition) > 0
+        return tier_b(state) if composed else symbolic(state)
+
+    return node
+
+
 def _make_finalizer(status: V2FinalStatus) -> Callable[[V2State], V2State]:
     """terminal 노드 팩토리 — final_status set 후 END."""
 
@@ -349,9 +377,7 @@ def _wire_synthesis(
         "executor",
         cast(
             Any,
-            _v2_full_node(
-                make_executor_node(runner=runner, verifier_getter=verifier_getter)
-            ),
+            _composed_aware_executor(runner=runner, verifier_getter=verifier_getter),
         ),
     )
     builder.add_node(

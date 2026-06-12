@@ -141,10 +141,17 @@ def _final(raw: Any) -> V2State:
 
 
 def _full_graph(
-    *, spec_prefix: str = "ans", golden_codes: list[str], brute_code: str = "# B"
+    *,
+    spec_prefix: str = "ans",
+    golden_codes: list[str],
+    brute_code: str = "# B",
+    strategist_llm: Any | None = None,
+    verifier_getter: Any | None = None,
 ) -> Any:
     return build_v2_graph(
-        strategist_llm=_FixedStrategistLLM(),
+        strategist_llm=(
+            strategist_llm if strategist_llm is not None else _FixedStrategistLLM()
+        ),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
@@ -155,7 +162,9 @@ def _full_graph(
         brute_llm=_CoderLLM(brute_code),
         golden_origins=["opus", "sonnet"],
         runner=_MarkerRunner(_by_marker),
-        verifier_getter=lambda _a: None,
+        verifier_getter=(
+            verifier_getter if verifier_getter is not None else (lambda _a: None)
+        ),
     )
 
 
@@ -222,3 +231,57 @@ def test_full_pipeline_verification_fail() -> None:
 def test_with_synthesis_requires_golden_and_brute() -> None:
     with pytest.raises(ValueError, match="golden_llms"):
         build_v2_graph(with_synthesis=True, brute_llm=_CoderLLM("# B"))
+
+
+# ---------- 5. M6 step1: 합성 → symbolic 미적용 (Tier B 검증 정책) ----------
+
+
+class _ComposedStrategistLLM:
+    """composition 비어있지 않은 시드 — 합성 문제 경로."""
+
+    def seed(self, state: Any) -> StrategySeed:
+        return StrategySeed(
+            reduction_core=TargetAlgorithm.DIJKSTRA,
+            composition=(TargetAlgorithm.BINARY_SEARCH,),
+            domain="logistics",
+        )
+
+
+class _RecordingVerifierGetter:
+    """symbolic dispatch 호출 기록 — composed 면 호출되지 않아야 한다."""
+
+    def __init__(self) -> None:
+        self.calls: list[Any] = []
+
+    def __call__(self, algo: Any) -> Any:
+        self.calls.append(algo)
+        return None
+
+
+def test_composed_blueprint_skips_symbolic_verifier() -> None:
+    """M6 step1: composition 이 있으면 executor 가 reduction_core 의 symbolic
+    verifier 를 dispatch 하지 않는다 — 합성 출력은 단일 algo 정석과 의미가 달라
+    false-reject(RFC §4 검증 천장). 검증 = 샘플 + 상류 reconcile 합의(Tier B)."""
+    getter = _RecordingVerifierGetter()
+    graph = _full_graph(
+        golden_codes=["# G0", "# G1"],
+        strategist_llm=_ComposedStrategistLLM(),
+        verifier_getter=getter,
+    )
+    final = _run(graph, "run-composed")
+
+    assert final.final_status == "success"
+    assert final.blueprint is not None and final.blueprint.composition
+    assert getter.calls == []  # symbolic 미적용 (Tier B 경로)
+    assert final.verification is not None
+    assert final.verification.overall_pass is True  # 샘플 일치로 통과
+
+
+def test_uncomposed_keeps_symbolic_dispatch() -> None:
+    """composition 빈 시드는 기존 symbolic dispatch 유지 (canonical anchor 보존)."""
+    getter = _RecordingVerifierGetter()
+    graph = _full_graph(golden_codes=["# G0", "# G1"], verifier_getter=getter)
+    final = _run(graph, "run-uncomposed")
+
+    assert final.final_status == "success"
+    assert getter.calls == [TargetAlgorithm.DIJKSTRA]  # 기존 경로 그대로

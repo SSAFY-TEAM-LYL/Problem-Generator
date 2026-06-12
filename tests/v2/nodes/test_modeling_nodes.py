@@ -187,3 +187,19 @@ def test_faithfulness_prompt_rejects_absent_data_mechanics() -> None:
 
     assert "없는 데이터" in _SYSTEM_PROMPT  # 계약 밖 데이터 요구 메커니즘
     assert "풀 수 없" in _SYSTEM_PROMPT  # 주어진 입력만으로 불가 = 왜곡 근거
+
+
+def test_composition_realization_rules_in_prompts() -> None:
+    """M6 step2: 합성 실현 규율 3종 — composition 을 '참고'가 아니라 '요구'로.
+    (B-후 재측정 run2 leakage blocker = 합성 미실현 → 고전 동형. 생성 구조화 대응:
+    formalizer 는 출력 의미로 합성을 강제, narrative 는 질문이 기법을 요구,
+    spec_bridge 는 샘플 expected 를 합성 의미로 계산.) 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FORMALIZER_PROMPT
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT as _NARRATIVE_PROMPT
+    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT as _SPEC_BRIDGE_PROMPT
+
+    assert "합성이 필수" in _FORMALIZER_PROMPT  # 출력 의미가 합성을 강제
+    assert "feasibility" in _FORMALIZER_PROMPT  # 대표 합성 패턴 예시
+    assert "질문 자체" in _NARRATIVE_PROMPT  # 시나리오 질문이 기법을 요구
+    assert "장식" in _NARRATIVE_PROMPT  # 장식적 합성 금지
+    assert "합성된 출력 의미" in _SPEC_BRIDGE_PROMPT  # expected = 합성 의미 계산

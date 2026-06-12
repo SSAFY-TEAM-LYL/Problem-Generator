@@ -52,6 +52,8 @@ typed ProblemSpec (구조화된 tool call) 로 반환:
   - **유일답 보장** (정답이 여럿이면 verifier/differential 가 false-reject) —
     작은 인스턴스로 손계산 가능하게.
   - expected 를 단계별로 직접 계산 (어림짐작 금지).
+  - composition 이 비어있지 않으면 expected 는 **합성된 출력 의미**로 계산한다 —
+    reduction_core 정석 출력이 아니라 (예: 임계값 탐색 문제면 찾은 임계값이 답).
 
 핵심: sample 의 expected 정확도가 중요하나, 틀려도 하류 synthesis/verification 이
 catch 하므로 **불확실하면 더 작고 명백한 인스턴스**로 작성.
