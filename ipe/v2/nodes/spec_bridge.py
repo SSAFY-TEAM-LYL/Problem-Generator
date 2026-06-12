@@ -54,6 +54,10 @@ typed ProblemSpec (구조화된 tool call) 로 반환:
   - expected 를 단계별로 직접 계산 (어림짐작 금지).
   - composition 이 비어있지 않으면 expected 는 **합성된 출력 의미**로 계산한다 —
     reduction_core 정석 출력이 아니라 (예: 임계값 탐색 문제면 찾은 임계값이 답).
+  - composition 이 비어있지 않으면 샘플은 **최소 규모**로 강제한다 (정점 3~5,
+    간선 2~6 수준) — 합성 expected 의 손계산은 오류율이 높다. 각 샘플마다 합성
+    절차를 단계별로 명시 수행해 **검산**할 것 (예: 후보 임계값마다 feasibility
+    판정을 나열).
 
 핵심: sample 의 expected 정확도가 중요하나, 틀려도 하류 synthesis/verification 이
 catch 하므로 **불확실하면 더 작고 명백한 인스턴스**로 작성.
