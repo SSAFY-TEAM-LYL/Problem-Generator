@@ -38,6 +38,7 @@ from ipe.v1.schema import (
 
 V2FinalStatus = Literal[
     "success",
+    "fail_spec_authoring",  # spec_bridge LLM structured output 실패 (가드 종료)
     "fail_synthesis_rejected",  # golden/brute 합의 실패
     "fail_verification",  # canonical 이 검증 실패
     "fail_faithfulness",  # narrative round-trip 왜곡 (다른 문제 기술)
@@ -93,6 +94,10 @@ class V2State(BaseModel):
     blueprint: ProblemBlueprint | None = None  # Formalizer FREEZE
     generator_contract: GeneratorContract | None = None  # M4 입력 생성기 계약 (LLM 저작)
     spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 파생
+    spec_authoring_error: str | None = Field(
+        default=None,
+        description="spec_bridge LLM 저작 실패 예외 요약 (가드 — crash 대신 fail 종료 근거)",
+    )
     design: AlgorithmDesign | None = None  # spec → solver invariants (M2 designer 재사용)
     candidates: Annotated[list[SolutionCandidate], _merge_candidates] = Field(
         default_factory=list, description="golden×K + brute 병렬 후보 (reducer)"

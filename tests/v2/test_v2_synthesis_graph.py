@@ -147,6 +147,7 @@ def _full_graph(
     brute_code: str = "# B",
     strategist_llm: Any | None = None,
     verifier_getter: Any | None = None,
+    spec_bridge_llm: Any | None = None,
 ) -> Any:
     return build_v2_graph(
         strategist_llm=(
@@ -156,7 +157,11 @@ def _full_graph(
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
         with_synthesis=True,
-        spec_bridge_llm=_SpecBridgeLLM(spec_prefix),
+        spec_bridge_llm=(
+            spec_bridge_llm
+            if spec_bridge_llm is not None
+            else _SpecBridgeLLM(spec_prefix)
+        ),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM(c) for c in golden_codes],
         brute_llm=_CoderLLM(brute_code),
@@ -285,3 +290,32 @@ def test_uncomposed_keeps_symbolic_dispatch() -> None:
 
     assert final.final_status == "success"
     assert getter.calls == [TargetAlgorithm.DIJKSTRA]  # 기존 경로 그대로
+
+
+# ---------- 5. spec 저작 실패 가드 ----------
+
+
+class _RaisingSpecBridgeLLM:
+    """structured output 5-retry 전멸을 모사 (BS-run3 실측 crash)."""
+
+    def author(self, state: Any) -> ProblemSpec:
+        msg = "io_contract 가 string — schema 검증 거부"
+        raise RuntimeError(msg)
+
+
+def test_spec_authoring_failure_ends_valid_without_crash() -> None:
+    """spec_bridge LLM 실패가 graph 밖 crash 로 전파되지 않고 valid
+    ``fail_spec_authoring`` 종료 — 에러 요약 보존 + synthesis 미진입
+    (candidates/verification 미생성)."""
+    graph = _full_graph(
+        golden_codes=["# G0", "# G1"], spec_bridge_llm=_RaisingSpecBridgeLLM()
+    )
+    final = _run(graph, "run-spec-authoring-fail")
+
+    assert final.final_status == "fail_spec_authoring"
+    assert final.spec is None
+    assert final.spec_authoring_error is not None
+    assert "RuntimeError" in final.spec_authoring_error
+    # 가드 종료 — 하류 synthesis 미진입
+    assert final.candidates == []
+    assert final.verification is None

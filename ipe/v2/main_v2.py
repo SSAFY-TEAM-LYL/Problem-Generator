@@ -163,6 +163,8 @@ def _print_summary(final: V2State) -> None:
 
 def _print_synthesis_summary(final: V2State) -> None:
     """synthesis layer 산출물 요약 (--with-synthesis 시 populate)."""
+    if final.spec_authoring_error is not None:
+        print(f"[v2] spec_authoring_error: {final.spec_authoring_error}")
     if final.spec is not None:
         print(
             f"[v2] spec: title={final.spec.title!r} "

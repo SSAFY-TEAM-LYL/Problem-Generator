@@ -85,7 +85,7 @@ from .nodes import (
     make_strategist_node,
     make_suite_assembler_node,
 )
-from .router import route_after_faithfulness, route_after_qa
+from .router import route_after_faithfulness, route_after_qa, route_after_spec_bridge
 from .state import V2FinalStatus, V2State
 
 if TYPE_CHECKING:
@@ -387,8 +387,20 @@ def _wire_synthesis(
         "end_synthesis_rejected",
         cast(Any, _make_finalizer("fail_synthesis_rejected")),
     )
+    builder.add_node(
+        "end_spec_authoring", cast(Any, _make_finalizer("fail_spec_authoring"))
+    )
 
-    builder.add_edge("spec_bridge", "designer")
+    # spec 저작 실패(LLM structured output 전멸) 가드 — crash 대신 valid fail 종료
+    builder.add_conditional_edges(
+        "spec_bridge",
+        cast(Any, route_after_spec_bridge),
+        cast(
+            Any,
+            {"designer": "designer", "end_spec_authoring": "end_spec_authoring"},
+        ),
+    )
+    builder.add_edge("end_spec_authoring", END)
     builder.add_edge("designer", "dispatch")
     for name in (*golden_names, "brute"):
         builder.add_edge("dispatch", name)  # fan-out (parallel superstep)

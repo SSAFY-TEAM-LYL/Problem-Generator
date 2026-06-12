@@ -220,6 +220,18 @@ def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
     assert "검산" in _SPEC  # 합성 절차 단계별 수행
 
 
+def test_spec_bridge_prompt_warns_schema_structure() -> None:
+    """spec_bridge tool schema 구조 주의 규율 — BS-run3 실측 crash(Opus 가 중첩
+    io_contract 를 string 으로 emit + sample_testcases 누락 + 최상위 extra 필드
+    → 5-retry 전멸) 발생률 저감. 절대 방어는 노드 가드(fail_spec_authoring),
+    이 prompt 는 생성 구조화 측 (strategist enum 명시 선례). 드리프트 방지."""
+    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT
+
+    assert "중첩 객체" in _SYSTEM_PROMPT  # io_contract 는 dict (string 금지)
+    assert "누락 금지" in _SYSTEM_PROMPT  # sample_testcases 필수
+    assert "최상위" in _SYSTEM_PROMPT  # 스키마 밖 top-level 필드 금지
+
+
 def test_boundary_semantics_rules_in_prompts() -> None:
     """경계/퇴화 케이스 의미론 규율 — step4 재측정(N=3)의 QA 도달 2/2 공통
     ambiguity blocker(시작==끝 반환값·도달불가 vs 예산초과 구분·다중 간선 처리·
