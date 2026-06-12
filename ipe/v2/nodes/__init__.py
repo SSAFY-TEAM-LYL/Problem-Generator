@@ -40,6 +40,7 @@ from .spec_bridge import (
     SpecBridgeLLM,
     make_spec_bridge_node,
 )
+from .spec_patch import make_spec_patch_node
 from .strategist import (
     AnthropicStrategistLLM,
     StrategistLLM,
@@ -70,6 +71,7 @@ __all__ = [
     "make_qa_aggregator_node",
     "make_qa_reviewer_node",
     "make_spec_bridge_node",
+    "make_spec_patch_node",
     "make_strategist_node",
     "make_suite_assembler_node",
 ]

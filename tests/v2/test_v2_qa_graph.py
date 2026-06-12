@@ -151,18 +151,49 @@ class _QAReviewerLLM:
         return QAReview(kind=self._kind, passed=self._passed, rationale="scripted")
 
 
+class _FlakyQAReviewerLLM:
+    """1라운드 fail → 이후 pass — back-route 가 수정을 반영하는 시나리오 스크립트."""
+
+    def __init__(self, kind: QAReviewerKind) -> None:
+        self._kind = kind
+        self.calls = 0
+
+    def review(self, state: Any, *, kind: QAReviewerKind) -> QAReview:
+        self.calls += 1
+        return QAReview(
+            kind=self._kind, passed=self.calls > 1, rationale=f"round{self.calls}"
+        )
+
+
+class _SequencedNarrativeLLM:
+    """호출마다 다른 scenario — revise 본이 별개 산출임을 추적."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
+        self.calls += 1
+        return NarrativeDraft(scenario=f"시나리오 v{self.calls}")
+
+
 def _final(raw: Any) -> V2State:
     return raw if isinstance(raw, V2State) else V2State.model_validate(raw)
 
 
-def _qa_graph(*, fail_kinds: tuple[QAReviewerKind, ...] = ()) -> Any:
-    qa_llms: dict[QAReviewerKind, Any] = {
-        kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in ALL_KINDS
-    }
+def _qa_graph(
+    *,
+    fail_kinds: tuple[QAReviewerKind, ...] = (),
+    qa_llms: dict[QAReviewerKind, Any] | None = None,
+    narrative_llm: Any | None = None,
+) -> Any:
+    if qa_llms is None:
+        qa_llms = {
+            kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in ALL_KINDS
+        }
     return build_v2_graph(
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
-        narrative_llm=_FixedNarrativeLLM(),
+        narrative_llm=narrative_llm if narrative_llm is not None else _FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
         with_synthesis=True,
         spec_bridge_llm=_SpecBridgeLLM(),
@@ -206,14 +237,45 @@ def test_qa_pipeline_all_pass() -> None:
 
 
 def test_qa_pipeline_blocks_on_failure() -> None:
+    """항상-fail 리뷰어 → back-route 1회 소진 후 fail_qa 확정 (무한루프 없음)."""
     final = _run(_qa_graph(fail_kinds=("leakage",)), "run-qa-fail")
 
     assert final.final_status == "fail_qa"
+    assert final.qa_routebacks == 1  # 예산(기본 1) 소진 후 확정 — 바운드 증명
     assert final.qa_report is not None
     assert final.qa_report.overall_pass is False
     assert final.qa_report.failed_kinds == ("leakage",)
     # suite 까지는 정상 생산 — QA 게이트가 출하만 막음
     assert final.test_suite is not None and final.test_suite.is_assembled
+
+
+# ---------- 2b. back-route 회복 — fail → revise → 재리뷰 → 출하 (B) ----------
+
+
+def test_qa_routeback_recovers_to_success() -> None:
+    """1라운드 ambiguity fail → narrative revise(피드백) → description 패치 →
+    재리뷰 pass → 출하. synthesis 재실행 없음(검증·suite 보존)이 B 의 핵심."""
+    qa_llms: dict[QAReviewerKind, Any] = {
+        kind: (
+            _FlakyQAReviewerLLM(kind)
+            if kind == "ambiguity"
+            else _QAReviewerLLM(True, kind)
+        )
+        for kind in ALL_KINDS
+    }
+    nar = _SequencedNarrativeLLM()
+    final = _run(_qa_graph(qa_llms=qa_llms, narrative_llm=nar), "run-qa-recover")
+
+    assert final.final_status == "success"
+    assert final.qa_routebacks == 1
+    assert final.qa_report is not None
+    assert final.qa_report.overall_pass is True  # 최신 라운드 판정으로 집계
+    assert nar.calls == 2  # 본 렌더 + revise 1회
+    # revise 본이 description 에만 패치 — 계약/채점셋은 보존
+    assert final.spec is not None
+    assert final.spec.description == "시나리오 v2"
+    assert final.test_suite is not None and final.test_suite.is_assembled
+    assert final.verification is not None and final.verification.overall_pass
 
 
 # ---------- 3. build guard ----------
@@ -229,7 +291,7 @@ def test_with_qa_requires_test_suite() -> None:
 
 def test_route_after_qa_decisions() -> None:
     base = initial_v2_state("r", TargetAlgorithm.SORT)
-    assert route_after_qa(base) == "end_qa"  # report 부재 = 미통과
+    assert route_after_qa(base) == "end_qa"  # report 부재 = 미통과 (routeback 아님)
     ok = base.model_copy(
         update={
             "qa_report": QAReport(reviews=(QAReview(kind="ambiguity", passed=True),))
@@ -241,4 +303,11 @@ def test_route_after_qa_decisions() -> None:
             "qa_report": QAReport(reviews=(QAReview(kind="leakage", passed=False),))
         }
     )
-    assert route_after_qa(bad) == "end_qa"
+    # B: fail + 예산 잔여(0 < 1) → 해당 스테이지 재진입 (RFC N11 back-route)
+    assert route_after_qa(bad) == "routeback"
+    # 예산 소진 → fail_qa 확정
+    spent = bad.model_copy(update={"qa_routebacks": 1})
+    assert route_after_qa(spent) == "end_qa"
+    # 예산 0 = back-route 비활성(단발 게이트와 동일)
+    disabled = bad.model_copy(update={"max_qa_routebacks": 0})
+    assert route_after_qa(disabled) == "end_qa"

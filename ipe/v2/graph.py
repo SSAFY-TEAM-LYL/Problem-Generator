@@ -28,7 +28,10 @@
                      ├→ qa_fairness ───┤ (4 병렬 fan-out, Haiku)
                      ├→ qa_leakage ────┤
                      └→ qa_difficulty ─┴→ qa_aggregator → route ─(pass)→ end_success
-                                                                └(fail)→ end_qa
+                                              ↑                 ├(fail·예산)→ end_qa
+                                              │                 └(routeback)↓
+                       spec_patch(desc 만 패치) ← faithfulness_revise ← narrative_revise
+                       (재리뷰 fan-out 4종)        (QA findings 피드백 재작성, B back-route)
 
 핵심 의도:
 - 모델링 4 노드(strategist/formalizer/narrative/faithfulness) + faithful=False→narrative
@@ -78,6 +81,7 @@ from .nodes import (
     make_qa_aggregator_node,
     make_qa_reviewer_node,
     make_spec_bridge_node,
+    make_spec_patch_node,
     make_strategist_node,
     make_suite_assembler_node,
 )
@@ -96,6 +100,11 @@ if TYPE_CHECKING:
 def _bump_iteration(state: V2State) -> V2State:
     """regen 노드 — faithfulness 실패 후 재시도 카운터 증가 (narrative 재생성 전)."""
     return state.model_copy(update={"iteration": state.iteration + 1})
+
+
+def _bump_qa_routebacks(state: V2State) -> dict[str, Any]:
+    """qa_routeback 노드 — back-route(B) 예산 1회 소비 (narrative revise 진입 전)."""
+    return {"qa_routebacks": state.qa_routebacks + 1}
 
 
 def _make_finalizer(status: V2FinalStatus) -> Callable[[V2State], V2State]:
@@ -252,6 +261,9 @@ def build_v2_graph(
             generator_designer_llm=generator_designer_llm,
             with_qa=with_qa,
             qa_reviewer_llms=qa_reviewer_llms,
+            narrative_llm=narrative_llm,
+            faithfulness_llm=faithfulness_llm,
+            hidden=hidden,
         )
 
     return builder.compile()
@@ -272,12 +284,16 @@ def _wire_synthesis(
     generator_designer_llm: GeneratorDesignerLLM | None = None,
     with_qa: bool = False,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
+    narrative_llm: NarrativeLLM | None = None,
+    faithfulness_llm: FaithfulnessLLM | None = None,
+    hidden: bool = True,
 ) -> None:
     """synthesis 서브그래프 — spec_bridge→designer→fan-out→reconcile→bridge→executor.
 
     v1 M2 노드를 cast(Any) duck-typing 으로 재사용(step2a 가 V2State 적응으로 검증).
     ``with_test_suite=True`` 면 executor 통과 후 M4 채점셋 3 노드를 거쳐 end_success,
-    ``with_qa=True`` 면 그 뒤 QA 4종 병렬 게이트(M5)까지.
+    ``with_qa=True`` 면 그 뒤 QA 4종 병렬 게이트(M5)까지. ``narrative_llm``/
+    ``faithfulness_llm``/``hidden`` 은 QA back-route(B)의 revise 경로용 passthrough.
     """
     if not golden_llms or brute_llm is None:
         msg = "with_synthesis=True 는 golden_llms(>=1) + brute_llm 필수"
@@ -395,7 +411,13 @@ def _wire_synthesis(
         builder.add_edge("generator_designer", "input_generator")
         builder.add_edge("input_generator", "suite_assembler")
         if with_qa:
-            _wire_qa(builder, qa_reviewer_llms=qa_reviewer_llms)
+            _wire_qa(
+                builder,
+                qa_reviewer_llms=qa_reviewer_llms,
+                narrative_llm=narrative_llm,
+                faithfulness_llm=faithfulness_llm,
+                hidden=hidden,
+            )
         else:
             builder.add_edge("suite_assembler", "end_success")
 
@@ -404,12 +426,18 @@ def _wire_qa(
     builder: Any,
     *,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None,
+    narrative_llm: NarrativeLLM | None,
+    faithfulness_llm: FaithfulnessLLM | None,
+    hidden: bool,
 ) -> None:
-    """QA 서브그래프 (M5, RFC N10/N11) — suite 완성 패키지의 4관점 병렬 게이트.
+    """QA 서브그래프 (M5, RFC N10/N11) — 4관점 병렬 게이트 + back-route(B).
 
     suite_assembler 에서 4 리뷰어로 직접 fan-out(같은 superstep) → 각자 partial
-    dict 로 ``qa_reviews`` reducer 에 누적 → aggregator fan-in 집계 → 결정론 라우팅.
-    back-route(실패 kind 별 재진입)는 후속 step — 단발 게이트.
+    dict 로 ``qa_reviews`` reducer 에 누적 → aggregator fan-in 집계(kind 별 최신)
+    → 결정론 라우팅. **back-route**: fail + 예산 잔여 시 narrative revise 재진입 —
+    QA findings 를 피드백으로 scenario 재작성(faithfulness 재게이트) 후 spec 의
+    **description 만** 패치해 4 리뷰어 재리뷰. synthesis/verification/suite 는
+    재실행하지 않는다 (io_contract·골든·채점셋이 진실원천, 지문을 고치는 방향).
     """
     kinds: tuple[QAReviewerKind, ...] = (
         "ambiguity",
@@ -429,6 +457,45 @@ def _wire_qa(
     builder.add_conditional_edges(
         "qa_aggregator",
         route_after_qa,
-        cast(Any, {"end_success": "end_success", "end_qa": "end_qa"}),
+        cast(
+            Any,
+            {
+                "end_success": "end_success",
+                "routeback": "qa_routeback",
+                "end_qa": "end_qa",
+            },
+        ),
     )
     builder.add_edge("end_qa", END)
+
+    # ---- back-route revise 경로 (B, RFC N11 후반) ----
+    # 예산 소비 → narrative 재작성(QA findings 피드백) → faithfulness 재게이트 →
+    # description 패치 → 재리뷰. 'end_faithfulness' 종단은 modeling 배선의 것 재사용.
+    builder.add_node("qa_routeback", cast(Any, _bump_qa_routebacks))
+    builder.add_node(
+        "narrative_revise",
+        cast(Any, make_narrative_node(narrative_llm, hidden=hidden)),
+    )
+    builder.add_node(
+        "faithfulness_revise", cast(Any, make_faithfulness_node(faithfulness_llm))
+    )
+    builder.add_node("regen_revise", cast(Any, _bump_iteration))
+    builder.add_node("spec_patch", cast(Any, make_spec_patch_node()))
+
+    builder.add_edge("qa_routeback", "narrative_revise")
+    builder.add_edge("narrative_revise", "faithfulness_revise")
+    builder.add_conditional_edges(
+        "faithfulness_revise",
+        route_after_faithfulness,  # 동일 결정론 — 타겟 매핑만 revise 경로용
+        cast(
+            Any,
+            {
+                "end_success": "spec_patch",
+                "regen": "regen_revise",
+                "end_faithfulness": "end_faithfulness",
+            },
+        ),
+    )
+    builder.add_edge("regen_revise", "narrative_revise")
+    for kind in kinds:
+        builder.add_edge("spec_patch", f"qa_{kind}")  # 재리뷰 fan-out

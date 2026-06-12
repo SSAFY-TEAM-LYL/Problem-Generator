@@ -44,8 +44,9 @@ _RECURSION_PAD = 15
 _SYNTHESIS_RECURSION_PAD = 12
 # suite tail(generator_designer→input_generator→suite_assembler) 단발 step 여유.
 _SUITE_RECURSION_PAD = 6
-# qa tail(리뷰어 4종 병렬 superstep→aggregator) 단발 step 여유.
-_QA_RECURSION_PAD = 6
+# qa tail(리뷰어 4종 병렬 superstep→aggregator) + back-route revise 사이클
+# (routeback→narrative_revise→faithfulness_revise→spec_patch→재리뷰→집계) 여유.
+_QA_RECURSION_PAD = 14
 
 # golden fan-out 은 distinct 모델로(차분 독립성, §7.4). brute 는 별도 origin 라벨.
 DEFAULT_GOLDEN_MODELS = "claude-opus-4-7,claude-sonnet-4-6"
@@ -197,7 +198,7 @@ def _print_suite_qa_summary(final: V2State) -> None:
         verdicts = {r.kind: r.passed for r in q.reviews}
         print(
             f"[v2] qa: overall_pass={q.overall_pass} verdicts={verdicts} "
-            f"failed_kinds={list(q.failed_kinds)}"
+            f"failed_kinds={list(q.failed_kinds)} routebacks={final.qa_routebacks}"
         )
         for r in q.reviews:
             if not r.passed:

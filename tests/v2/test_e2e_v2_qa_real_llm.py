@@ -71,7 +71,7 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
         initial_v2_state(
             "e2e-v2-qa-dijkstra", TargetAlgorithm.DIJKSTRA, max_iterations=4
         ),
-        config={"recursion_limit": 70},
+        config={"recursion_limit": 90},  # back-route(B) revise 사이클 여유
     )
     final = _normalize_final_state(raw)
 
@@ -81,8 +81,8 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
 
     suite_reached = final.test_suite is not None and final.test_suite.is_assembled
     if suite_reached:
-        # QA 스테이지 도달 — 4 병렬 리뷰어 + 집계 populate
-        assert len(final.qa_reviews) == 4, [r.kind for r in final.qa_reviews]
+        # QA 스테이지 도달 — back-route 재리뷰가 있으면 reviews 는 라운드 누적
+        assert len(final.qa_reviews) >= 4, [r.kind for r in final.qa_reviews]
         assert {r.kind for r in final.qa_reviews} == {
             "ambiguity",
             "fairness",
@@ -90,6 +90,7 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
             "difficulty",
         }
         assert final.qa_report is not None
+        assert len(final.qa_report.reviews) == 4  # aggregator = kind 별 최신만
         assert final.final_status in ("success", "fail_qa")
         if final.final_status == "success":
             assert final.qa_report.overall_pass is True
@@ -99,7 +100,9 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
 
     # ---- 측정: QA 게이트 anchor (1 data point) ----
     verdicts = (
-        {r.kind: r.passed for r in final.qa_reviews} if final.qa_reviews else None
+        {r.kind: r.passed for r in final.qa_report.reviews}
+        if final.qa_report is not None
+        else None
     )
     findings = (
         sum(len(r.findings) for r in final.qa_reviews) if final.qa_reviews else 0
@@ -108,7 +111,8 @@ def test_v2_qa_pipeline_single_run_real_llm() -> None:
     print(
         f"\n[e2e-qa-anchor] final_status={final.final_status} "
         f"suite_cases={suite_size} qa_verdicts={verdicts} "
-        f"findings_total={findings} iteration={final.iteration}"
+        f"findings_total={findings} iteration={final.iteration} "
+        f"qa_routebacks={final.qa_routebacks}"
     )
     if final.qa_report is not None and not final.qa_report.overall_pass:
         for r in final.qa_report.reviews:

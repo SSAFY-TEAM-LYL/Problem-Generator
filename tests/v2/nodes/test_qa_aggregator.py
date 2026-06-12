@@ -40,3 +40,22 @@ def test_aggregator_requires_reviews() -> None:
     bare = initial_v2_state("r", TargetAlgorithm.SORT)
     with pytest.raises(ValueError, match="qa_reviews"):
         make_qa_aggregator_node()(bare)
+
+
+def test_aggregator_keeps_latest_per_kind() -> None:
+    """back-route(B) 재리뷰 시 reducer 에 라운드가 누적 — kind 별 **최신** 리뷰만
+    집계해야 수정 반영 후 통과가 가능 (옛 fail 리뷰가 영구 블록하지 않게)."""
+    state = initial_v2_state("r", TargetAlgorithm.SORT).model_copy(
+        update={
+            "qa_reviews": [
+                QAReview(kind="ambiguity", passed=False, rationale="round1"),
+                QAReview(kind="fairness", passed=True),
+                QAReview(kind="ambiguity", passed=True, rationale="round2"),
+            ]
+        }
+    )
+    report = make_qa_aggregator_node()(state)["qa_report"]
+    assert len(report.reviews) == 2  # kind 별 1개
+    assert report.overall_pass is True  # ambiguity 는 round2(최신) 판정
+    by_kind = {r.kind: r for r in report.reviews}
+    assert by_kind["ambiguity"].rationale == "round2"

@@ -107,6 +107,12 @@ class V2State(BaseModel):
         default_factory=list, description="M5 QA 리뷰어 4종 병렬 산출 (reducer)"
     )
     qa_report: QAReport | None = None  # M5 aggregator 집계 (출하 게이트 근거)
+    qa_routebacks: int = Field(
+        default=0, ge=0, description="B back-route 소비 횟수 (QA fail→재진입)"
+    )
+    max_qa_routebacks: int = Field(
+        default=1, ge=0, description="B back-route 예산 (0=단발 게이트)"
+    )
 
     # Stateful learning (해자 재사용)
     context: IterationContext
@@ -136,15 +142,18 @@ def initial_v2_state(
     seed_algorithm: TargetAlgorithm,
     *,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
+    max_qa_routebacks: int = 1,
 ) -> V2State:
     """Factory — 최소 입력으로 V2State 시작 상태 생성.
 
     ``context`` 는 같은 run_id / seed_algorithm 으로 초기화 (해자 IterationContext).
+    ``max_qa_routebacks`` 는 QA fail 시 back-route(B) 예산 (0=단발 게이트).
     """
     return V2State(
         run_id=run_id,
         seed_algorithm=seed_algorithm,
         max_iterations=max_iterations,
+        max_qa_routebacks=max_qa_routebacks,
         context=IterationContext(
             run_id=run_id,
             target_algorithm=seed_algorithm,
