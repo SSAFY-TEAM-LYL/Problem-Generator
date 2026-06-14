@@ -145,6 +145,10 @@ two_sum, segtree, fenwick, heap, sieve, string_match
       { "input_text": "3 2\n1 2 5\n2 3 7\n1 3", "expected_output": "12", "description": "" }
     ]
   },
+  "solution": {                             // ⚠ 내부 전용 — 응시자 비노출
+    "golden_code": "import sys\n…(검증된 정해 소스 전문)…",
+    "language": "python"                    // "python" | "java"
+  },
   "test_suite": {
     "cases": [
       {
@@ -181,6 +185,11 @@ two_sum, segtree, fenwick, heap, sieve, string_match
 
 - **`meta.hidden_algorithm`/`meta.composition` 은 유저에게 절대 노출 금지**
   (노출 = 은닉·유출 방지 설계 무력화). DB 내부 컬럼으로만.
+- **`solution.golden_code` 은 내부 검수·재현용 정해 — 응시자에게 절대 노출 금지**
+  (채점은 `test_suite` 줄 단위 exact-match 라 정해 코드 불요; DB 내부 컬럼·감사용).
+  `package_version` 무변경 `1.0` 에 **additive** 로 추가 — 기존 백엔드는 무시해도 안전.
+  `solution` 은 `package` 가 존재할 때만(=`success`/`fail_qa`) 동봉되며, 이론상
+  정해 부재 시 `null`.
 - `direct` 모드에서는 지문이 알고리즘을 명시할 수 있음 — 노출 정책은 백엔드
   product 단 결정.
 - `test_suite.cases` 수는 보장값 없음 (관측 40~60). 케이스 순서는 의미 없음.

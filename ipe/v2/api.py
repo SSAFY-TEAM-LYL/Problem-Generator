@@ -121,6 +121,16 @@ def _build_package(
                 for f in r.findings
             ],
         }
+    # solution.golden_code — 내부 검수용 정해 (응시자 비노출, meta.hidden_algorithm 과
+    # 동급 internal-only). reconciled canonical(suite expected 를 채운 검증된 골든)이라
+    # packaged 상태면 attempt 는 항상 set; 이론상 부재는 None 으로 안전 처리.
+    attempt = final.attempt
+    solution_block: dict[str, Any] | None = None
+    if attempt is not None:
+        solution_block = {
+            "golden_code": attempt.code,
+            "language": attempt.language,
+        }
     return {
         "problem": {
             "title": spec.title,
@@ -129,6 +139,7 @@ def _build_package(
             "constraints": [c.model_dump() for c in spec.constraints],
             "sample_testcases": [s.model_dump() for s in spec.sample_testcases],
         },
+        "solution": solution_block,
         "test_suite": {
             "cases": [
                 {

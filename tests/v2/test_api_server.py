@@ -29,6 +29,7 @@ from ipe.v1.schema import (
     QAReview,
     SampleResult,
     SampleTestCase,
+    SolutionAttempt,
     TargetAlgorithm,
     TestSuite,
     VerificationResult,
@@ -89,6 +90,13 @@ def _suite() -> TestSuite:
     )
 
 
+def _attempt() -> SolutionAttempt:
+    return SolutionAttempt(
+        code="import sys\n\ndef main() -> None:\n    print(0)  # golden dijkstra\n",
+        iteration=1,
+    )
+
+
 def _qa_pass() -> QAReport:
     return QAReport(
         reviews=tuple(
@@ -122,6 +130,7 @@ def _final_state(final_status: str, *, qa: QAReport | None = None) -> V2State:
             {
                 "blueprint": _blueprint(),
                 "spec": _spec(),
+                "attempt": _attempt(),
                 "test_suite": _suite(),
                 "qa_report": qa if qa is not None else _qa_pass(),
             }
@@ -238,6 +247,9 @@ def test_success_package_shape() -> None:
     cases = pkg["test_suite"]["cases"]
     assert [c["golden_elapsed_ms"] for c in cases] == [12, 180]
     assert pkg["test_suite"]["origin"] == "claude-opus-4-7"
+    sol = pkg["solution"]  # 정해코드 동봉 (내부 검수용·응시자 비노출)
+    assert "golden dijkstra" in sol["golden_code"]
+    assert sol["language"] == "python"
     meta = pkg["meta"]
     assert meta["package_version"] == "1.0"
     assert meta["mode"] == "hidden"

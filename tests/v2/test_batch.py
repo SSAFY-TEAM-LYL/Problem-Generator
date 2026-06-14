@@ -29,6 +29,7 @@ from ipe.v1.schema import (
     QAReport,
     QAReview,
     SampleTestCase,
+    SolutionAttempt,
     TargetAlgorithm,
     TestSuite,
 )
@@ -97,6 +98,10 @@ def _qa(passed: bool) -> QAReport:
     return QAReport(reviews=tuple(reviews))
 
 
+def _attempt() -> SolutionAttempt:
+    return SolutionAttempt(code="import sys\nprint(0)  # golden\n", iteration=1)
+
+
 def _final_state(final_status: str) -> V2State:
     base = initial_v2_state("batch-test", TargetAlgorithm.DIJKSTRA)
     update: dict[str, object] = {"final_status": final_status, "blueprint": _blueprint()}
@@ -104,6 +109,7 @@ def _final_state(final_status: str) -> V2State:
         update.update(
             {
                 "spec": _spec(),
+                "attempt": _attempt(),
                 "test_suite": _suite(),
                 "qa_report": _qa(final_status == "success"),
             }
@@ -193,6 +199,7 @@ def test_batch_writes_contract_package_file_and_summary(tmp_path: Path) -> None:
     assert data["composition"] == ["union_find"]
     pkg = data["package"]
     assert pkg["problem"]["title"] == "상수도 배관망 점검"
+    assert pkg["solution"]["golden_code"].startswith("import sys")  # 정해 은행 파일 동봉
     assert pkg["meta"]["package_version"] == "1.0"
     assert pkg["meta"]["timing"]["max_golden_elapsed_ms"] == 12
     summary = _read(tmp_path, "summary.json")
