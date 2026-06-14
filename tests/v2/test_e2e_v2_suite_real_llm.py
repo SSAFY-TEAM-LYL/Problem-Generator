@@ -37,7 +37,7 @@ from ipe.v2.state import initial_v2_state
 
 from .test_e2e_v2_full_pipeline_real_llm import VALID_FINAL_STATUSES
 
-_GOLDEN_MODELS = ["claude-opus-4-7", "claude-sonnet-4-6"]
+_GOLDEN_MODELS = ["claude-opus-4-8", "claude-sonnet-4-6"]
 _BRUTE_MODEL = "claude-sonnet-4-6"
 
 

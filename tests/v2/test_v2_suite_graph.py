@@ -26,6 +26,7 @@ from ipe.v1.schema import (
     EdgeCaseSpec,
     GeneratorContract,
     Invariant,
+    InvariantViolation,
     IOContract,
     IOFieldSpec,
     IOSchema,
@@ -187,6 +188,7 @@ def _suite_graph(
     *,
     spec_prefix: str = "ans",
     runner_fn: Callable[[str, str], tuple[str, str]] = _echo_answer,
+    verifier_getter: Any = None,
 ) -> Any:
     return build_v2_graph(
         strategist_llm=_FixedStrategistLLM(),
@@ -200,10 +202,24 @@ def _suite_graph(
         brute_llm=_CoderLLM("# B"),
         golden_origins=["opus", "sonnet"],
         runner=_MarkerRunner(runner_fn),
-        verifier_getter=lambda _a: None,
+        verifier_getter=(
+            verifier_getter if verifier_getter is not None else (lambda _a: None)
+        ),
         with_test_suite=True,
         generator_designer_llm=_FixedGeneratorDesignerLLM(),
     )
+
+
+class _ViolatingVerifier:
+    """symbolic verifier mock — invariant violation 검출 (verification fail 유발)."""
+
+    def verify(self, **_kw: Any) -> list[InvariantViolation]:
+        return [
+            InvariantViolation(invariant_kind="non_negative", description="음수 거리")
+        ]
+
+    def count_engaged_samples(self, spec: Any) -> int:
+        return len(spec.sample_testcases)
 
 
 def _run(graph: Any, run_id: str) -> V2State:
@@ -247,7 +263,9 @@ def test_suite_pipeline_success() -> None:
 
 
 def test_suite_skipped_on_verification_fail() -> None:
-    graph = _suite_graph(spec_prefix="zzz")  # 합의는 하되 sample mismatch
+    # sample 은 sample_filler 가 golden 으로 채워 통과 — verification fail 은 symbolic
+    # invariant violation 으로 유발 (sample mismatch 는 sample_filler 가 흡수).
+    graph = _suite_graph(verifier_getter=lambda _a: _ViolatingVerifier())
     final = _run(graph, "run-suite-vfail")
 
     assert final.final_status == "fail_verification"

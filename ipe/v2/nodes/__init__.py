@@ -35,6 +35,7 @@ from .qa_reviewer import (
     QAReviewerLLM,
     make_qa_reviewer_node,
 )
+from .sample_filler import make_sample_filler_node
 from .spec_bridge import (
     AnthropicSpecBridgeLLM,
     SpecBridgeLLM,
@@ -70,6 +71,7 @@ __all__ = [
     "make_narrative_node",
     "make_qa_aggregator_node",
     "make_qa_reviewer_node",
+    "make_sample_filler_node",
     "make_spec_bridge_node",
     "make_spec_patch_node",
     "make_strategist_node",

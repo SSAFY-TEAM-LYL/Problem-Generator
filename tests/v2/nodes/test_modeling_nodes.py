@@ -203,19 +203,18 @@ def test_faithfulness_prompt_rejects_absent_data_mechanics() -> None:
 
 
 def test_composition_realization_rules_in_prompts() -> None:
-    """M6 step2: 합성 실현 규율 3종 — composition 을 '참고'가 아니라 '요구'로.
+    """M6 step2: 합성 실현 규율 — composition 을 '참고'가 아니라 '요구'로.
     (B-후 재측정 run2 leakage blocker = 합성 미실현 → 고전 동형. 생성 구조화 대응:
-    formalizer 는 출력 의미로 합성을 강제, narrative 는 질문이 기법을 요구,
-    spec_bridge 는 샘플 expected 를 합성 의미로 계산.) 드리프트 방지."""
+    formalizer 는 출력 의미로 합성을 강제, narrative 는 질문이 기법을 요구.)
+    spec_bridge 의 합성 expected 계산은 sample_filler(golden 실행)로 이관 —
+    golden 이 합성을 구현했으면 expected 는 자동으로 합성 의미. 드리프트 방지."""
     from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FORMALIZER_PROMPT
     from ipe.v2.nodes.narrative import _SYSTEM_PROMPT as _NARRATIVE_PROMPT
-    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT as _SPEC_BRIDGE_PROMPT
 
     assert "합성이 필수" in _FORMALIZER_PROMPT  # 출력 의미가 합성을 강제
     assert "feasibility" in _FORMALIZER_PROMPT  # 대표 합성 패턴 예시
     assert "질문 자체" in _NARRATIVE_PROMPT  # 시나리오 질문이 기법을 요구
     assert "장식" in _NARRATIVE_PROMPT  # 장식적 합성 금지
-    assert "합성된 출력 의미" in _SPEC_BRIDGE_PROMPT  # expected = 합성 의미 계산
 
 
 def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
@@ -229,8 +228,8 @@ def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
 
     assert "단일 가중치" in _FMT  # 간선 속성 = w 하나
     assert "다속성" in _FMT  # 간선 다속성 설계 금지
-    assert "최소 규모" in _SPEC  # composed 샘플 크기 강제
-    assert "검산" in _SPEC  # 합성 절차 단계별 수행
+    assert "최소 규모" in _SPEC  # composed 샘플 크기 강제 (input 크기)
+    # "검산"(expected 손계산 단계별 검산)은 제거 — expected 는 golden 이 채움
 
 
 def test_spec_bridge_prompt_warns_schema_structure() -> None:

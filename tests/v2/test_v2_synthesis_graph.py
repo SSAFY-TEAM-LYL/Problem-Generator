@@ -23,6 +23,7 @@ from ipe.v1.schema import (
     BlueprintFormalization,
     ComplexityBound,
     Invariant,
+    InvariantViolation,
     IOContract,
     IOFieldSpec,
     IOSchema,
@@ -219,15 +220,33 @@ def test_full_pipeline_synthesis_rejected() -> None:
 # ---------- 3. verification fail ----------
 
 
+class _ViolatingVerifier:
+    """symbolic verifier mock — invariant violation 검출 (verification fail 유발)."""
+
+    def verify(self, **_kw: Any) -> list[InvariantViolation]:
+        return [
+            InvariantViolation(invariant_kind="non_negative", description="음수 거리")
+        ]
+
+    def count_engaged_samples(self, spec: Any) -> int:
+        return len(spec.sample_testcases)
+
+
 def test_full_pipeline_verification_fail() -> None:
-    # spec expected = 'zzz-*' 이지만 runner 는 'ans-*' → 합의는 하되 sample mismatch
-    graph = _full_graph(spec_prefix="zzz", golden_codes=["# G0", "# G1"])
+    # sample expected 는 sample_filler 가 golden 실행으로 채워 통과 — verification
+    # fail 은 symbolic verifier 의 invariant violation 으로 유발 (sample_filler 도입
+    # 후 sample mismatch 는 success 로 흡수되므로 invariant 가 fail 의 경로).
+    graph = _full_graph(
+        golden_codes=["# G0", "# G1"],
+        verifier_getter=lambda _a: _ViolatingVerifier(),
+    )
     final = _run(graph, "run-vfail")
 
     assert final.final_status == "fail_verification"
     assert final.reconciliation is not None and final.reconciliation.all_agree is True
     assert final.attempt is not None  # bridge 됨
     assert final.verification is not None and final.verification.overall_pass is False
+    assert final.verification.invariant_violations  # invariant 로 fail
 
 
 # ---------- 4. build guard ----------

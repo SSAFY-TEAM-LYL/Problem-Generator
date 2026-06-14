@@ -21,6 +21,7 @@ from ._exec import (
     DEFAULT_MEMORY_LIMIT_MB,
     DEFAULT_TIME_LIMIT_MS,
     CodeRunner,
+    exception_signal,
 )
 from .differential import DifferentialCase, run_differential
 
@@ -29,6 +30,7 @@ from .differential import DifferentialCase, run_differential
 _DETAIL_MAX_CASES = 3
 _DETAIL_INPUT_HEAD = 60
 _DETAIL_OUTPUT_HEAD = 40
+_DETAIL_STDERR_HEAD = 80
 
 
 def _head(text: str, limit: int) -> str:
@@ -37,12 +39,36 @@ def _head(text: str, limit: int) -> str:
     return flat if len(flat) <= limit else flat[:limit] + "…"
 
 
+def _describe_side(
+    label: str, status: str, output: str, stderr: str, elapsed_ms: int
+) -> str:
+    """ref/cand 한 쪽의 증거. OK 는 출력 head, 비-OK(RTE/TLE)는 stderr+elapsed —
+    19-algo 배치의 RTE/RTE 병목에서 parse-error(트레이스백) vs TLE(2000ms 근접) 구분."""
+    if status == "OK":
+        return f"{label}[{status}]={_head(output, _DETAIL_OUTPUT_HEAD)!r}"
+    sig = exception_signal(stderr, _DETAIL_STDERR_HEAD)
+    return f"{label}[{status},{elapsed_ms}ms]={sig!r}"
+
+
 def _describe_case(case: DifferentialCase) -> str:
-    """불일치 케이스 한 건의 증거: 입력 + ref/cand 의 status·출력 head."""
+    """불일치 케이스 한 건의 증거: 입력 + ref/cand 의 status·출력/stderr head."""
     return (
         f"input={_head(case.input_text, _DETAIL_INPUT_HEAD)!r} "
-        f"ref[{case.golden_status}]={_head(case.golden_output, _DETAIL_OUTPUT_HEAD)!r} "
-        f"cand[{case.brute_status}]={_head(case.brute_output, _DETAIL_OUTPUT_HEAD)!r}"
+        + _describe_side(
+            "ref",
+            case.golden_status,
+            case.golden_output,
+            case.golden_stderr,
+            case.golden_elapsed_ms,
+        )
+        + " "
+        + _describe_side(
+            "cand",
+            case.brute_status,
+            case.brute_output,
+            case.brute_stderr,
+            case.brute_elapsed_ms,
+        )
     )
 
 

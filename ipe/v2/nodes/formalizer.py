@@ -16,7 +16,7 @@ from ipe.v1.schema import BlueprintFormalization, ProblemBlueprint
 
 from ..state import V2State
 
-FORMALIZER_MODEL = "claude-opus-4-7"
+FORMALIZER_MODEL = "claude-opus-4-8"
 FORMALIZER_TEMPERATURE = 0.2  # 정밀 동결 (발산 금지, Strategist 의 0.7 와 대비)
 
 

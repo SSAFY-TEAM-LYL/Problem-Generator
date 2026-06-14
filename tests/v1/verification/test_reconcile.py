@@ -12,7 +12,34 @@ from pathlib import Path
 
 from ipe.sandbox.runner import RunResult, RunSpec
 from ipe.v1.schema import SolutionCandidate
+from ipe.v1.verification._exec import exception_signal
 from ipe.v1.verification.reconcile import reconcile
+
+
+def test_exception_signal_prefers_last_traceback_line() -> None:
+    """트레이스백은 마지막 줄(예외 타입)이 진단 핵심 — head 가 아닌 tail 우선.
+
+    배치에서 RTE stderr 가 'Traceback ... File 경로'로 head 잘려 IndexError/
+    ValueError 구분 불가였던 빈틈 대응 (2번 작업의 형식 규율 방향 입력)."""
+    tb = (
+        "Traceback (most recent call last):\n"
+        '  File "sol.py", line 5, in <module>\n'
+        "    a, b = data[i], data[i + 1]\n"
+        "IndexError: list index out of range"
+    )
+    assert exception_signal(tb, 80) == "IndexError: list index out of range"
+
+
+def test_exception_signal_head_fallback_for_short_stderr() -> None:
+    assert exception_signal("boom", 80) == "boom"
+    assert exception_signal("", 80) == ""
+    assert exception_signal("   \n  \n ", 80) == ""
+
+
+def test_exception_signal_truncates_long_last_line() -> None:
+    sig = exception_signal("ValueError: " + "x" * 200, 80)
+    assert len(sig) <= 81
+    assert sig.endswith("…")
 
 
 class _ScriptedRunner:
@@ -139,6 +166,28 @@ def test_disagreement_detail_includes_crash_status() -> None:
     r = reconcile(candidates=cands, inputs=_INPUTS, runner=_ScriptedRunner(_by_marker))
     detail = next(d for d in r.disagreements if "sonnet" in d)
     assert "RTE" in detail
+
+
+def test_disagreement_detail_exposes_stderr_and_elapsed_for_nonok() -> None:
+    """비-OK(RTE/TLE) 후보는 stderr + elapsed 노출 — parse-error vs TLE 구분 근거.
+
+    19-algo 배치 분석에서 RTE/RTE 가 1위 병목인데 진단이 stdout(빈 값)만 담아
+    원인 미상이었던 빈틈 대응 — stderr 트레이스백/elapsed 로 정체를 가린다.
+    """
+    cands = [_golden("opus", idx=0), _golden("sonnet", marker="CRASH", idx=1), _brute()]
+    r = reconcile(candidates=cands, inputs=_INPUTS, runner=_ScriptedRunner(_by_marker))
+    detail = next(d for d in r.disagreements if "sonnet" in d)
+    assert "boom" in detail  # _ScriptedRunner 가 RTE 에 넣은 stderr
+    assert "ms" in detail  # elapsed 노출 (TLE 판별 근거)
+
+
+def test_disagreement_ok_side_keeps_output_not_stderr() -> None:
+    """OK 측은 출력 head 유지 — stderr 는 무의미하므로 노출 안 함 (값 불일치 가독성)."""
+    cands = [_golden("opus", idx=0), _golden("sonnet", marker="WRONG", idx=1), _brute()]
+    r = reconcile(candidates=cands, inputs=_INPUTS, runner=_ScriptedRunner(_by_marker))
+    detail = next(d for d in r.disagreements if "sonnet" in d)
+    assert "ans-i1" in detail  # reference OK 출력
+    assert "wrong-i1" in detail  # candidate OK 출력
 
 
 def test_disagreement_detail_bounded() -> None:

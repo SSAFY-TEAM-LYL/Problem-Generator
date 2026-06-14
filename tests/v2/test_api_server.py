@@ -17,6 +17,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from ipe.v1.schema import (
+    FailureMode,
     GeneratedTestCase,
     IOContract,
     IOFieldSpec,
@@ -26,11 +27,14 @@ from ipe.v1.schema import (
     QAFinding,
     QAReport,
     QAReview,
+    SampleResult,
     SampleTestCase,
+    SolutionAttempt,
     TargetAlgorithm,
     TestSuite,
+    VerificationResult,
 )
-from ipe.v2.api import create_app
+from ipe.v2.api import _build_diagnostics, create_app
 from ipe.v2.state import V2State, initial_v2_state
 
 _KEY = "test-key"
@@ -86,6 +90,13 @@ def _suite() -> TestSuite:
     )
 
 
+def _attempt() -> SolutionAttempt:
+    return SolutionAttempt(
+        code="import sys\n\ndef main() -> None:\n    print(0)  # golden dijkstra\n",
+        iteration=1,
+    )
+
+
 def _qa_pass() -> QAReport:
     return QAReport(
         reviews=tuple(
@@ -119,6 +130,7 @@ def _final_state(final_status: str, *, qa: QAReport | None = None) -> V2State:
             {
                 "blueprint": _blueprint(),
                 "spec": _spec(),
+                "attempt": _attempt(),
                 "test_suite": _suite(),
                 "qa_report": qa if qa is not None else _qa_pass(),
             }
@@ -235,6 +247,9 @@ def test_success_package_shape() -> None:
     cases = pkg["test_suite"]["cases"]
     assert [c["golden_elapsed_ms"] for c in cases] == [12, 180]
     assert pkg["test_suite"]["origin"] == "claude-opus-4-7"
+    sol = pkg["solution"]  # 정해코드 동봉 (내부 검수용·응시자 비노출)
+    assert "golden dijkstra" in sol["golden_code"]
+    assert sol["language"] == "python"
     meta = pkg["meta"]
     assert meta["package_version"] == "1.0"
     assert meta["mode"] == "hidden"
@@ -272,6 +287,73 @@ def test_other_fail_has_no_package_but_diagnostics() -> None:
     assert data["final_status"] == "fail_spec_authoring"
     assert data["package"] is None
     assert "KeyError" in data["diagnostics"]["detail"]
+
+
+def test_diagnostics_unpacks_verification_failure_evidence() -> None:
+    """fail_verification 진단이 failure_mode + 실패 sample(expected/actual/stderr)
+    + invariant + hint 를 푼다 — 19-batch 의 'overall_pass=False' 깜깜이 빈틈 대응."""
+    v = VerificationResult(
+        overall_pass=False,
+        failure_mode=FailureMode.SAMPLE_MISMATCH,
+        sample_results=[
+            SampleResult(
+                index=0,
+                passed=True,
+                expected_output="1",
+                actual_output="1",
+                elapsed_ms=5,
+            ),
+            SampleResult(
+                index=1,
+                passed=False,
+                expected_output="42",
+                actual_output="7",
+                stderr="",
+                elapsed_ms=12,
+            ),
+        ],
+        iteration=1,
+    )
+    final = _final_state("fail_verification").model_copy(update={"verification": v})
+    diag = _build_diagnostics(final)
+
+    assert "sample_mismatch" in diag["detail"]
+    assert "sample[1]" in diag["detail"]  # 실패 sample 만
+    assert "sample[0]" not in diag["detail"]  # 통과 sample 은 생략
+    assert "expected='42'" in diag["detail"]
+    assert "actual='7'" in diag["detail"]
+
+
+def test_diagnostics_verification_surfaces_stderr_for_crash() -> None:
+    """sample_crash 의 멀티라인 트레이스백에서 예외 줄(마지막)을 추출 — File 프레임
+    경로가 아닌 예외 타입이 진단 핵심 (배치 RTE 정체 가시화)."""
+    tb = (
+        "Traceback (most recent call last):\n"
+        '  File "sol.py", line 5, in <module>\n'
+        "    a, b = data[i], data[i + 1]\n"
+        "IndexError: list index out of range"
+    )
+    v = VerificationResult(
+        overall_pass=False,
+        failure_mode=FailureMode.SAMPLE_CRASH,
+        sample_results=[
+            SampleResult(
+                index=0,
+                passed=False,
+                expected_output="5",
+                actual_output="",
+                stderr=tb,
+                elapsed_ms=8,
+            ),
+        ],
+        iteration=1,
+    )
+    final = _final_state("fail_verification").model_copy(update={"verification": v})
+    diag = _build_diagnostics(final)
+
+    assert "sample_crash" in diag["detail"]
+    assert "IndexError: list index out of range" in diag["detail"]
+    assert "File" not in diag["detail"]  # 프레임 경로는 노이즈 — 추출 안 함
 
 
 # ---------- 운영 규약 ----------

@@ -16,6 +16,20 @@ DEFAULT_TIME_LIMIT_MS = 2000
 DEFAULT_MEMORY_LIMIT_MB = 256
 
 
+def exception_signal(stderr: str, limit: int) -> str:
+    """stderr 에서 진단 신호 추출 — 트레이스백은 **마지막 줄**(예외 타입)이 핵심.
+
+    Python 트레이스백은 'Traceback ...' + File 프레임들 + 마지막 줄에 예외
+    (``IndexError: ...`` 등)가 온다. head truncate 는 프레임 경로만 남기고 정작
+    예외 타입을 버린다 → 마지막 비어있지 않은 줄 우선 (없으면 빈 문자열).
+    공용 위치(reconcile diagnostics + verification sample 진단 공유)."""
+    lines = [ln.strip() for ln in stderr.strip().splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    last = lines[-1]
+    return last if len(last) <= limit else last[:limit] + "…"
+
+
 class CodeRunner(Protocol):
     """``ExecutorRunner`` 와 동일 sub-set — 의존 분리 위해 로컬 재정의."""
 
