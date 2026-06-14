@@ -32,7 +32,7 @@ from ipe.v1.schema import IOContract, ProblemSpec
 from ..generation.input_gen import render_input_format
 from ..state import V2State
 
-SPEC_BRIDGE_MODEL = "claude-opus-4-7"
+SPEC_BRIDGE_MODEL = "claude-opus-4-8"
 SPEC_BRIDGE_TEMPERATURE = 0.2  # sample input 형식 준수 (발산 금지)
 
 

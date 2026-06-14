@@ -42,7 +42,7 @@ RETRY_AFTER_SECONDS = 60
 _MAX_ITERATIONS = 4
 _RECURSION_LIMIT = 90
 
-_GOLDEN_MODELS = ["claude-opus-4-7", "claude-sonnet-4-6"]
+_GOLDEN_MODELS = ["claude-opus-4-8", "claude-sonnet-4-6"]
 _BRUTE_MODEL = "claude-sonnet-4-6"
 
 # 계약 §2.3: 패키지(문제+채점셋)가 완성된 terminal — fail_qa 는 검수 구제 대상.

@@ -49,7 +49,7 @@ _SUITE_RECURSION_PAD = 6
 _QA_RECURSION_PAD = 14
 
 # golden fan-out 은 distinct 모델로(차분 독립성, §7.4). brute 는 별도 origin 라벨.
-DEFAULT_GOLDEN_MODELS = "claude-opus-4-7,claude-sonnet-4-6"
+DEFAULT_GOLDEN_MODELS = "claude-opus-4-8,claude-sonnet-4-6"
 DEFAULT_BRUTE_MODEL = "claude-sonnet-4-6"
 
 

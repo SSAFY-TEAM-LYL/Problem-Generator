@@ -22,7 +22,7 @@ from ipe.v1.schema import NarrativeFaithfulnessReport
 
 from ..state import V2State
 
-FAITHFULNESS_MODEL = "claude-opus-4-7"
+FAITHFULNESS_MODEL = "claude-opus-4-8"
 FAITHFULNESS_TEMPERATURE = 0.2  # 엄밀 판정 (발산 금지)
 
 

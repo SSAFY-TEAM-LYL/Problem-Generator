@@ -38,7 +38,7 @@ VALID_FINAL_STATUSES = {
     "fail_budget_exhausted",
 }
 
-_GOLDEN_MODELS = ["claude-opus-4-7", "claude-sonnet-4-6"]
+_GOLDEN_MODELS = ["claude-opus-4-8", "claude-sonnet-4-6"]
 _BRUTE_MODEL = "claude-sonnet-4-6"
 
 

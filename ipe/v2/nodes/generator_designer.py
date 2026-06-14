@@ -22,7 +22,7 @@ from ipe.v1.schema import GeneratorContract
 
 from ..state import V2State
 
-GENERATOR_DESIGNER_MODEL = "claude-opus-4-7"
+GENERATOR_DESIGNER_MODEL = "claude-opus-4-8"
 GENERATOR_DESIGNER_TEMPERATURE = 0.2  # 형식 계약 설계 (발산 금지)
 
 
