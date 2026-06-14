@@ -50,6 +50,12 @@ _DEFAULT_VALUE = (0, 100)
 _STRING_MIN_LEN = 1  # 빈 문자열 금지 (GeneratedTestCase.input_text min_length=1 보존)
 _ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 
+# 단일 입력의 총 원소 수(배열 N·그래프 간선 E·행렬 R*C·문자열 길이) 상한. LLM contract
+# 가 V=200000 같은 상한을 줘도 결정론 클램프 — 패키지 비대화(케이스당 7.8MB·60케이스
+# 88MB 실측) + 대형 배열 생성 OOM(SIGKILL) 을 한 레버로 차단. CP 대형 테스트 강도와
+# 패키지/전송 실용성의 타협(≈수백 KB/입력); 조정은 이 상수만.
+_MAX_ELEMENTS = 10000
+
 # "disconnected" 는 graph 타입 전용 의미(두 컴포넌트) — 비-graph 필드에선 random 취급
 _Bias = Literal["random", "empty", "min", "max", "disconnected"]
 
@@ -162,6 +168,7 @@ def _serialize_field(
         return f"{_pick_float(lo, hi, bias, rng):.4f}"
     if t == "string":
         n = max(_pick_size(_size_bounds(field, tier_bound), bias, rng), _STRING_MIN_LEN)
+        n = min(n, _MAX_ELEMENTS)  # 길이 캡
         return "".join(rng.choice(_ALPHABET) for _ in range(n))
     if t == "int_array":
         return _serialize_int_array(field, tier_bound, rng, bias=bias)
@@ -185,9 +192,19 @@ def _serialize_int_array(
     n = _pick_size(_size_bounds(field, tier_bound), bias, rng)
     if n <= 0:
         return "0"
+    n = min(n, _MAX_ELEMENTS)  # 원소 총량 캡 (패키지 비대화/생성 OOM 차단)
     lo, hi = _element_bounds(field)
     vals = " ".join(str(rng.randint(lo, hi)) for _ in range(n))
     return f"{n}\n{vals}"
+
+
+def _cap_matrix(r: int, c: int) -> tuple[int, int]:
+    """행렬 원소 총량 R*C 를 _MAX_ELEMENTS 로 캡 (결정론, 큰 차원부터 축소)."""
+    r = min(r, _MAX_ELEMENTS)
+    c = min(c, _MAX_ELEMENTS)
+    if r * c > _MAX_ELEMENTS:
+        c = max(1, _MAX_ELEMENTS // r)
+    return r, c
 
 
 def _serialize_int_matrix(
@@ -202,6 +219,7 @@ def _serialize_int_matrix(
     c = _pick_size(size, bias, rng)
     if r <= 0 or c <= 0:
         return f"{max(r, 0)} {max(c, 0)}"
+    r, c = _cap_matrix(r, c)  # R*C 총량 캡
     lo, hi = _element_bounds(field)
     rows = "\n".join(
         " ".join(str(rng.randint(lo, hi)) for _ in range(c)) for _ in range(r)
@@ -242,6 +260,7 @@ def _serialize_weighted_edges(
     if bias == "empty":
         return "1 0"  # 단일 정점, 간선 0 (퇴화 최소 그래프)
     v = _graph_vertex_count(field, tier_bound, rng, bias)
+    v = min(v, _MAX_ELEMENTS // 2)  # E ≤ 2V → 간선 총량 캡
     if bias == "disconnected":
         v = max(v, 2)  # 두 컴포넌트가 가능한 최소
         half = (v + 1) // 2
@@ -275,6 +294,7 @@ def _serialize_tree_edges(
     if bias == "empty":
         return "1"  # 단일 정점 트리
     v = _graph_vertex_count(field, tier_bound, rng, bias)
+    v = min(v, _MAX_ELEMENTS)  # V-1 간선
     edges = _backbone(1, v, rng)
     if field.value_range is not None:
         lo, hi = _element_bounds(field)

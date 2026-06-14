@@ -16,6 +16,7 @@ from ipe.v1.schema import (
     ScaleFamily,
 )
 from ipe.v2.generation.input_gen import (
+    _MAX_ELEMENTS,
     generate_inputs,
     render_input_format,
     seed_from_run_id,
@@ -330,6 +331,79 @@ def test_grid_matches_int_matrix_canonical() -> None:
         assert len(lines) == 3
         for row in lines[1:]:
             assert all(int(x) in (0, 1) for x in row.split())
+
+
+# ---------- size caps (80~128MB 패키지·생성 OOM 회귀) ----------
+
+
+def test_max_scale_graph_input_is_element_capped() -> None:
+    """V=200000=7.8MB 입력 실측 회귀 — bias=max 그래프도 _MAX_ELEMENTS 로 바운드."""
+    schema = _io_schema(_weighted_edges_field(2, 50000))  # 본래 대형 그래프
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="max_stress"),),  # bias=max → 상한 크기
+    )
+    edge = next(
+        c for c in generate_inputs(contract, schema, seed=7) if c.category == "max_stress"
+    )
+    _, e, _ = _parse_graph(edge.input_text)
+    assert e <= _MAX_ELEMENTS  # 총 간선 캡
+    assert len(edge.input_text) < 1_500_000  # 수MB → 수백KB
+
+
+def test_max_scale_array_input_is_element_capped() -> None:
+    """대형 배열(OOM 유발) bias=max 도 N ≤ _MAX_ELEMENTS."""
+    field = IOFieldSpec(
+        name="arr",
+        type="int_array",
+        size_range=ConstraintRange(name="arr", min_value=1, max_value=100000),
+        value_range=ConstraintRange(name="v", min_value=0, max_value=9),
+    )
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="max_size"),),
+    )
+    edge = next(
+        c
+        for c in generate_inputs(contract, _io_schema(field), seed=3)
+        if c.category == "max_size"
+    )
+    assert int(edge.input_text.split("\n")[0]) <= _MAX_ELEMENTS  # N
+
+
+def test_max_scale_matrix_total_elements_capped() -> None:
+    """행렬 R*C 원소 총량도 _MAX_ELEMENTS 로 캡 (R*C 폭주 방지)."""
+    field = IOFieldSpec(
+        name="m",
+        type="int_matrix",
+        size_range=ConstraintRange(name="m", min_value=1, max_value=200),
+        value_range=ConstraintRange(name="v", min_value=0, max_value=9),
+    )
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="max_grid"),),
+    )
+    edge = next(
+        c
+        for c in generate_inputs(contract, _io_schema(field), seed=5)
+        if c.category == "max_grid"
+    )
+    r, c = (int(x) for x in edge.input_text.split("\n")[0].split())
+    assert r * c <= _MAX_ELEMENTS
+
+
+def test_size_cap_preserves_inputs_under_limit() -> None:
+    """캡은 상한 초과만 클램프 — 한도 미만 입력은 그대로 (회귀 안전)."""
+    schema = _io_schema(_weighted_edges_field(5, 5))
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="max_stress"),),
+    )
+    edge = next(
+        c for c in generate_inputs(contract, schema, seed=1) if c.category == "max_stress"
+    )
+    v, _, _ = _parse_graph(edge.input_text)
+    assert v == 5  # 캡 미만 → 상한 그대로
 
 
 # ---------- seed helper ----------

@@ -65,8 +65,10 @@ def test_v2_full_pipeline_single_run_real_llm() -> None:
     graph = build_v2_graph(
         hidden=True,
         with_synthesis=True,
-        golden_llms=[AnthropicCoderLLM(m) for m in _GOLDEN_MODELS],
-        brute_llm=AnthropicCoderLLM(_BRUTE_MODEL),
+        golden_llms=[
+            AnthropicCoderLLM(m, parse_discipline=True) for m in _GOLDEN_MODELS
+        ],
+        brute_llm=AnthropicCoderLLM(_BRUTE_MODEL, parse_discipline=True),
         golden_origins=_GOLDEN_MODELS,
     )
     raw = graph.invoke(
