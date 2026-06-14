@@ -468,6 +468,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--concurrency", type=int, default=2, help="동시 run 수 (default: 2)"
     )
     parser.add_argument(
+        "--max-cost-usd",
+        type=float,
+        default=10.0,
+        help=(
+            "누적 비용 상한 USD — 도달 시 미시작 run 중단 (default: 10, 0=무제한). "
+            "큰 전수 배치는 명시적으로 올릴 것 (전수 ~$28)"
+        ),
+    )
+    parser.add_argument(
         "--mode",
         choices=["hidden", "direct"],
         default="hidden",
@@ -560,11 +569,20 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
         seeds, args.runs_per_seed, out_dir, retry_failed=args.retry_failed
     )
     total = len(seeds) * args.runs_per_seed
+    budget = args.max_cost_usd
+    est_high = len(tasks) * 0.6  # run 당 상한 어림 (계약 §5 실측 $0.4~0.6)
     print(
         f"[batch] plan: seeds={len(seeds)} × N={args.runs_per_seed} = {total} run "
         f"(skip={total - len(tasks)}, 실행 대상={len(tasks)}, "
         f"동시 {args.concurrency}, 예상 {len(tasks)} × {_PER_RUN_COST_ESTIMATE})"
     )
+    if budget:
+        warn = (
+            f" ⚠ 예상 최대 ${est_high:.0f} > 상한 — 일부만 실행 후 중단됨"
+            if est_high > budget
+            else ""
+        )
+        print(f"[batch] 비용 상한 ${budget:g}{warn} (0=무제한, --max-cost-usd 로 조정)")
     if args.dry_run:
         for t in tasks:
             print(f"[batch] planned: {t.seed.value} r{t.run_index} → {t.path}")
@@ -576,6 +594,8 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
     out_dir.mkdir(parents=True, exist_ok=True)
     crashed = 0
     done = 0
+    spent = 0.0
+    budget_stopped = False
     with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
         futures = {
             pool.submit(
@@ -590,16 +610,29 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
             for t in tasks
         }
         for future in as_completed(futures):
+            if future.cancelled():  # 상한 도달로 취소된 미시작 run
+                continue
             task = futures[future]
             body = future.result()  # 드라이버가 예외를 내부 격리+영속화 — raise 없음
             done += 1
             crashed += body["status"] == "failed"
+            spent += body.get("cost_usd", 0) or 0
             label = body.get("final_status") or body.get("error", "?")
             print(
                 f"[batch] ({done}/{len(tasks)}) {task.seed.value} r{task.run_index} "
-                f"→ {label} ({body['batch']['elapsed_s']}s, ${body.get('cost_usd', 0)})",
+                f"→ {label} ({body['batch']['elapsed_s']}s, ${body.get('cost_usd', 0)}, "
+                f"누적 ${spent:.2f})",
                 flush=True,
             )
+            # 비용 상한 — 도달 시 미시작 run 취소 (실행 중인 건 끝나게 둠).
+            if budget and spent >= budget and not budget_stopped:
+                budget_stopped = True
+                n_cancel = sum(1 for f in futures if f.cancel())
+                print(
+                    f"[batch] ⚠ 비용 상한 ${budget:g} 도달 (누적 ${spent:.2f}) — "
+                    f"미시작 {n_cancel} run 중단. 올리려면 --max-cost-usd N",
+                    flush=True,
+                )
 
     summary = _aggregate(out_dir)
     _write_json(out_dir / "summary.json", summary)

@@ -493,3 +493,76 @@ def test_cost_usd_applies_per_model_pricing() -> None:
 
 def test_cost_usd_empty_usage_is_zero() -> None:
     assert _cost_usd({}) == 0.0
+
+
+# ---------- 비용 상한 (폭주/사고 방지 기본 안전장치) ----------
+
+
+def test_max_cost_usd_stops_remaining_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """누적 cost_usd 가 상한 도달 시 미시작 run 을 중단 — 이번 $50 사고 재발 방지."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+    seen: list[str] = []
+
+    def fake_persist(task: Any, gf: Any, **kw: Any) -> dict[str, Any]:
+        seen.append(task.path.name)
+        body: dict[str, Any] = {
+            "status": "completed",
+            "final_status": "fail_verification",
+            "cost_usd": 4.0,
+            "batch": {
+                "seed": task.seed.value,
+                "run_index": task.run_index,
+                "run_id": "x",
+                "mode": "hidden",
+                "started_at": "t",
+                "elapsed_s": 1.0,
+            },
+        }
+        batch_mod._write_json(task.path, body)
+        return body
+
+    monkeypatch.setattr(batch_mod, "_execute_and_persist", fake_persist)
+
+    code = main(
+        [
+            "--out",
+            str(tmp_path),
+            "--seeds",
+            "dijkstra,bfs,sort,heap",
+            "--runs-per-seed",
+            "1",
+            "--max-cost-usd",
+            "6",
+            "--concurrency",
+            "1",
+        ]
+    )
+
+    assert code == 0
+    # 4 run 계획, 각 $4, 상한 $6 → 2개 실행 후 누적 $8 ≥ $6 으로 나머지 중단
+    assert 1 <= len(seen) < 4
+    summary = _read(tmp_path, "summary.json")
+    assert summary["overall"]["cost_usd"] < 4 * 4  # 전체 미실행
+
+
+def test_dry_run_warns_when_estimate_exceeds_budget(
+    tmp_path: Path, capsys: Any
+) -> None:
+    """dry-run 이 예상 비용 > 상한이면 경고 — 실행 전 차단 가시화."""
+    factory = _CountingFactory("success")
+    code = _run(
+        tmp_path,
+        "--seeds",
+        "all",
+        "--runs-per-seed",
+        "3",
+        "--max-cost-usd",
+        "5",
+        "--dry-run",
+        factory=factory,
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "상한" in out and "$5" in out
