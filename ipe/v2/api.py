@@ -26,7 +26,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from ipe.v1.schema import TargetAlgorithm
+from ipe.v1.schema import TargetAlgorithm, VerificationResult
 
 from .main_v2 import _normalize_final_state
 from .state import V2State, initial_v2_state
@@ -165,6 +165,36 @@ def _build_package(
     }
 
 
+# verification 진단 상세 바운드 — 실패 sample/invariant 증거와 문자열 폭주 사이 균형.
+_DIAG_MAX_ITEMS = 3
+_DIAG_HEAD = 80
+
+
+def _diag_head(text: str, limit: int = _DIAG_HEAD) -> str:
+    """한 줄 진단용 head — 공백/개행 접어 truncate (reconcile._head 와 동일 규약)."""
+    flat = " ".join(text.split())
+    return flat if len(flat) <= limit else flat[:limit] + "…"
+
+
+def _verification_detail(v: VerificationResult) -> list[str]:
+    """fail_verification 의 증거를 푼다 — failure_mode + 실패 sample(expected/actual/
+    stderr/elapsed) + invariant + hint. 기존엔 'overall_pass=False' 한 줄만 담아
+    19-algo 배치의 verification 버킷(20건)이 깜깜이였던 빈틈 대응."""
+    lines = [f"verification: failure_mode={v.failure_mode.value}"]
+    failed = [s for s in v.sample_results if not s.passed]
+    for s in failed[:_DIAG_MAX_ITEMS]:
+        lines.append(
+            f"  sample[{s.index}]: expected={_diag_head(s.expected_output)!r} "
+            f"actual={_diag_head(s.actual_output)!r} "
+            f"stderr={_diag_head(s.stderr)!r} ({s.elapsed_ms}ms)"
+        )
+    for iv in v.invariant_violations[:_DIAG_MAX_ITEMS]:
+        lines.append(f"  invariant[{iv.invariant_kind}]: {_diag_head(iv.description)}")
+    if v.feedback is not None:
+        lines.append(f"  hint: {_diag_head(v.feedback.actionable_hint)}")
+    return lines
+
+
 def _build_diagnostics(final: V2State) -> dict[str, Any]:
     detail: list[str] = []
     if final.spec_authoring_error is not None:
@@ -172,8 +202,9 @@ def _build_diagnostics(final: V2State) -> dict[str, Any]:
     rec = final.reconciliation
     if rec is not None and not rec.all_agree:
         detail.extend(f"reconcile: {d}" for d in rec.disagreements)
-    if final.verification is not None and not final.verification.overall_pass:
-        detail.append("verification: overall_pass=False")
+    v = final.verification
+    if v is not None and not v.overall_pass:
+        detail.extend(_verification_detail(v))
     return {"summary": str(final.final_status), "detail": "\n".join(detail)}
 
 

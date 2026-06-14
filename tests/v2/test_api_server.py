@@ -17,6 +17,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from ipe.v1.schema import (
+    FailureMode,
     GeneratedTestCase,
     IOContract,
     IOFieldSpec,
@@ -26,11 +27,13 @@ from ipe.v1.schema import (
     QAFinding,
     QAReport,
     QAReview,
+    SampleResult,
     SampleTestCase,
     TargetAlgorithm,
     TestSuite,
+    VerificationResult,
 )
-from ipe.v2.api import create_app
+from ipe.v2.api import _build_diagnostics, create_app
 from ipe.v2.state import V2State, initial_v2_state
 
 _KEY = "test-key"
@@ -272,6 +275,65 @@ def test_other_fail_has_no_package_but_diagnostics() -> None:
     assert data["final_status"] == "fail_spec_authoring"
     assert data["package"] is None
     assert "KeyError" in data["diagnostics"]["detail"]
+
+
+def test_diagnostics_unpacks_verification_failure_evidence() -> None:
+    """fail_verification 진단이 failure_mode + 실패 sample(expected/actual/stderr)
+    + invariant + hint 를 푼다 — 19-batch 의 'overall_pass=False' 깜깜이 빈틈 대응."""
+    v = VerificationResult(
+        overall_pass=False,
+        failure_mode=FailureMode.SAMPLE_MISMATCH,
+        sample_results=[
+            SampleResult(
+                index=0,
+                passed=True,
+                expected_output="1",
+                actual_output="1",
+                elapsed_ms=5,
+            ),
+            SampleResult(
+                index=1,
+                passed=False,
+                expected_output="42",
+                actual_output="7",
+                stderr="",
+                elapsed_ms=12,
+            ),
+        ],
+        iteration=1,
+    )
+    final = _final_state("fail_verification").model_copy(update={"verification": v})
+    diag = _build_diagnostics(final)
+
+    assert "sample_mismatch" in diag["detail"]
+    assert "sample[1]" in diag["detail"]  # 실패 sample 만
+    assert "sample[0]" not in diag["detail"]  # 통과 sample 은 생략
+    assert "expected='42'" in diag["detail"]
+    assert "actual='7'" in diag["detail"]
+
+
+def test_diagnostics_verification_surfaces_stderr_for_crash() -> None:
+    """sample_crash 의 stderr 트레이스백이 진단에 노출 — RTE 정체 가시화."""
+    v = VerificationResult(
+        overall_pass=False,
+        failure_mode=FailureMode.SAMPLE_CRASH,
+        sample_results=[
+            SampleResult(
+                index=0,
+                passed=False,
+                expected_output="5",
+                actual_output="",
+                stderr="IndexError: list index out of range",
+                elapsed_ms=8,
+            ),
+        ],
+        iteration=1,
+    )
+    final = _final_state("fail_verification").model_copy(update={"verification": v})
+    diag = _build_diagnostics(final)
+
+    assert "sample_crash" in diag["detail"]
+    assert "IndexError" in diag["detail"]
 
 
 # ---------- 운영 규약 ----------

@@ -41,7 +41,12 @@ __all__ = [
 
 @dataclass(frozen=True)
 class DifferentialCase:
-    """입력 하나에 대한 golden vs brute 비교 결과."""
+    """입력 하나에 대한 golden vs brute 비교 결과.
+
+    stderr/elapsed 는 reject 진단용(additive, default) — 비-OK(RTE/TLE) 케이스에서
+    parse-error(트레이스백)와 TLE(2000ms 근접)를 구분하는 증거. 19-algo 배치 분석이
+    RTE/RTE 1위 병목의 정체를 stdout(빈 값)만으론 못 가린 빈틈 대응.
+    """
 
     input_text: str
     golden_output: str
@@ -49,6 +54,10 @@ class DifferentialCase:
     golden_status: str
     brute_status: str
     agreed: bool
+    golden_stderr: str = ""
+    brute_stderr: str = ""
+    golden_elapsed_ms: int = 0
+    brute_elapsed_ms: int = 0
 
 
 @dataclass(frozen=True)
@@ -115,6 +124,10 @@ def run_differential(
                 golden_status=g.status,
                 brute_status=b.status,
                 agreed=agreed,
+                golden_stderr=g.stderr,
+                brute_stderr=b.stderr,
+                golden_elapsed_ms=g.elapsed_ms,
+                brute_elapsed_ms=b.elapsed_ms,
             )
         )
     return DifferentialReport(cases=tuple(cases))

@@ -141,6 +141,28 @@ def test_disagreement_detail_includes_crash_status() -> None:
     assert "RTE" in detail
 
 
+def test_disagreement_detail_exposes_stderr_and_elapsed_for_nonok() -> None:
+    """비-OK(RTE/TLE) 후보는 stderr + elapsed 노출 — parse-error vs TLE 구분 근거.
+
+    19-algo 배치 분석에서 RTE/RTE 가 1위 병목인데 진단이 stdout(빈 값)만 담아
+    원인 미상이었던 빈틈 대응 — stderr 트레이스백/elapsed 로 정체를 가린다.
+    """
+    cands = [_golden("opus", idx=0), _golden("sonnet", marker="CRASH", idx=1), _brute()]
+    r = reconcile(candidates=cands, inputs=_INPUTS, runner=_ScriptedRunner(_by_marker))
+    detail = next(d for d in r.disagreements if "sonnet" in d)
+    assert "boom" in detail  # _ScriptedRunner 가 RTE 에 넣은 stderr
+    assert "ms" in detail  # elapsed 노출 (TLE 판별 근거)
+
+
+def test_disagreement_ok_side_keeps_output_not_stderr() -> None:
+    """OK 측은 출력 head 유지 — stderr 는 무의미하므로 노출 안 함 (값 불일치 가독성)."""
+    cands = [_golden("opus", idx=0), _golden("sonnet", marker="WRONG", idx=1), _brute()]
+    r = reconcile(candidates=cands, inputs=_INPUTS, runner=_ScriptedRunner(_by_marker))
+    detail = next(d for d in r.disagreements if "sonnet" in d)
+    assert "ans-i1" in detail  # reference OK 출력
+    assert "wrong-i1" in detail  # candidate OK 출력
+
+
 def test_disagreement_detail_bounded() -> None:
     """케이스 수·입력/출력 길이 truncate — 진단 문자열 폭주 방지."""
     long_inputs = [f"case-{i}-" + "x" * 500 for i in range(10)]
