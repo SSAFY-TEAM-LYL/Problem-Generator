@@ -88,6 +88,18 @@ def test_spec_bridge_populates_spec_with_authored_fields() -> None:
     assert len(spec.sample_testcases) == 3
 
 
+def test_spec_bridge_empties_sample_expected_for_golden_fill() -> None:
+    """사용자 원칙: sample expected 는 LLM 손계산 금지 — node 가 비우고 하류
+    sample_filler 가 canonical golden 실행으로 채운다. LLM 이 expected 를 줘도
+    input 만 살린다 (freeze 규율)."""
+    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+
+    spec = out.spec
+    assert isinstance(spec, ProblemSpec)
+    assert [s.input_text for s in spec.sample_testcases] == ["3", "4", "5"]  # input 유지
+    assert all(s.expected_output == "" for s in spec.sample_testcases)  # expected 비움
+
+
 def test_spec_bridge_carry_over_target_algorithm_and_description() -> None:
     """target_algorithm/description 은 blueprint/narrative 가 authoritative (override)."""
     out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())

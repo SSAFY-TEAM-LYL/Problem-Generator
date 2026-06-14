@@ -12,8 +12,8 @@
 
     faithfulness ─(faithful)→ spec_bridge → designer → dispatch ─┬→ golden_0..K ─┐
                                                                  └→ brute ───────┴→ reconciler
-      reconciler ─(채택)→ synth_bridge → executor → route ─(pass)→ end_success
-                                                          └(fail)→ end_verification
+      reconciler ─(채택)→ synth_bridge → sample_filler → executor ─(pass)→ end_success
+                                       (golden→sample expected)    └(fail)→ end_verification
       reconciler ─(reject)→ end_synthesis_rejected
 
 ``with_test_suite=True`` (M4 풀 채점셋 — with_synthesis 필수)::
@@ -38,8 +38,9 @@
   재생성(``max_iterations`` 바운드). 왜곡만 reject, 은닉은 통과.
 - synthesis 는 **v1 M2 노드 재사용**(designer/synthesis_coder/reconciler/synth_bridge/
   executor) — V2State 가 design/attempt 채널 + target_algorithm property 로 적응(step2a).
-  approach (a): spec_bridge LLM 이 sample 저작, golden↔brute differential + symbolic
-  verifier 가 검증. fix-loop 없음(단발, M3+ 반복정제 별개).
+  spec_bridge LLM 은 sample **input 만** 저작, expected 는 sample_filler 가 canonical
+  golden 실행으로 채움(사용자 원칙: 정답은 golden 부트스트랩). golden↔brute differential
+  + symbolic verifier 가 검증. fix-loop 없음(단발, M3+ 반복정제 별개).
 - test-suite 는 **verification 통과 후에만** — expected 는 검증된 golden 실행으로
   부트스트랩(RFC §7 순환 회피)이라 검증 실패 경로에선 채점셋을 만들지 않는다.
 - ``with_synthesis=False`` 는 모델링 layer 만 — 기존 test/CLI backward compat.
@@ -80,6 +81,7 @@ from .nodes import (
     make_narrative_node,
     make_qa_aggregator_node,
     make_qa_reviewer_node,
+    make_sample_filler_node,
     make_spec_bridge_node,
     make_spec_patch_node,
     make_strategist_node,
@@ -373,6 +375,12 @@ def _wire_synthesis(
     builder.add_node(
         "synth_bridge", cast(Any, _v2_partial_node(make_synth_bridge_node()))
     )
+    # sample_filler — canonical golden 실행으로 sample expected 채움 (v2-native,
+    # LLM 0). 사용자 원칙: 정답은 golden 부트스트랩. synth_bridge(attempt 확정) 후,
+    # executor(검증) 전에 배선.
+    builder.add_node(
+        "sample_filler", cast(Any, make_sample_filler_node(runner=synth_runner))
+    )
     builder.add_node(
         "executor",
         cast(
@@ -416,7 +424,8 @@ def _wire_synthesis(
             },
         ),
     )
-    builder.add_edge("synth_bridge", "executor")
+    builder.add_edge("synth_bridge", "sample_filler")
+    builder.add_edge("sample_filler", "executor")
     # 검증 통과 시: 채점셋 생성(M4) 또는 즉시 success
     pass_target = "generator_designer" if with_test_suite else "end_success"
     builder.add_conditional_edges(
