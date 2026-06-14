@@ -38,6 +38,20 @@ def test_system_prompt_has_no_stray_template_variables(module_name: str) -> None
     )
 
 
+def test_coder_parse_discipline_prompt_has_no_stray_variables() -> None:
+    """v2 synthesis 코더 prompt(parse_discipline on/off)도 production 템플릿 무결성 —
+    파싱 규율 텍스트에 literal 중괄호가 섞이면 invoke 가 KeyError 로 전멸한다."""
+    from ipe.v1.nodes.coder import _coder_system_prompt
+
+    for flag in (True, False):
+        template = ChatPromptTemplate.from_messages(
+            [("system", _coder_system_prompt(flag)), ("user", "{user}")]
+        )
+        assert set(template.input_variables) == {"user"}, (flag, sorted(
+            template.input_variables
+        ))
+
+
 def test_qa_reviewer_rendered_prompts_have_no_stray_variables() -> None:
     """qa_reviewer 는 kind 별 charter 를 Python .format 으로 선렌더 — 렌더 결과가
     템플릿을 통과할 때도 동일 무결성이 성립해야 한다."""

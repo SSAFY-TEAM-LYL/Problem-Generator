@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from ipe.v1.nodes.coder import _build_user_prompt, make_coder_node
+from ipe.v1.nodes.coder import (
+    _SYSTEM_PROMPT,
+    _build_user_prompt,
+    _coder_system_prompt,
+    make_coder_node,
+)
 from ipe.v1.schema import (
     AlgorithmDesign,
     ComplexityBound,
@@ -138,3 +143,21 @@ def test_prompt_omits_optional_sections_on_first_iter() -> None:
     assert "failed_strategies" not in prompt
     assert "prev verification" not in prompt
     assert "prev attempt code" not in prompt
+
+
+def test_parse_discipline_opt_in_appends_parsing_rules() -> None:
+    """v2 synthesis 는 파싱 규율 on — 골든·brute 가 동일 입력을 동일 파싱해야
+    reconcile 합의(파서 불일치=양쪽 RTE IndexError 거부) 가 늘어난다."""
+    disciplined = _coder_system_prompt(parse_discipline=True)
+    assert "평탄 토큰" in disciplined
+    assert "필드 순서" in disciplined
+    assert "IndexError" in disciplined
+    assert "단일 진실원천" in disciplined
+    # 기존 _SYSTEM_PROMPT 를 보존한 채 규율을 append (대체 아님)
+    assert disciplined.startswith(_SYSTEM_PROMPT)
+
+
+def test_parse_discipline_off_preserves_frozen_v1_prompt() -> None:
+    """기본 off — v1 make_coder_node 의 _SYSTEM_PROMPT 동결(91.2% anchor 자산) 보존."""
+    assert _coder_system_prompt(parse_discipline=False) == _SYSTEM_PROMPT
+    assert "평탄 토큰" not in _SYSTEM_PROMPT

@@ -240,8 +240,10 @@ def _build_default_graph(args: argparse.Namespace, *, hidden: bool) -> Any:
     return build_v2_graph(
         hidden=hidden,
         with_synthesis=True,
-        golden_llms=[AnthropicCoderLLM(m) for m in golden_models],
-        brute_llm=AnthropicCoderLLM(args.brute_model),
+        golden_llms=[
+            AnthropicCoderLLM(m, parse_discipline=True) for m in golden_models
+        ],
+        brute_llm=AnthropicCoderLLM(args.brute_model, parse_discipline=True),
         golden_origins=golden_models,
         # suite/qa 노드 LLM 은 None → graph 의 production default(Opus/Haiku) 배선
         with_test_suite=args.with_test_suite,

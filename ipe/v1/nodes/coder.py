@@ -42,6 +42,32 @@ prev verification.feedback 가 있으면:
 """
 
 
+# v2 synthesis 전용 입력 파싱 규율 (opt-in). 골든/brute 코더가 같은 입력을 같게
+# 읽어야 reconcile 합의 → 출하. 배치 진단상 array/value 시드 출하의 1위 병목이
+# "양쪽 비-reference 코더 동시 IndexError"(파서 불일치)였다. literal 중괄호 금지
+# (ChatPromptTemplate 변수 해석 — test_prompt_template_integrity 게이트).
+_PARSE_DISCIPLINE = """
+입력 파싱 규율 (골든·brute 가 같은 입력을 같게 읽어야 reconcile 합의 — 파서 불일치=RTE 거부):
+- stdin 전체를 읽어 **평탄 토큰 리스트**로 만든 뒤(예: data = sys.stdin.buffer.read().split())
+  io_contract.input_format 에 명시된 **필드 순서대로만** 순차 소비한다.
+- 줄 경계·필드 개수를 input_format 명세 밖으로 가정하지 말 것 — 다중 간선·공백/줄바꿈
+  변형에 견고해야 한다 (줄 단위가 본질인 문자열 입력만 명세대로 줄 읽기).
+- input_format 이 형식의 **단일 진실원천** — 필드 추가·재배열·생략 금지. 명세된 만큼만
+  인덱싱하여 리스트 끝 초과(IndexError)를 차단한다.
+"""
+
+
+def _coder_system_prompt(parse_discipline: bool) -> str:
+    """coder system prompt — ``parse_discipline`` 시 입력 파싱 규율을 append.
+
+    v1 ``make_coder_node`` 는 기본 off 로 ``_SYSTEM_PROMPT`` 동결 유지(91.2% anchor
+    자산); v2 synthesis(골든/brute)는 on 으로 파서 불일치 RTE(IndexError) 거부를 줄인다.
+    """
+    if parse_discipline:
+        return _SYSTEM_PROMPT + _PARSE_DISCIPLINE
+    return _SYSTEM_PROMPT
+
+
 def _render_lessons(state: V1State) -> str:
     lessons = state.context.accumulated_lessons
     if not lessons:
@@ -153,13 +179,15 @@ class CoderLLM(Protocol):
 class AnthropicCoderLLM:
     """production impl — Opus + structured output."""
 
-    def __init__(self, model: str = CODER_MODEL) -> None:
+    def __init__(
+        self, model: str = CODER_MODEL, *, parse_discipline: bool = False
+    ) -> None:
         from langchain_anthropic import ChatAnthropic
         from langchain_core.prompts import ChatPromptTemplate
 
         llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
         prompt = ChatPromptTemplate.from_messages(
-            [("system", _SYSTEM_PROMPT), ("user", "{user}")]
+            [("system", _coder_system_prompt(parse_discipline)), ("user", "{user}")]
         )
         self._chain = (
             prompt | llm.with_structured_output(SolutionAttempt)
