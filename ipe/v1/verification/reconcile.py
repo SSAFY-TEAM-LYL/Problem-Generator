@@ -21,6 +21,7 @@ from ._exec import (
     DEFAULT_MEMORY_LIMIT_MB,
     DEFAULT_TIME_LIMIT_MS,
     CodeRunner,
+    exception_signal,
 )
 from .differential import DifferentialCase, run_differential
 
@@ -45,7 +46,8 @@ def _describe_side(
     19-algo 배치의 RTE/RTE 병목에서 parse-error(트레이스백) vs TLE(2000ms 근접) 구분."""
     if status == "OK":
         return f"{label}[{status}]={_head(output, _DETAIL_OUTPUT_HEAD)!r}"
-    return f"{label}[{status},{elapsed_ms}ms]={_head(stderr, _DETAIL_STDERR_HEAD)!r}"
+    sig = exception_signal(stderr, _DETAIL_STDERR_HEAD)
+    return f"{label}[{status},{elapsed_ms}ms]={sig!r}"
 
 
 def _describe_case(case: DifferentialCase) -> str:

@@ -12,7 +12,34 @@ from pathlib import Path
 
 from ipe.sandbox.runner import RunResult, RunSpec
 from ipe.v1.schema import SolutionCandidate
+from ipe.v1.verification._exec import exception_signal
 from ipe.v1.verification.reconcile import reconcile
+
+
+def test_exception_signal_prefers_last_traceback_line() -> None:
+    """트레이스백은 마지막 줄(예외 타입)이 진단 핵심 — head 가 아닌 tail 우선.
+
+    배치에서 RTE stderr 가 'Traceback ... File 경로'로 head 잘려 IndexError/
+    ValueError 구분 불가였던 빈틈 대응 (2번 작업의 형식 규율 방향 입력)."""
+    tb = (
+        "Traceback (most recent call last):\n"
+        '  File "sol.py", line 5, in <module>\n'
+        "    a, b = data[i], data[i + 1]\n"
+        "IndexError: list index out of range"
+    )
+    assert exception_signal(tb, 80) == "IndexError: list index out of range"
+
+
+def test_exception_signal_head_fallback_for_short_stderr() -> None:
+    assert exception_signal("boom", 80) == "boom"
+    assert exception_signal("", 80) == ""
+    assert exception_signal("   \n  \n ", 80) == ""
+
+
+def test_exception_signal_truncates_long_last_line() -> None:
+    sig = exception_signal("ValueError: " + "x" * 200, 80)
+    assert len(sig) <= 81
+    assert sig.endswith("…")
 
 
 class _ScriptedRunner:

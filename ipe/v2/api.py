@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ipe.v1.schema import TargetAlgorithm, VerificationResult
+from ipe.v1.verification._exec import exception_signal
 
 from .main_v2 import _normalize_final_state
 from .state import V2State, initial_v2_state
@@ -186,7 +187,7 @@ def _verification_detail(v: VerificationResult) -> list[str]:
         lines.append(
             f"  sample[{s.index}]: expected={_diag_head(s.expected_output)!r} "
             f"actual={_diag_head(s.actual_output)!r} "
-            f"stderr={_diag_head(s.stderr)!r} ({s.elapsed_ms}ms)"
+            f"stderr={exception_signal(s.stderr, _DIAG_HEAD)!r} ({s.elapsed_ms}ms)"
         )
     for iv in v.invariant_violations[:_DIAG_MAX_ITEMS]:
         lines.append(f"  invariant[{iv.invariant_kind}]: {_diag_head(iv.description)}")

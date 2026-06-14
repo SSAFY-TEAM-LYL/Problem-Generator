@@ -313,7 +313,14 @@ def test_diagnostics_unpacks_verification_failure_evidence() -> None:
 
 
 def test_diagnostics_verification_surfaces_stderr_for_crash() -> None:
-    """sample_crash 의 stderr 트레이스백이 진단에 노출 — RTE 정체 가시화."""
+    """sample_crash 의 멀티라인 트레이스백에서 예외 줄(마지막)을 추출 — File 프레임
+    경로가 아닌 예외 타입이 진단 핵심 (배치 RTE 정체 가시화)."""
+    tb = (
+        "Traceback (most recent call last):\n"
+        '  File "sol.py", line 5, in <module>\n'
+        "    a, b = data[i], data[i + 1]\n"
+        "IndexError: list index out of range"
+    )
     v = VerificationResult(
         overall_pass=False,
         failure_mode=FailureMode.SAMPLE_CRASH,
@@ -323,7 +330,7 @@ def test_diagnostics_verification_surfaces_stderr_for_crash() -> None:
                 passed=False,
                 expected_output="5",
                 actual_output="",
-                stderr="IndexError: list index out of range",
+                stderr=tb,
                 elapsed_ms=8,
             ),
         ],
@@ -333,7 +340,8 @@ def test_diagnostics_verification_surfaces_stderr_for_crash() -> None:
     diag = _build_diagnostics(final)
 
     assert "sample_crash" in diag["detail"]
-    assert "IndexError" in diag["detail"]
+    assert "IndexError: list index out of range" in diag["detail"]
+    assert "File" not in diag["detail"]  # 프레임 경로는 노이즈 — 추출 안 함
 
 
 # ---------- 운영 규약 ----------
