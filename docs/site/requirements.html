@@ -43,7 +43,7 @@
         <ul class="space-y-2 text-sm text-gray-300">
           <li>• 한 algorithm 키워드 → 한 검증된 문제 (spec + golden/brute + verification + samples)</li>
           <li>• 코드 기반 독립 검증 (19 symbolic verifier) + N≥3 측정 게이트</li>
-          <li>• 단일 사용자, 단일 실행 단위 (run_id 격리, outputs/ 영속화)</li>
+          <li>• 단일 실행 단위 (run_id 격리) + outputs/ 영속화 + 공유 PostgreSQL 문제 은행 적재(#150)</li>
           <li>• Python / Java 솔루션 언어 · 4-tier sandboxed local execution</li>
         </ul>
       </div>
@@ -94,7 +94,7 @@
       <div class="card">
         <div class="text-green-400 font-bold mb-3">✅ 코드 품질</div>
         <ul class="space-y-1 text-sm text-gray-300">
-          <li>✓ v1 564 + v2 182 collected — ipe/v2 M0~M6 + API(#144~145) + 배치/은행(#146~147) + tie-break/QA규율(#148~149)</li>
+          <li>✓ v1 566 + v2 200 collected — ipe/v2 M0~M6 + API(#144~145) + 배치/은행(#146~147) + DB영속화(#150~152)</li>
           <li>✓ coverage 87% (ipe/v1)</li>
           <li>✓ ruff 0 / mypy --strict 0</li>
           <li>✓ typed artifact 노드 계약 (Pydantic v2)</li>
