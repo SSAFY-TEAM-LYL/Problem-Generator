@@ -286,3 +286,19 @@ def test_narrative_prompt_forbids_solution_method() -> None:
     assert "어떻게 푸는지" in _SYSTEM_PROMPT  # 풀이 방법 서술 금지
     assert "자료구조" in _SYSTEM_PROMPT  # 자료구조 처방 금지
     assert "효율성" in _SYSTEM_PROMPT  # 효율 요구는 제약으로만 암시
+
+
+def test_tie_break_answer_uniqueness_rules_in_prompts() -> None:
+    """답 유일성(tie-break) 규율 — A·B 머지 후 드러난 신규 ambiguity blocker(lis/two_sum
+    실증): 출력이 선택·정렬·최적화를 거치는데 동률(같은 정렬 키·복수 최적해·동일 max
+    쌍)이 답을 바꿀 수 있는데 해소 규칙이 부재 → 답이 입력으로부터 유일하게 결정되지
+    않아 solver 가 해석 강요(QA ambiguity reject). 경계의미론(#140)과 같은 계열: ①
+    formalizer 가 output_invariants 에 답 유일성/동률 해소 명시 결정(권장: 출력을
+    tie-invariant 값으로) ② narrative 가 의미 수준 서술. 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FMT
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT as _NARR
+
+    assert "답 유일성" in _FMT  # 답이 입력에서 유일하게 결정되도록
+    assert "동률" in _FMT  # tie 해소 또는 tie-invariant 출력
+    assert "answer_uniqueness" in _FMT  # invariant kind 예시
+    assert "답 유일성" in _NARR  # 답 유일성/동률 해소를 지문에 서술
