@@ -153,12 +153,12 @@ two_sum, segtree, fenwick, heap, sieve, string_match
     "cases": [
       {
         "input_text": "…",
-        "expected_output": "…",            // 항상 채워짐 (assembled 만 출하)
+        "expected_output": "…",            // success: 항상 채워짐 / fail_qa 초안: 빈값 가능 (아래 규약)
         "category": "scale:small",          // scale:* | edge:* — 분포 진단용
         "golden_elapsed_ms": 42             // 이 케이스의 golden 실행시간 (TL 산정 근거)
       }
     ],
-    "origin": "claude-opus-4-7"             // expected 를 채운 검증된 golden 의 출처
+    "origin": "claude-opus-4-8"             // expected 를 채운 검증된 golden 의 출처
   },
   "meta": {
     "package_version": "1.0",
@@ -193,6 +193,12 @@ two_sum, segtree, fenwick, heap, sieve, string_match
 - `direct` 모드에서는 지문이 알고리즘을 명시할 수 있음 — 노출 정책은 백엔드
   product 단 결정.
 - `test_suite.cases` 수는 보장값 없음 (관측 40~60). 케이스 순서는 의미 없음.
+- **채점 가능 보장은 `final_status == "success"` 패키지에 한함.** success 의 모든
+  케이스는 검증된 golden 출력으로 `expected_output` 이 채워진다(정해 출력이 실제로
+  빈 문자열인 퇴화 케이스 예외 — 이때도 exact-match 유효). **`fail_qa` 패키지의
+  `test_suite` 는 초안(검수 대상)이라 일부 케이스 `expected_output` 이 빌 수 있으므로
+  채점에 그대로 사용 금지** — `fail_qa` 는 사람 검수로 구제·재생성하고, 구제 시
+  채점셋 재조립이 필요하다.
 - 난이도 필드는 **제공하지 않음** (자동 calibration 미구현) — 백엔드에서 수동
   태깅하거나 미표기.
 
