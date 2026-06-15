@@ -30,6 +30,7 @@ from typing import Protocol
 from ipe.v1.schema import IOContract, ProblemSpec
 
 from ..generation.input_gen import render_input_format
+from ..generation.input_parser import render_input_parser
 from ..state import V2State
 
 SPEC_BRIDGE_MODEL = "claude-opus-4-8"
@@ -172,6 +173,10 @@ def make_spec_bridge_node(
                     input_format=render_input_format(bp.io_schema),
                     output_format=bp.io_schema.output_format,
                 ),
+                # #2: stdin 파서도 코드로 freeze — synthesis 코더가 LLM 파서를 직접
+                # 쓰지 않고 이 preamble 을 그대로 받아 파서 분산(IndexError/중복카운트
+                # 오독)을 구조적으로 차단한다 (input_gen 직렬화의 역함수, round-trip 가드).
+                "input_parser_code": render_input_parser(bp.io_schema),
                 # 정답은 golden 실행으로 (사용자 원칙) — LLM 이 무엇을 넣든 expected
                 # 를 비우고 input 만 살린다. 하류 sample_filler 가 canonical golden
                 # 으로 채운다 (freeze 규율: LLM 손계산 expected 를 못 끼워넣음).

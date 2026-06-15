@@ -48,12 +48,12 @@ prev verification.feedback 가 있으면:
 # (ChatPromptTemplate 변수 해석 — test_prompt_template_integrity 게이트).
 _PARSE_DISCIPLINE = """
 입력 파싱 규율 (골든·brute 가 같은 입력을 같게 읽어야 reconcile 합의 — 파서 불일치=RTE 거부):
-- stdin 전체를 읽어 **평탄 토큰 리스트**로 만든 뒤(예: data = sys.stdin.buffer.read().split())
-  io_contract.input_format 에 명시된 **필드 순서대로만** 순차 소비한다.
-- 줄 경계·필드 개수를 input_format 명세 밖으로 가정하지 말 것 — 다중 간선·공백/줄바꿈
-  변형에 견고해야 한다 (줄 단위가 본질인 문자열 입력만 명세대로 줄 읽기).
-- input_format 이 형식의 **단일 진실원천** — 필드 추가·재배열·생략 금지. 명세된 만큼만
-  인덱싱하여 리스트 끝 초과(IndexError)를 차단한다.
+- user 메시지에 '입력 파싱 preamble (필수)' 코드 블록이 주어지면, 그것을 **code 의 맨 앞에
+  토씨 하나 바꾸지 말고 그대로** 두고, preamble 이 바인딩한 필드 변수로 알고리즘을 작성한다.
+  **직접 stdin 파서를 작성하지 말 것** — preamble 이 형식의 단일 진실원천이다. 이로써 골든·
+  brute 가 입력을 같게 소비해 IndexError(후행 스칼라 오소비)·중복카운트 오독이 사라진다.
+- preamble 이 없을 때만(fallback) stdin 전체를 평탄 토큰 리스트로 읽어(data =
+  sys.stdin.buffer.read().split()) io_contract.input_format 의 필드 순서대로만 소비한다.
 """
 
 
@@ -157,6 +157,13 @@ def _build_user_prompt(state: V1State) -> str:
     for i, sample in enumerate(spec.sample_testcases):
         parts.append(f"  [{i}] input:\n{sample.input_text}")
         parts.append(f"      expected: {sample.expected_output!r}")
+
+    if spec.input_parser_code:
+        parts.append("")
+        parts.append(
+            "입력 파싱 preamble (필수 — code 맨 앞에 그대로 두고, 바인딩된 변수로 풀 것):\n"
+            "```python\n" + spec.input_parser_code + "\n```"
+        )
 
     for extra in (
         _render_lessons(state),

@@ -145,6 +145,26 @@ def test_prompt_omits_optional_sections_on_first_iter() -> None:
     assert "prev attempt code" not in prompt
 
 
+def test_prompt_injects_parser_preamble_when_present() -> None:
+    """#2: spec.input_parser_code 가 있으면 user 프롬프트에 필수 preamble 로 주입.
+
+    synthesis 코더가 LLM 파서를 직접 쓰지 않고 이 결정적 preamble 을 받아 파서 분산을
+    구조적으로 차단한다."""
+    spec = _spec().model_copy(
+        update={"input_parser_code": "PARSER_PREAMBLE_MARKER_xyz"}
+    )
+    state = _state_with_spec_design().model_copy(update={"spec": spec})
+    prompt = _build_user_prompt(state)
+    assert "PARSER_PREAMBLE_MARKER_xyz" in prompt
+    assert "입력 파싱 preamble (필수" in prompt
+
+
+def test_prompt_omits_parser_preamble_when_empty() -> None:
+    """v1 canonical(input_parser_code='') 은 미주입 — 동결 prompt 무영향."""
+    prompt = _build_user_prompt(_state_with_spec_design())
+    assert "입력 파싱 preamble" not in prompt
+
+
 def test_parse_discipline_opt_in_appends_parsing_rules() -> None:
     """v2 synthesis 는 파싱 규율 on — 골든·brute 가 동일 입력을 동일 파싱해야
     reconcile 합의(파서 불일치=양쪽 RTE IndexError 거부) 가 늘어난다."""
