@@ -10,9 +10,9 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "fcbe69d",          // main HEAD — 코더 파서 규율 + 입력 원소 캡 (array/value 출하 병목 해소, #147)
+    mainCommit: "26530b1",          // main HEAD (계약 §2.5 docs 정정) — 마지막 실질 변경 #147 코더 파서/입력 캡
     devBranch: "— (v2 M0~M6 + 배치/은행 적재 main 병합 완료)",
-    devCommit: "fcbe69d",           // 활성 dev 트랙 없음 — 배치 검증/문제 은행 적재 CLI 통합
+    devCommit: "26530b1",           // 활성 dev 트랙 없음 — 배치 검증/문제 은행 적재 CLI 통합
     updated: "2026-06-15",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
@@ -31,7 +31,7 @@ window.IPE_DATA = {
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
     nodes: 4,                       // v1 실행 파이프라인 노드 (architect→designer→coder→executor)
-    v2Nodes: 15,                    // v2 제안 토폴로지 (RFC §5)
+    v2Nodes: 15,                    // v2 논리 노드 (RFC §5 설계 — ipe/v2 그래프로 구현 완료, 실제 graph add_node 30: 제어/종단 포함)
     deps: 14,                       // core 9 (+fastapi +uvicorn) + dev 5
 
     // honest positioning — "고품질 자체 생산" 이 아니라 검증·계약·측정·관측
@@ -91,7 +91,7 @@ window.IPE_DATA = {
     { id: "executor",  label: "Executor",           model: "code",   desc: "symbolic verifier + sample/brute cross-check → StructuredFeedback 라우팅" },
   ],
 
-  // ── Phase 3 = v2 agentic graph (RFC §5 제안 토폴로지) ─────────────
+  // ── Phase 3 = v2 agentic graph (RFC §5 — ipe/v2 그래프로 구현 완료) ─────────────
   v2Stages: [
     { stage: "Modeling",            nodes: ["Strategist", "Narrative Author", "Formalizer"],                 parallel: false, desc: "알고리즘 은닉 — 숨은 시드 → 현실 시나리오 → 형식 ProblemSpec" },
     { stage: "Solution Synthesis",  nodes: ["Golden ×K", "Brute Oracle", "Reconciler"],                      parallel: true,  desc: "독립 모델 정해 K개 + brute, 코드 reconcile (fan-in)" },
