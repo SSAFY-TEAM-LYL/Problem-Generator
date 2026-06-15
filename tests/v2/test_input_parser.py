@@ -217,3 +217,16 @@ def test_empty_int_array_no_indexerror() -> None:
     parser = render_input_parser(schema)
     ns = _exec_parser(parser, "0\n")
     assert ns["arr"] == []
+
+
+def test_preamble_leaves_sys_usable_by_coder() -> None:
+    """preamble 이후 코더가 ``sys`` 를 쓸 수 있어야 한다 (sys.setrecursionlimit 등).
+
+    초기 구현이 ``import sys as _sys`` 로 alias 해 코더 알고리즘이 NameError(sys) 로
+    RTE → reconcile reject 되던 실 LLM 실측 버그의 회귀 가드."""
+    field = IOFieldSpec(name="arr", type="int_array")
+    parser = render_input_parser(_single(field))
+    # 코더가 흔히 붙이는 후행 코드를 모사 — sys 가 스코프에 있어야 NameError 안 남
+    coder_tail = "\nsys.setrecursionlimit(10000)\n_ok = sys is not None"
+    ns = _exec_parser(parser + coder_tail, "2\n1 2\n")
+    assert ns["_ok"] is True

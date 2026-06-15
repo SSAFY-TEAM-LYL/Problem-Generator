@@ -37,9 +37,11 @@ if TYPE_CHECKING:
 
 # preamble 공용 헬퍼 — flat 토큰 리더. weighted/tree 의 trailing 스칼라 오소비를
 # 구조적으로 차단(헤더 개수만큼만 소비). value 미사용 카운트도 토큰만 먹고 버린다.
+# ``import sys`` 는 alias 하지 않는다 — 코더가 알고리즘에서 sys.setrecursionlimit 등을
+# 흔히 쓰므로(alias 시 NameError, 실 LLM 검증서 실측). 재import 는 멱등이라 무해.
 _HELPER = """\
-import sys as _sys
-_tok = _sys.stdin.buffer.read().split()
+import sys
+_tok = sys.stdin.buffer.read().split()
 _ptr = 0
 def _rd_int():
     global _ptr
