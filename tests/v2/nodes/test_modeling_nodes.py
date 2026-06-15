@@ -259,3 +259,30 @@ def test_boundary_semantics_rules_in_prompts() -> None:
     assert "다중 간선" in _FMT  # 대표 케이스: 중복 간선 처리
     assert "퇴화" in _NARR  # 정의된 퇴화 의미를 지문에 서술
     assert "출력 의미의 일부" in _NARR  # 형식 서술 금지와의 구분 근거
+
+
+def test_formalizer_prompt_forbids_redundant_count_field() -> None:
+    """중복 카운트 io_schema 결함 — int_array/int_matrix 등 self-prefix collection 은
+    canonical 직렬화에 크기 헤더(원소 개수 N / R C / V E)를 자체 포함하므로, 그 크기를
+    나타내는 별도 스칼라 int 필드를 추가하면 생성 입력에 개수가 두 번 나타나 solver 가
+    입력 줄 수를 확정 못 하는 ambiguity blocker 가 된다(lis/two_sum fail_qa 실증 —
+    스칼라 N + int_array 동시 emit → '5\\n5\\n...'). graph 의 'V 분리 금지'를 모든
+    collection 으로 일반화. 드리프트 방지."""
+    from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT
+
+    assert "자기접두" in _SYSTEM_PROMPT  # collection 은 크기 헤더 자체 포함
+    assert "별도 스칼라" in _SYSTEM_PROMPT  # 크기용 스칼라 필드 금지
+    assert "개수가 두 번" in _SYSTEM_PROMPT  # 중복 카운트 = 모호 입력
+
+
+def test_narrative_prompt_forbids_solution_method() -> None:
+    """기법 명시 유출 — narrative 가 알고리즘 '이름'을 안 써도 자료구조·해법 절차를
+    처방('좌표 압축한 뒤 구간 최댓값 쿼리를 지원하는 인덱스 트리 방식으로 처리')하면
+    풀이가 그대로 유출돼 QA leakage 게이트에서 reject(lis fail_qa 실증). scenario 는
+    '무엇을 구하는지'만, '어떻게 푸는지'는 금지 — 효율성은 제약으로만 암시. 드리프트
+    방지."""
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT
+
+    assert "어떻게 푸는지" in _SYSTEM_PROMPT  # 풀이 방법 서술 금지
+    assert "자료구조" in _SYSTEM_PROMPT  # 자료구조 처방 금지
+    assert "효율성" in _SYSTEM_PROMPT  # 효율 요구는 제약으로만 암시
