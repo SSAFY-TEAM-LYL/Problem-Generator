@@ -26,6 +26,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from collections import Counter
@@ -594,42 +595,61 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
     out_dir.mkdir(parents=True, exist_ok=True)
     crashed = 0
     done = 0
-    spent = 0.0
+    spent = 0.0  # 누적 비용 — worker 가 락 하에 갱신, guard 가 읽음
+    spent_lock = threading.Lock()
     budget_stopped = False
+
+    def _run_guarded(task: _RunTask) -> dict[str, Any] | None:
+        """상한 도달 시 실행 자체를 skip → None 반환.
+
+        사후 ``future.cancel()`` 만으론 빠른 run 에서 워커가 메인 루프의 취소 결정보다
+        앞서 큐 태스크를 집어 상한이 샌다(고속 mock 에서 flaky·실 cap 누수 가능). 워커
+        시작 시점에 공유 누적비용을 락으로 확인해 **타이밍 무관 결정론적**으로 차단한다.
+        """
+        nonlocal spent
+        with spent_lock:
+            if budget and spent >= budget:
+                return None  # 상한 도달 — 미실행 skip
+        body = _execute_and_persist(
+            task,
+            graph_factory,
+            mode=mode,
+            max_qa_routebacks=args.max_qa_routebacks,
+            timeout_s=args.run_timeout,
+            mem_limit_gb=args.mem_limit_gb,
+        )
+        with spent_lock:
+            spent += body.get("cost_usd", 0) or 0
+        return body
+
     with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
-        futures = {
-            pool.submit(
-                _execute_and_persist,
-                t,
-                graph_factory,
-                mode=mode,
-                max_qa_routebacks=args.max_qa_routebacks,
-                timeout_s=args.run_timeout,
-                mem_limit_gb=args.mem_limit_gb,
-            ): t
-            for t in tasks
-        }
+        futures = {pool.submit(_run_guarded, t): t for t in tasks}
         for future in as_completed(futures):
             if future.cancelled():  # 상한 도달로 취소된 미시작 run
                 continue
+            result = future.result()  # 드라이버가 예외를 내부 격리+영속화 — raise 없음
+            if result is None:  # 상한 도달로 미실행 skip
+                continue
+            body = result
             task = futures[future]
-            body = future.result()  # 드라이버가 예외를 내부 격리+영속화 — raise 없음
             done += 1
             crashed += body["status"] == "failed"
-            spent += body.get("cost_usd", 0) or 0
+            with spent_lock:
+                cum = spent
             label = body.get("final_status") or body.get("error", "?")
             print(
                 f"[batch] ({done}/{len(tasks)}) {task.seed.value} r{task.run_index} "
                 f"→ {label} ({body['batch']['elapsed_s']}s, ${body.get('cost_usd', 0)}, "
-                f"누적 ${spent:.2f})",
+                f"누적 ${cum:.2f})",
                 flush=True,
             )
-            # 비용 상한 — 도달 시 미시작 run 취소 (실행 중인 건 끝나게 둠).
-            if budget and spent >= budget and not budget_stopped:
+            # 비용 상한 — 도달 시 미시작 run 취소 (실행 중인 건 끝나게 둠). guard 가
+            # 1차 차단하므로 cancel 은 큐 정리·로그용 최적화.
+            if budget and cum >= budget and not budget_stopped:
                 budget_stopped = True
                 n_cancel = sum(1 for f in futures if f.cancel())
                 print(
-                    f"[batch] ⚠ 비용 상한 ${budget:g} 도달 (누적 ${spent:.2f}) — "
+                    f"[batch] ⚠ 비용 상한 ${budget:g} 도달 (누적 ${cum:.2f}) — "
                     f"미시작 {n_cancel} run 중단. 올리려면 --max-cost-usd N",
                     flush=True,
                 )
