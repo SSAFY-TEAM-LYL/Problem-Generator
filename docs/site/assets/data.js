@@ -10,9 +10,9 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "26530b1",          // main HEAD (계약 §2.5 docs 정정) — 마지막 실질 변경 #147 코더 파서/입력 캡
-    devBranch: "— (v2 M0~M6 + 배치/은행 적재 main 병합 완료)",
-    devCommit: "26530b1",           // 활성 dev 트랙 없음 — 배치 검증/문제 은행 적재 CLI 통합
+    mainCommit: "917cdce",          // main HEAD — 답 유일성(tie-break) 규율 + 배치 비용상한 견고화 (#149)
+    devBranch: "— (v2 + 배치/은행 + API delivery main 병합 완료)",
+    devCommit: "917cdce",           // 활성 dev 트랙 없음 — tie-break/배치 비용상한까지 통합
     updated: "2026-06-15",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 743,                     // v1 564 + v2 179 collected (이번 주기 collect-only 실측; 배치/은행 #146 + 코더파서 #147 로 +38)
+    tests: 746,                     // v1 564 + v2 182 collected (이번 주기 collect-only 실측; QA 규율 #148 + tie-break #149 로 v2 +3)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(API 확장·leakage corpus·docs).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(API 확장·leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -120,8 +120,6 @@ window.IPE_DATA = {
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 120, title: "M3 — 모델링 layer 그래프 배선 (step 5, M3 종료)", type: "feat", impact: "알고리즘 은닉 4노드 graph 통합 완료" },
-    { num: 124, title: "v2 통합 — synthesis 그래프 배선 완성 (step2b)",     type: "feat", impact: "M2+M3 v2 그래프 통합 완성" },
     { num: 125, title: "v2-cli — --with-synthesis + full 파이프라인 실 LLM e2e", type: "feat", impact: "synthesis 경로 CLI 개방 + 종단 검증" },
     { num: 126, title: "M4 — test-suite 스키마+producer+입력생성기+assembler", type: "feat", impact: "풀 채점셋 생성 layer 배선 (step1-5)" },
     { num: 127, title: "M4 — graph/grid 입력 생성 (weighted/tree/grid)", type: "feat", impact: "input family 확장 (step3b)" },
@@ -142,6 +140,8 @@ window.IPE_DATA = {
     { num: 145, title: "API 배포 Slice 2 — Dockerfile.api + 배포 가이드 + 컨테이너 smoke", type: "feat", impact: "컨테이너 실 LLM smoke 검증" },
     { num: 146, title: "배치 검증/문제 은행 적재 CLI — 시드 전수 × N run 풀 스윕", type: "feat", impact: "문제 은행 대량 적재 경로" },
     { num: 147, title: "코더 파서 규율 + 입력 원소 캡 — array/value 출하 병목 해소", type: "fix", impact: "array/value 산출물 출하율 회복" },
+    { num: 148, title: "QA 하류 병목 규율 — 중복 카운트 io_schema + 지문 풀이방법 유출 차단", type: "feat", impact: "QA 통과 품질·유출 방어 강화" },
+    { num: 149, title: "답 유일성(tie-break) 규율 + 배치 비용상한 견고화", type: "feat", impact: "유일 정답 보장 + 배치 비용 가드" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
@@ -185,7 +185,7 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "v1 564 + v2 179 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 564 + v2 182 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
     { id: "NFR-7",  title: "비용 효율",   metric: "1 run 실측 $0.4~0.6 (백엔드 계약 §5 정정), list price 대비 ≈0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
@@ -211,7 +211,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 564 + v2 179 collected" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 564 + v2 182 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
