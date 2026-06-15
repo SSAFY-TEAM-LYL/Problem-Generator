@@ -89,15 +89,22 @@ def test_spec_bridge_populates_spec_with_authored_fields() -> None:
     assert len(spec.sample_testcases) == 3
 
 
-def test_spec_bridge_empties_sample_expected_for_golden_fill() -> None:
-    """사용자 원칙: sample expected 는 LLM 손계산 금지 — node 가 비우고 하류
-    sample_filler 가 canonical golden 실행으로 채운다. LLM 이 expected 를 줘도
-    input 만 살린다 (freeze 규율)."""
+def test_spec_bridge_generates_samples_deterministically_empties_expected() -> None:
+    """A(샘플-too-short): input_text 도 LLM 을 안 믿고 io_schema 에서 결정적 생성
+    (형식 항상 정합 → 골든 파서 IndexError 차단). expected 는 비우고 하류
+    sample_filler 가 golden 으로 채운다. 같은 run_id → 같은 샘플(재현)."""
+    from ipe.v2.nodes.spec_bridge import _SAMPLE_COUNT, _generate_sample_inputs
+
     out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
-    assert [s.input_text for s in spec.sample_testcases] == ["3", "4", "5"]  # input 유지
+    # LLM 의 ['3','4','5'] 무시, io_schema 에서 결정적 생성 (run_id 'run-v2')
+    expected_inputs = _generate_sample_inputs(_blueprint().io_schema, "run-v2")
+    assert [s.input_text for s in spec.sample_testcases] == expected_inputs
+    assert len(spec.sample_testcases) == _SAMPLE_COUNT
+    # 단일 int 필드 → 각 샘플은 정수 한 줄 (형식 정합)
+    assert all(s.input_text.strip().lstrip("-").isdigit() for s in spec.sample_testcases)
     assert all(s.expected_output == "" for s in spec.sample_testcases)  # expected 비움
 
 
