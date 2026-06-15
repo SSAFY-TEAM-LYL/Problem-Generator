@@ -22,6 +22,7 @@ from ipe.v1.schema import (
     TargetAlgorithm,
 )
 from ipe.v2.generation.input_gen import render_input_format
+from ipe.v2.generation.input_parser import render_input_parser
 from ipe.v2.nodes import make_spec_bridge_node
 from ipe.v2.state import V2State, initial_v2_state
 
@@ -125,6 +126,19 @@ def test_spec_bridge_freezes_io_contract_to_canonical_render() -> None:
     )
     # output_format 은 formalizer 가 동결한 io_schema.output_format carry-over
     assert spec.io_contract.output_format == "단일 정수"
+
+
+def test_spec_bridge_freezes_input_parser_code_from_io_schema() -> None:
+    """#2: stdin 파서도 코드로 freeze — io_schema 에서 render_input_parser 로 파생.
+
+    synthesis 코더가 LLM 파서를 직접 쓰지 않고 이 preamble 을 받아 파서 분산(IndexError·
+    중복카운트 오독)을 구조적으로 차단한다."""
+    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+
+    spec = out.spec
+    assert isinstance(spec, ProblemSpec)
+    assert spec.input_parser_code == render_input_parser(_blueprint().io_schema)
+    assert spec.input_parser_code  # 비어있지 않음 (v2 는 항상 주입)
 
 
 def test_spec_bridge_requires_blueprint() -> None:

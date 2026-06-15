@@ -104,3 +104,11 @@ class ProblemSpec(BaseModel):
     sample_testcases: list[SampleTestCase] = Field(..., min_length=3, max_length=5)
     time_limit_ms: int = Field(default=2000, gt=0)
     memory_limit_mb: int = Field(default=256, gt=0)
+    input_parser_code: str = Field(
+        default="",
+        description=(
+            "결정적 canonical stdin 파서 preamble (node 가 io_schema 에서 코드 렌더해 "
+            "채움 — LLM 은 비워둘 것). v2 synthesis 코더가 파서 분산 없이 알고리즘만 "
+            "작성하게 하는 anchor. v1 canonical mode 는 빈 문자열(=미주입)."
+        ),
+    )
