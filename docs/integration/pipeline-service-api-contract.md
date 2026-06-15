@@ -224,6 +224,27 @@ two_sum, segtree, fenwick, heap, sieve, string_match
    - `generation_requests(idempotency_key, seed, mode, job_id, final_status,
      attempts, raw_package jsonb, created_at)`
 
+### 3.5 파이프라인 직접 적재 모드 (운영 토폴로지 옵션 — §0 경계 변경)
+
+초기 운영(파이프라인 서버 / 서비스 백엔드 서버 / **공유 DB 1대**)에서는 백엔드가
+생성 워커를 따로 두지 않고, **파이프라인이 공유 PostgreSQL 에 직접 적재**할 수 있다.
+이때 §0 의 "영속화 전담=백엔드"가 "**문제·채점셋 적재=파이프라인 / 읽기·승격·채점
+=백엔드**"로 바뀐다.
+
+- 적재 경로: 배치 CLI `python -m ipe.v2.batch --seeds … --db-url \
+  postgresql+psycopg://user:pw@host:5432/bank` — 완료 run 마다 패키지를 위 스키마에
+  적재(run JSON 파일과 병행). **idempotent**(같은 run_id 재적재 시 중복 문제 생성 없이
+  attempts 증가).
+- **스키마 소유 = 파이프라인**(alembic): 배포 시 `IPE_DB_URL=… alembic upgrade head`
+  로 테이블 생성/이행. 위 §3-4 스키마가 실제 구현(`problems`/`test_cases`/
+  `generation_requests`)이며 SSOT 는 `ipe/v2/db/schema.py`. 서비스 백엔드는 이 테이블을
+  **읽기 전용**으로 소비(특히 `problems.status='draft'` 만, `test_cases` 는 success
+  문제만 채점 — §2.5 규약).
+- 매핑: `problems.internal_meta`=패키지 `meta` 전체(내부전용), `solution_code`=정해
+  (응시자 비노출), `time_limit_ms`=max(1000, `meta.timing.max_golden_elapsed_ms`×3).
+- HTTP API(§2)는 **무상태 유지** — 온디맨드 생성용. 직접 적재는 배치(은행 적재)
+  경로에만 적용된다.
+
 ---
 
 ## 4. 채점 연동 규약

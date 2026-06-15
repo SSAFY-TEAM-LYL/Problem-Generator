@@ -39,8 +39,10 @@ from typing import Any, Literal, cast
 
 from dotenv import load_dotenv
 from langchain_core.callbacks import get_usage_metadata_callback
+from sqlalchemy.engine import Engine
 
 from ipe.v1.schema import TargetAlgorithm
+from ipe.v2.db import init_schema, persist_run
 
 from .api import (
     _MAX_ITERATIONS,
@@ -524,6 +526,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--report-only", action="store_true", help="기존 산출물 집계/리포트만"
     )
+    parser.add_argument(
+        "--db-url",
+        default=None,
+        help=(
+            "공유 DB(PostgreSQL) 적재 URL — 지정 시 완료 run 마다 패키지를 DB 에 write "
+            "(JSON 파일과 병행). 예: postgresql+psycopg://user:pw@host:5432/bank"
+        ),
+    )
     return parser
 
 
@@ -592,6 +602,15 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
         raise SystemExit("ANTHROPIC_API_KEY 가 없습니다 (.env) — production 배치 불가")
     mode = cast(_Mode, args.mode)
 
+    db_engine: Engine | None = None
+    if args.db_url:
+        from sqlalchemy import create_engine
+
+        db_engine = create_engine(args.db_url)
+        init_schema(db_engine)
+        # 자격증명 비노출 — '@' 뒤 host/db 만 로그.
+        print(f"[batch] DB 적재 활성화 → {args.db_url.rsplit('@', 1)[-1]}", flush=True)
+
     out_dir.mkdir(parents=True, exist_ok=True)
     crashed = 0
     done = 0
@@ -643,6 +662,18 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
                 f"누적 ${cum:.2f})",
                 flush=True,
             )
+            if db_engine is not None:
+                # 적재 실패가 배치를 죽이지 않게 — run 파일은 이미 영속됨(재적재 가능).
+                try:
+                    pid = persist_run(db_engine, body)
+                    if pid:
+                        print(f"[batch]   ↳ DB problem_id={pid}", flush=True)
+                except Exception as exc:  # noqa: BLE001 — DB 장애 격리
+                    print(
+                        f"[batch]   ⚠ DB 적재 실패 ({type(exc).__name__}: {exc}) — "
+                        "run 파일 보존, 재적재 가능",
+                        flush=True,
+                    )
             # 비용 상한 — 도달 시 미시작 run 취소 (실행 중인 건 끝나게 둠). guard 가
             # 1차 차단하므로 cancel 은 큐 정리·로그용 최적화.
             if budget and cum >= budget and not budget_stopped:

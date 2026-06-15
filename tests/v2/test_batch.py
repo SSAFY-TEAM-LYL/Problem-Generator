@@ -573,3 +573,76 @@ def test_dry_run_warns_when_estimate_exceeds_budget(
     assert code == 0
     out = capsys.readouterr().out
     assert "상한" in out and "$5" in out
+
+
+# ---------- DB 적재 (--db-url) ----------
+
+
+def test_db_url_persists_completed_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--db-url 지정 시 완료 run 패키지가 공유 DB(여기선 sqlite)에 적재됨 — 운영
+    토폴로지(파이프라인 write → 서비스 백엔드 read)의 배선 검증."""
+    from sqlalchemy import create_engine, func, select
+
+    from ipe.v2.db import problems
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy")
+
+    def fake_persist(task: Any, gf: Any, **kw: Any) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "status": "completed",
+            "final_status": "success",
+            "package": {
+                "problem": {
+                    "title": f"{task.seed.value} 문제",
+                    "description": "지문",
+                    "io_contract": {"input_format": "N", "output_format": "정수"},
+                    "constraints": [],
+                    "sample_testcases": [],
+                },
+                "solution": {"golden_code": "print(1)", "language": "python"},
+                "test_suite": {
+                    "cases": [
+                        {"input_text": "1", "expected_output": "1", "category": "small"}
+                    ],
+                    "origin": "claude-opus-4-8",
+                },
+                "meta": {"mode": "hidden", "timing": {"max_golden_elapsed_ms": 50}},
+            },
+            "cost_usd": 0.4,
+            "batch": {
+                "seed": task.seed.value,
+                "run_index": task.run_index,
+                "run_id": f"{task.seed.value}-r{task.run_index}",
+                "mode": "hidden",
+                "started_at": "t",
+                "elapsed_s": 1.0,
+            },
+        }
+        batch_mod._write_json(task.path, body)
+        return body
+
+    monkeypatch.setattr(batch_mod, "_execute_and_persist", fake_persist)
+    db_path = tmp_path / "bank.db"
+
+    code = main(
+        [
+            "--out",
+            str(tmp_path),
+            "--seeds",
+            "dijkstra,bfs",
+            "--runs-per-seed",
+            "1",
+            "--concurrency",
+            "1",
+            "--db-url",
+            f"sqlite:///{db_path}",
+        ]
+    )
+
+    assert code == 0
+    eng = create_engine(f"sqlite:///{db_path}")
+    with eng.connect() as c:
+        n = c.execute(select(func.count()).select_from(problems)).scalar_one()
+    assert n == 2  # dijkstra + bfs 각 1 문제 적재
