@@ -41,6 +41,10 @@ problems = Table(
     Column("samples", _JSON, nullable=False),  # [{input_text,expected_output,...}]
     # internal_meta: hidden_algorithm/composition/qa 등 — 응시자 비노출 (계약 §2.5)
     Column("internal_meta", _JSON, nullable=False),
+    # algorithm: 문제의 알고리즘 분류(은닉 코어 = 시드, 예: 'dijkstra'). internal_meta.
+    # hidden_algorithm 과 동일값을 쿼리·필터·집계 편의를 위해 1급 컬럼으로 승격(응시자
+    # 비노출 — 내부 운영 DB). 적재 시 필수 기록.
+    Column("algorithm", String(64), nullable=True, index=True),
     Column("solution_code", Text, nullable=True),  # 내부 정해 (응시자 비노출)
     Column("solution_language", String(16), nullable=True),
     Column("status", String(16), nullable=False, default="draft"),
