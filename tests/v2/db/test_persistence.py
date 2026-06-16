@@ -92,6 +92,7 @@ def test_persist_success_maps_all_tables(tmp_path: Path) -> None:
         assert prob["status"] == "draft"
         assert prob["time_limit_ms"] == 1000  # max(1000, 40*3=120)
         assert prob["internal_meta"]["hidden_algorithm"] == "dijkstra"
+        assert prob["algorithm"] == "dijkstra"  # 1급 컬럼 승격 (meta 와 동일값)
 
         cases = (
             c.execute(

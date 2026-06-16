@@ -49,6 +49,7 @@ def _insert_problem(conn: Connection, package: dict[str, Any], now: datetime) ->
             constraints=problem.get("constraints", []),
             samples=problem.get("sample_testcases", []),
             internal_meta=package.get("meta", {}),
+            algorithm=(package.get("meta") or {}).get("hidden_algorithm"),
             solution_code=solution.get("golden_code"),
             solution_language=solution.get("language"),
             status="draft",
