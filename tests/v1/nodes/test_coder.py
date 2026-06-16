@@ -8,6 +8,8 @@ from ipe.v1.nodes.coder import (
     _SYSTEM_PROMPT,
     _build_user_prompt,
     _coder_system_prompt,
+    _coerce_parser_compliance,
+    _parser_preamble_present,
     make_coder_node,
 )
 from ipe.v1.schema import (
@@ -181,3 +183,73 @@ def test_parse_discipline_off_preserves_frozen_v1_prompt() -> None:
     """기본 off — v1 make_coder_node 의 _SYSTEM_PROMPT 동결(91.2% anchor 자산) 보존."""
     assert _coder_system_prompt(parse_discipline=False) == _SYSTEM_PROMPT
     assert "평탄 토큰" not in _SYSTEM_PROMPT
+
+
+# ---------- RTE 레버: canonical 파서 기계적 보장 (fail_synthesis 54% — #2 후속) ----------
+# 진단: golden(sonnet)·brute(naive) 가 preamble 을 안 따라 자기 파서를 써서 동일 입력에
+# IndexError. preamble 은 결정적이므로 '동일 입력+동일 preamble=동일 결과' — 기계적 강제 시
+# 파싱 균일·정확. gate = preamble 미포함 시 교정 재생성, 끝까지 미준수면 best-effort(무회귀).
+
+
+def test_parser_preamble_present_verbatim() -> None:
+    preamble = "data = read()\nn = data[0]"
+    assert _parser_preamble_present(preamble + "\nsolve(n)", preamble) is True
+
+
+def test_parser_preamble_present_whitespace_insensitive() -> None:
+    """모델이 들여쓰기/개행을 살짝 바꿔 복사해도 포함으로 인정 (공백 정규화)."""
+    preamble = "data = read()\nn = data[0]"
+    reflowed = "data  =  read()\n\n  n = data[0]\nsolve(n)"
+    assert _parser_preamble_present(reflowed, preamble) is True
+
+
+def test_parser_preamble_absent_returns_false() -> None:
+    preamble = "data = read()\nn = data[0]"
+    assert _parser_preamble_present("n = int(input())\nsolve(n)", preamble) is False
+
+
+def test_parser_preamble_empty_always_present() -> None:
+    """v1 canonical(preamble='') 은 규율 비대상 — 항상 통과(무회귀)."""
+    assert _parser_preamble_present("anything at all", "") is True
+
+
+def test_coerce_compliance_returns_first_when_present() -> None:
+    """preamble 포함 시 재시도 없이 즉시 반환 (corrective 미주입)."""
+    calls: list[str | None] = []
+
+    def gen(corrective: str | None) -> SolutionAttempt:
+        calls.append(corrective)
+        return _attempt(code="MARK\nsolve()")
+
+    out = _coerce_parser_compliance(gen, "MARK")
+    assert out.code == "MARK\nsolve()"
+    assert calls == [None]
+
+
+def test_coerce_compliance_retries_then_succeeds() -> None:
+    """1차 미포함 → 교정지시 붙여 재생성 → 2차 포함이면 그걸 반환."""
+    seq = [_attempt(code="n=int(input())"), _attempt(code="MARK\nok")]
+    calls: list[str | None] = []
+
+    def gen(corrective: str | None) -> SolutionAttempt:
+        calls.append(corrective)
+        return seq[len(calls) - 1]
+
+    out = _coerce_parser_compliance(gen, "MARK")
+    assert out.code == "MARK\nok"
+    assert len(calls) == 2
+    assert calls[0] is None
+    assert calls[1] is not None  # 2차에 교정지시 전달
+
+
+def test_coerce_compliance_best_effort_after_max() -> None:
+    """끝까지 미준수면 마지막 출력을 best-effort 로 반환 (현행 동작=무회귀)."""
+    calls: list[str | None] = []
+
+    def gen(corrective: str | None) -> SolutionAttempt:
+        calls.append(corrective)
+        return _attempt(code=f"own_parser_{len(calls)}")
+
+    out = _coerce_parser_compliance(gen, "MARK", max_attempts=3)
+    assert len(calls) == 3
+    assert out.code == "own_parser_3"
