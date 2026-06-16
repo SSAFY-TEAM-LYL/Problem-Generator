@@ -68,6 +68,56 @@ def _coder_system_prompt(parse_discipline: bool) -> str:
     return _SYSTEM_PROMPT
 
 
+# RTE 레버 — canonical 파서 기계적 보장 (fail_synthesis 1위 병목 54% 진단 후속, #2).
+# prose 규율(_PARSE_DISCIPLINE)만으로는 약한 모델(골든=sonnet·brute=naive)이 preamble 을
+# 안 따라 자기 파서를 써서 동일 입력에 IndexError → reconcile differ → fail_synthesis.
+# preamble 은 결정적이라 '동일 입력+동일 preamble=동일 결과'(round-trip 게이트로 건전성
+# 보증). 따라서 생성 후 preamble 포함을 결정적으로 검사하고, 누락 시 교정지시를 붙여
+# 재생성한다(최대 N회). 끝까지 미준수면 마지막 출력을 best-effort 반환(=현행 동작, 무회귀).
+_PARSE_COMPLIANCE_MAX_ATTEMPTS = 3
+
+_PARSE_CORRECTIVE = (
+    "교정 (필수): 직전 출력이 '입력 파싱 preamble' 을 누락하거나 변형했다. 이번에는 반드시 "
+    "user 메시지의 'preamble' 코드 블록을 code 의 맨 앞에 토씨 하나 바꾸지 말고 그대로 "
+    "복사하고, preamble 이 바인딩한 변수만으로 알고리즘을 작성하라 (직접 stdin 파서 작성 금지)."
+)
+
+
+def _normalize_code(code: str) -> str:
+    """preamble 포함 비교용 — 공백/개행 무관(모델이 들여쓰기·줄바꿈을 살짝 바꿔도 동일 취급)."""
+    return "".join(code.split())
+
+
+def _parser_preamble_present(code: str, preamble: str) -> bool:
+    """``preamble`` (공백 정규화) 이 ``code`` 에 그대로 포함됐는지. 빈 preamble 은 항상 True
+    (v1 canonical 은 규율 비대상 — 무회귀)."""
+    if not preamble:
+        return True
+    return _normalize_code(preamble) in _normalize_code(code)
+
+
+def _coerce_parser_compliance(
+    generate_once: Callable[[str | None], SolutionAttempt],
+    preamble: str,
+    *,
+    max_attempts: int = _PARSE_COMPLIANCE_MAX_ATTEMPTS,
+) -> SolutionAttempt:
+    """preamble 미포함 시 교정지시를 붙여 재생성 — 최대 ``max_attempts``.
+
+    ``generate_once(corrective)`` 는 교정문(없으면 None)을 받아 한 번 생성한다. preamble 을
+    포함한 첫 출력을 반환하고, 끝까지 미준수면 마지막 출력을 best-effort 로 반환한다(현행
+    동작 유지 = 무회귀; gate 는 합의율을 올릴 뿐 합성을 깨지 않는다).
+    """
+    last: SolutionAttempt | None = None
+    for i in range(max_attempts):
+        corrective = None if i == 0 else _PARSE_CORRECTIVE
+        last = generate_once(corrective)
+        if _parser_preamble_present(last.code, preamble):
+            return last
+    assert last is not None  # max_attempts >= 1 (호출자 보증)
+    return last
+
+
 def _render_lessons(state: V1State) -> str:
     lessons = state.context.accumulated_lessons
     if not lessons:
@@ -199,16 +249,30 @@ class AnthropicCoderLLM:
         self._chain = (
             prompt | llm.with_structured_output(SolutionAttempt)
         ).with_retry(stop_after_attempt=5, wait_exponential_jitter=True)
+        self._parse_discipline = parse_discipline
 
     def generate(self, state: V1State) -> SolutionAttempt:
-        result = self._chain.invoke({"user": _build_user_prompt(state)})
-        if not isinstance(result, SolutionAttempt):
-            msg = (
-                f"with_structured_output 가 {type(result).__name__} 반환 — "
-                "SolutionAttempt 기대"
-            )
-            raise TypeError(msg)
-        return result
+        preamble = ""
+        if self._parse_discipline and state.spec is not None:
+            preamble = state.spec.input_parser_code
+
+        def _once(corrective: str | None) -> SolutionAttempt:
+            user = _build_user_prompt(state)
+            if corrective:
+                user = f"{user}\n\n{corrective}"
+            result = self._chain.invoke({"user": user})
+            if not isinstance(result, SolutionAttempt):
+                msg = (
+                    f"with_structured_output 가 {type(result).__name__} 반환 — "
+                    "SolutionAttempt 기대"
+                )
+                raise TypeError(msg)
+            return result
+
+        # parse_discipline + canonical preamble 일 때만 합의율 게이트 (그 외 현행=무회귀).
+        if preamble:
+            return _coerce_parser_compliance(_once, preamble)
+        return _once(None)
 
 
 def make_coder_node(
