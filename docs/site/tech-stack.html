@@ -45,7 +45,7 @@
 
   <section class="section section-sm">
     <h2 class="text-3xl font-bold mb-2 text-white">LLM · AI 프레임워크</h2>
-    <p class="text-gray-400 mb-6">노드별 모델 tiering — Architect/Coder = Opus(정확성 임계), Designer = Sonnet. v2 는 QA = Haiku 로 비용 분산.</p>
+    <p class="text-gray-400 mb-6">노드별 모델 tiering — Architect/Coder = Opus(정확성 임계), Designer = Sonnet. v2 QA 최종 게이트는 품질 우선으로 Sonnet 승급(#156).</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-llm"></div>
 
     <div class="mt-8 card">
@@ -57,7 +57,7 @@
           <tr><td>Algorithm Designer</td><td><span class="badge badge-warning">Sonnet</span></td><td>algorithm 선택 + pseudocode — Coder 분해</td></tr>
           <tr><td>Coder</td><td><span class="badge badge-accent">Opus</span></td><td>golden + brute 구현 정확성</td></tr>
           <tr><td>Executor / 검증 / 집계</td><td><span class="badge badge-success">code</span></td><td>결정론 코드 = 비용 0</td></tr>
-          <tr><td>QA / Critic (v2)</td><td><span class="badge">Haiku</span></td><td>경량 검토 — 모호성/공정성/유출/난이도</td></tr>
+          <tr><td>QA / Critic (v2)</td><td><span class="badge badge-warning">Sonnet</span></td><td>최종 품질 게이트 정성판단 — 모호성/공정성/유출/난이도 (#156 Haiku→Sonnet 승급)</td></tr>
         </tbody>
       </table>
       <div class="text-xs text-gray-500 mt-3">⚠️ list price upper bound — Anthropic Tier 할인 / prompt cache 미반영. 실제 청구 ≈ 0.4x. run당 비용은 마일스톤마다 실측해 anchor 화.</div>
@@ -84,7 +84,7 @@
 
   <section class="section section-sm">
     <h2 class="text-3xl font-bold mb-2 text-white">테스트 · 품질</h2>
-    <p class="text-gray-400 mb-6">pytest + ruff + mypy --strict 0 errors. 현재 <span id="q-summary">766 collected · coverage 87% (ipe/v1)</span></p>
+    <p class="text-gray-400 mb-6">pytest + ruff + mypy --strict 0 errors. 현재 <span id="q-summary">804 collected · coverage 87% (ipe/v1)</span></p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stack-quality"></div>
   </section>
 

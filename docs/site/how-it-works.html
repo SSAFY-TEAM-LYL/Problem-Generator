@@ -512,7 +512,7 @@ agreed = g.status == <span class="st">"OK"</span> <span class="kw">and</span> b.
     <!-- 15. QA 게이트 -->
     <section id="s15" class="prose">
       <h2 class="text-3xl font-bold text-white mb-2">15. 마지막 관문 — 네 명의 심사위원 + 자동 재수정</h2>
-      <p>정답이 검증됐어도 <strong>문제 자체가 좋은 문제인지</strong>는 또 다른 얘기예요. 그래서 출하 전에 <strong>네 심사위원</strong>이 동시에 검토합니다(가벼운 모델로 병렬). 실제 코드의 심사 항목 설명을 그대로 옮기면:</p>
+      <p>정답이 검증됐어도 <strong>문제 자체가 좋은 문제인지</strong>는 또 다른 얘기예요. 그래서 출하 전에 <strong>네 심사위원</strong>이 동시에 검토합니다(병렬 — 최종 품질 게이트라 정성판단이 좋은 Sonnet 모델로 승급). 실제 코드의 심사 항목 설명을 그대로 옮기면:</p>
       <div class="code-card">
         <div class="fname">ipe/v2/nodes/qa_reviewer.py — 4개 심사 차원</div>
 <pre><code><span class="st">"ambiguity"</span>  <span class="cm"># 모호성 — 지문·입출력 형식이 유일하게 해석되는가</span>

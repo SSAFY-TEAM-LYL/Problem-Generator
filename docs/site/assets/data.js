@@ -10,10 +10,10 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "010a6d9",          // main HEAD — composition 회전 팔레트로 fenwick leakage 구조적 분산 (#152)
-    devBranch: "— (v2 + 배치/은행 + API + DB 영속화 main 병합 완료)",
-    devCommit: "010a6d9",           // 활성 dev 트랙 없음 — PostgreSQL 영속화/결정적 파서까지 통합
-    updated: "2026-06-15",
+    mainCommit: "d19a9a8",          // main HEAD — 도메인 팔레트로 banking 단일화 leakage 분산 (#159)
+    devBranch: "— (v2 + 배치/은행 + API + DB + 관리콘솔 main 병합 완료)",
+    devCommit: "d19a9a8",           // 활성 dev 트랙 없음 — 문제 은행 관리 콘솔/QA Sonnet 승급까지 통합
+    updated: "2026-06-16",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 766,                     // v1 566 + v2 200 collected (이번 주기 collect-only 실측; DB영속화 #150 + 결정적파서 #151 + leakage분산 #152 로 +20)
+    tests: 804,                     // v1 573 + v2 231 collected (이번 주기 collect-only 실측; synthesis견고화·관리콘솔·QA Sonnet·remediation #153~159 로 +38)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). 이어 synthesis 견고화(샘플 결정적 생성·canonical 파서 게이트, #153~154)·QA 리뷰어 Sonnet 승급(#156, 품질 게이트 정성판단 강화)·알고리즘 분류 DB 1급 컬럼(#157)·문제 은행 관리 콘솔(단일 페이지 CRUD, #155)·QA-fix remediation(fail_qa 지문 수정→재리뷰, #158)·도메인 팔레트 분산(#159)으로 운영·품질을 강화했다. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -97,7 +97,7 @@ window.IPE_DATA = {
     { stage: "Solution Synthesis",  nodes: ["Golden ×K", "Brute Oracle", "Reconciler"],                      parallel: true,  desc: "독립 모델 정해 K개 + brute, 코드 reconcile (fan-in)" },
     { stage: "Verification",        nodes: ["Symbolic", "Differential", "Metamorphic", "Aggregator·GATE"],   parallel: true,  desc: "Tier A/B/C 신뢰 게이트 — 적용가능 체크 전부 통과해야 verified" },
     { stage: "Test-suite Gen",      nodes: ["edge", "large", "adversarial", "random", "Assembler"],          parallel: true,  desc: "input family 별 생성 → golden 실행 expected → 패키징" },
-    { stage: "QA / Critic",         nodes: ["Ambiguity", "Fairness", "Leakage", "Difficulty", "Aggregator"], parallel: true,  desc: "모호성/공정성/유출/난이도 (Haiku) → fail 시 back-route" },
+    { stage: "QA / Critic",         nodes: ["Ambiguity", "Fairness", "Leakage", "Difficulty", "Aggregator"], parallel: true,  desc: "모호성/공정성/유출/난이도 (Sonnet, #156 승급) → fail 시 back-route" },
   ],
 
   // ── 검증 신뢰 tier (RFC §7 — make-or-break 결정) ──────────────────
@@ -120,14 +120,6 @@ window.IPE_DATA = {
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 129, title: "M4 — io_contract canonical 렌더 freeze",          type: "feat", impact: "직렬화↔골든 파서 정렬, assembled ratio 0→1.000" },
-    { num: 130, title: "M5 — QA/Critic 병렬 스테이지 (4 리뷰어 fan-out)",  type: "feat", impact: "모호성/공정성/유출/난이도 + aggregator 게이트" },
-    { num: 132, title: "M5 — CLI --with-test-suite/--with-qa 노출",        type: "feat", impact: "M4/M5 스테이지 전 경로 CLI 개방" },
-    { num: 134, title: "M5 — narrative 형식서술 금지 규율 (A)",            type: "feat", impact: "지문↔io_contract 모순 원천 차단" },
-    { num: 135, title: "M5 — formalizer 고아필드 금지 + faithfulness 결손 (A2)", type: "feat", impact: "스키마 의미 정합 — 결손 데이터 왜곡 판정" },
-    { num: 136, title: "M5 — QA back-route 루프 (fail→revise→재리뷰)",     type: "feat", impact: "QA findings 피드백 → desc 패치 회수 실증 (B)" },
-    { num: 137, title: "M6 — 기법 합성 step1-2 (Tier B 스위치 + 실현 규율)", type: "feat", impact: "2~3 알고리즘 조합 합성 진입" },
-    { num: 139, title: "M6 — step4 간선 다속성 금지 + composed 샘플 검산", type: "feat", impact: "다속성 모순 소멸 + composed verification 회복" },
     { num: 140, title: "v2 — 경계/퇴화 케이스 의미론 규율 (formalizer invariants)", type: "feat", impact: "명시 결정 + narrative 의미 서술" },
     { num: 141, title: "v2 — spec 저작 가드 (structured output 전멸 → fail_spec_authoring)", type: "feat", impact: "crash 대신 결정론적 fail 종료" },
     { num: 142, title: "v2 — composition 다양성 규율 (내장 기법 장식·최빈 패턴 고정 금지)", type: "feat", impact: "합성 다양성 ↑ — leakage 직결 변수 제어" },
@@ -141,6 +133,13 @@ window.IPE_DATA = {
     { num: 150, title: "DB 영속화 레이어 — 파이프라인이 공유 PostgreSQL 직접 적재", type: "feat", impact: "문제 은행 공유 DB 전달 경로" },
     { num: 151, title: "결정적 stdin 파서 주입 — synthesis 코더 파서 분산 해소", type: "fix", impact: "파서 비결정성 제거 (출하 안정)" },
     { num: 152, title: "composition 회전 팔레트 — fenwick 어휘 붕괴(leakage) 구조적 분산", type: "feat", impact: "유출 방어 — 어휘 다양성 결정적 분산" },
+    { num: 153, title: "샘플 입력 결정적 생성 — 샘플-too-short fail_synthesis 차단", type: "feat", impact: "synthesis 안정 (A)" },
+    { num: 154, title: "canonical 파서 기계적 보장 — fail_synthesis RTE 게이트", type: "feat", impact: "파서 불일치 결정론 차단" },
+    { num: 155, title: "문제 은행 관리 콘솔 — 단일 페이지 CRUD 운영툴", type: "feat", impact: "은행 운영 어드민(ipe.v2.admin)" },
+    { num: 156, title: "QA 리뷰어 모델 Haiku→Sonnet 승급", type: "feat", impact: "최종 품질 게이트 정성판단 강화" },
+    { num: 157, title: "알고리즘 분류를 problems 1급 컬럼으로 승격 (DB 스키마)", type: "feat", impact: "은행 분류·조회 1급화" },
+    { num: 158, title: "QA-fix remediation — fail_qa 지문 수정→재리뷰 (재생성 아님)", type: "feat", impact: "QA 실패 저비용 구제 경로" },
+    { num: 159, title: "도메인 팔레트 — banking 100% 단일화를 결정적 회전 분산", type: "feat", impact: "도메인 다양성 (leakage 방어, #152 동형)" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
@@ -156,7 +155,7 @@ window.IPE_DATA = {
     { icon: "📏", title: "측정 우선", desc: "N≥3 측정 + baseline anchor 없이는 머지하지 않는다. 추가 측정이 diminishing returns 면 중단하고 freeze." },
     { icon: "🧭", title: "해자 사수", desc: "재공사해도 typed artifact 계약 + 결정론적 검증 anchor 는 사수. 검증 path 는 절대 끊지 않는다." },
     { icon: "🪢", title: "복잡도 규율", desc: "그래프는 ≤6 스테이지, 모든 노드는 typed artifact + structured log emit, 병렬은 반드시 deterministic aggregator 로 fan-in." },
-    { icon: "💸", title: "비용 규율",   desc: "모델 tiering 강제 (코드/Haiku 우선, Opus 는 Formalizer·Golden 에만). 검증·집계는 코드 = 비용 0. run당 비용 마일스톤마다 실측." },
+    { icon: "💸", title: "비용 규율",   desc: "모델 tiering 강제 (검증·집계는 코드 = 비용 0, Opus 는 Formalizer·Golden 등 정확성 임계에만). 단 QA 최종 게이트는 품질 우선으로 Sonnet 승급(#156). run당 비용 마일스톤마다 실측." },
   ],
 
   // ── FR (기능 요구사항) — v1.0 기준 ────────────────────────────────
@@ -184,7 +183,7 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "v1 566 + v2 200 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 573 + v2 231 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
     { id: "NFR-7",  title: "비용 효율",   metric: "1 run 실측 $0.4~0.6 (백엔드 계약 §5 정정), list price 대비 ≈0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
@@ -210,7 +209,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 566 + v2 200 collected" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 573 + v2 231 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
