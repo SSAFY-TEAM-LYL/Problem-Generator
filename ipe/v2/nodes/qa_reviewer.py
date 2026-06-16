@@ -22,7 +22,11 @@ from ipe.v1.schema import QAReview, QAReviewerKind
 
 from ..state import V2State
 
-QA_REVIEWER_MODEL = "claude-haiku-4-5"
+# QA 는 출하 여부를 정하는 **최종 품질 게이트** — ambiguity/fairness/leakage/difficulty
+# 는 가장 미묘한 정성 판단이라 상류(Sonnet/Opus)보다 약한 모델이면 오탈락(좋은 문제
+# fail_qa)·오통과(나쁜 문제 published) 양방향 리스크. Haiku→Sonnet 승급: 판정 보정 +
+# routeback revise 피드백 질 ↑ (in-run 회수율 개선 기대). 비용은 charter×4 만큼 증가.
+QA_REVIEWER_MODEL = "claude-sonnet-4-6"
 QA_REVIEWER_TEMPERATURE = 0.0  # 판정 일관성 (발산 금지)
 
 _CHARTERS: dict[QAReviewerKind, str] = {
