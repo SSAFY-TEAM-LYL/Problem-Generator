@@ -27,13 +27,82 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol
 
-from ipe.v1.schema import IOContract, ProblemSpec
+from ipe.v1.schema import (
+    ConstraintRange,
+    GeneratorContract,
+    IOContract,
+    IOSchema,
+    ProblemSpec,
+    SampleTestCase,
+    ScaleFamily,
+)
 
-from ..generation.input_gen import render_input_format
+from ..generation.input_gen import (
+    generate_inputs,
+    render_input_format,
+    seed_from_run_id,
+)
 from ..generation.input_parser import render_input_parser
 from ..state import V2State
 
 SPEC_BRIDGE_MODEL = "claude-opus-4-8"
+
+# 샘플 개수 + sized 필드(배열/그래프/행렬) 크기 상한 + 원소·스칼라 값 크기 상한.
+# 샘플은 지문 예시 겸 reconcile 교차검증 입력 — 작고 형식-정합이어야 한다. 값까지 작게
+# 잡는 이유(실측): size 만 줄이고 io_schema value_range(예: 20만)를 그대로 두면 골든이
+# 큰 값으로 DP 배열 인덱싱해 IndexError(coin_change 실측) → 형식은 맞아도 fail_synthesis.
+_SAMPLE_COUNT = 3
+_SAMPLE_SIZE_MAX = 5
+_SAMPLE_VALUE_MAX = 20
+
+
+def _clamp_value_range(cr: ConstraintRange | None) -> ConstraintRange | None:
+    """value_range 를 작은 창으로 clamp (부호 보존). 빈/단일값이면 그대로 유지."""
+    if cr is None:
+        return None
+    lo = max(cr.min_value, -_SAMPLE_VALUE_MAX)
+    hi = min(cr.max_value, _SAMPLE_VALUE_MAX)
+    if lo > hi:  # 원 범위가 큰 양수/음수에 치우침 → 경계값 하나로 퇴화 (항상 유효)
+        hi = lo
+    return cr.model_copy(update={"min_value": lo, "max_value": hi})
+
+
+def _sample_io_schema(io_schema: IOSchema) -> IOSchema:
+    """샘플용으로 sized 필드 크기와 모든 값 범위를 작게 clamp 한 io_schema 복제.
+
+    size 는 field_bounds 로(generate_inputs tier), 원소/스칼라 값은 io_schema 의
+    value_range 가 직접 쓰이므로(_element_bounds 는 tier 무관) **schema 자체를 clamp**
+    해야 작은 값이 나온다.
+    """
+    clamped_fields = tuple(
+        f.model_copy(update={"value_range": _clamp_value_range(f.value_range)})
+        for f in io_schema.inputs
+    )
+    return io_schema.model_copy(update={"inputs": clamped_fields})
+
+
+def _generate_sample_inputs(io_schema: IOSchema, run_id: str) -> list[str]:
+    """io_schema 에서 결정적·형식정합·소규모 샘플 입력 생성 (A: 샘플-too-short 해소).
+
+    LLM 이 저작한 input_text 는 composition 으로 io_schema 필드가 늘면 토큰이 모자라
+    골든 파서가 IndexError → reconcile 이 'golden 이 샘플도 못 푼다'고 거부(fail_
+    synthesis)했다. input_gen 직렬화(=골든이 받는 파서 #2 의 짝)로 입력을 만들면 필드
+    수·헤더가 항상 일치한다. 크기·값 모두 작게 clamp(가독성+큰 값 골든 IndexError 방지).
+    expected 는 하류 sample_filler 가 golden 실행으로 채운다.
+    """
+    schema = _sample_io_schema(io_schema)
+    bounds = tuple(
+        ConstraintRange(name=f.name, min_value=1, max_value=_SAMPLE_SIZE_MAX)
+        for f in schema.inputs
+        if f.size_range is not None
+    )
+    contract = GeneratorContract(
+        scale_families=(
+            ScaleFamily(name="sample", case_count=_SAMPLE_COUNT, field_bounds=bounds),
+        )
+    )
+    cases = generate_inputs(contract, schema, seed=seed_from_run_id(run_id))
+    return [c.input_text for c in cases]
 SPEC_BRIDGE_TEMPERATURE = 0.2  # sample input 형식 준수 (발산 금지)
 
 
@@ -177,12 +246,12 @@ def make_spec_bridge_node(
                 # 쓰지 않고 이 preamble 을 그대로 받아 파서 분산(IndexError/중복카운트
                 # 오독)을 구조적으로 차단한다 (input_gen 직렬화의 역함수, round-trip 가드).
                 "input_parser_code": render_input_parser(bp.io_schema),
-                # 정답은 golden 실행으로 (사용자 원칙) — LLM 이 무엇을 넣든 expected
-                # 를 비우고 input 만 살린다. 하류 sample_filler 가 canonical golden
-                # 으로 채운다 (freeze 규율: LLM 손계산 expected 를 못 끼워넣음).
+                # A(샘플-too-short): input_text 도 LLM 을 못 믿는다 — io_schema 에서
+                # 결정적 생성(형식 항상 정합). expected 는 비우고 하류 sample_filler 가
+                # canonical golden 실행으로 채운다(LLM 손계산 expected 차단).
                 "sample_testcases": [
-                    s.model_copy(update={"expected_output": ""})
-                    for s in authored.sample_testcases
+                    SampleTestCase(input_text=text, expected_output="")
+                    for text in _generate_sample_inputs(bp.io_schema, state.run_id)
                 ],
             }
         )

@@ -288,9 +288,11 @@ def test_main_with_synthesis_rejected_returns_one(
     assert code == 1
     assert "final_status=fail_synthesis_rejected" in out
     assert "all_agree=False" in out
-    # reject 원인 가시화 — disagreement 케이스 증거(ref/cand 출력)가 요약에 노출
-    assert "ans-i0" in out
-    assert "wrong-i0" in out
+    # reject 원인 가시화 — disagreement 케이스 증거(ref/cand 출력)가 요약에 노출.
+    # 샘플 input 은 io_schema 에서 결정적 생성되므로(A) 값 고정 없이 ref/cand 출력
+    # prefix 로 증거 노출만 확인 (mock golden=ans-<in>, cand=wrong-<in>).
+    assert "ans-" in out
+    assert "wrong-" in out
 
 
 def test_main_with_test_suite_requires_synthesis() -> None:
