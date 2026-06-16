@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IPE 문제 은행 관리</title>
+<style>
+  :root {
+    --bg: oklch(97% 0.005 260);
+    --surface: oklch(100% 0 0);
+    --surface-2: oklch(98.5% 0.004 260);
+    --line: oklch(90% 0.008 260);
+    --text: oklch(24% 0.02 260);
+    --muted: oklch(55% 0.02 260);
+    --accent: oklch(55% 0.17 264);
+    --accent-soft: oklch(95% 0.03 264);
+    --draft: oklch(70% 0.15 70);
+    --review: oklch(62% 0.15 250);
+    --published: oklch(62% 0.16 150);
+    --danger: oklch(58% 0.2 25);
+    --radius: 10px;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: system-ui, "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: var(--sans); color: var(--text); background: var(--bg);
+    display: grid; grid-template-rows: auto 1fr; height: 100vh;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 1.25rem; padding: 0.85rem 1.4rem;
+    background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1.02rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  header h1 span { color: var(--accent); }
+  .stats { display: flex; gap: 1rem; margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .stats .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+  main { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+
+  /* ---------- list pane ---------- */
+  .list-pane { border-right: 1px solid var(--line); background: var(--surface); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+  .list-tools { padding: 0.7rem 0.8rem; border-bottom: 1px solid var(--line); display: grid; gap: 0.5rem; }
+  .list-tools input[type=search] {
+    width: 100%; padding: 0.5rem 0.65rem; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 0.85rem; background: var(--surface-2);
+  }
+  .filters { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .filters button {
+    font: inherit; font-size: 0.74rem; padding: 0.25rem 0.6rem; border-radius: 99px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .filters button.on { background: var(--accent); border-color: var(--accent); color: white; }
+  .list { overflow-y: auto; min-height: 0; }
+  .row {
+    padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); cursor: pointer;
+    display: grid; gap: 0.25rem; border-left: 3px solid transparent;
+  }
+  .row:hover { background: var(--surface-2); }
+  .row.sel { background: var(--accent-soft); border-left-color: var(--accent); }
+  .row .t { font-size: 0.85rem; font-weight: 550; line-height: 1.3; }
+  .row .meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--muted); }
+  .seed { font-family: var(--mono); font-size: 0.7rem; color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+  .pill { font-size: 0.66rem; font-weight: 600; padding: 1px 7px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.03em; color: white; }
+  .pill.draft { background: var(--draft); } .pill.review { background: var(--review); } .pill.published { background: var(--published); }
+
+  /* ---------- detail pane ---------- */
+  .detail { overflow-y: auto; min-height: 0; padding: 1.4rem 1.6rem 4rem; }
+  .empty { display: grid; place-content: center; height: 100%; color: var(--muted); font-size: 0.9rem; }
+  .detail h2 { font-size: 1.15rem; margin: 0 0 0.15rem; letter-spacing: -0.01em; }
+  .idline { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-bottom: 1.1rem; }
+  .field { margin-bottom: 1rem; }
+  .field > label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.3rem; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 0.86rem; background: var(--surface); color: var(--text); resize: vertical;
+  }
+  .field textarea.code, .field input.mono { font-family: var(--mono); font-size: 0.8rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  details { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 1rem; background: var(--surface); }
+  details > summary { cursor: pointer; padding: 0.55rem 0.7rem; font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+  details[open] > summary { border-bottom: 1px solid var(--line); }
+  details .body { padding: 0.7rem; }
+  details textarea { width: 100%; min-height: 140px; font-family: var(--mono); font-size: 0.78rem; border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem; resize: vertical; }
+
+  .toolbar { position: sticky; top: 0; z-index: 5; background: color-mix(in oklch, var(--bg) 80%, transparent); backdrop-filter: blur(6px); display: flex; gap: 0.5rem; align-items: center; padding: 0.5rem 0; margin: -1.4rem -1.6rem 1.1rem; padding-left: 1.6rem; padding-right: 1.6rem; border-bottom: 1px solid var(--line); }
+  .btn { font: inherit; font-size: 0.82rem; font-weight: 550; padding: 0.45rem 0.9rem; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.danger { color: var(--danger); border-color: color-mix(in oklch, var(--danger) 40%, var(--line)); }
+  .btn.danger:hover { background: color-mix(in oklch, var(--danger) 10%, white); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .spacer { flex: 1; }
+  .saved { font-size: 0.78rem; color: var(--published); opacity: 0; transition: opacity .2s; }
+  .saved.show { opacity: 1; }
+
+  /* ---------- test cases ---------- */
+  .tc-head { display: flex; align-items: center; gap: 0.6rem; margin: 1.6rem 0 0.6rem; }
+  .tc-head h3 { font-size: 0.95rem; margin: 0; }
+  .tc-head .count { font-size: 0.75rem; color: var(--muted); }
+  table.tc { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  table.tc th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); }
+  table.tc td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.tc td.seq { color: var(--muted); font-variant-numeric: tabular-nums; width: 2.5rem; }
+  table.tc textarea { width: 100%; min-height: 2.2rem; font-family: var(--mono); font-size: 0.76rem; border: 1px solid transparent; border-radius: 5px; padding: 0.25rem 0.35rem; background: var(--surface-2); resize: vertical; }
+  table.tc textarea:focus { border-color: var(--accent); background: var(--surface); outline: none; }
+  table.tc .x { color: var(--danger); cursor: pointer; border: none; background: none; font-size: 1rem; padding: 0 0.3rem; }
+  .toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 0.6rem 1.1rem; border-radius: 8px; font-size: 0.84rem; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  .toast.err { background: var(--danger); }
+</style>
+</head>
+<body>
+<header>
+  <h1>IPE <span>문제 은행</span> 관리</h1>
+  <div class="stats" id="stats"></div>
+</header>
+<main>
+  <section class="list-pane">
+    <div class="list-tools">
+      <input type="search" id="search" placeholder="제목·시드 검색…" autocomplete="off" />
+      <div class="filters" id="filters">
+        <button data-status="" class="on">전체</button>
+        <button data-status="draft">draft</button>
+        <button data-status="review">review</button>
+        <button data-status="published">published</button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+  <section class="detail" id="detail">
+    <div class="empty">왼쪽에서 문제를 선택하세요.</div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";
+let state = { status: "", q: "", items: [], selected: null, detail: null };
+
+const $ = (s, r=document) => r.querySelector(s);
+const esc = (s) => (s ?? "").toString().replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg, err=false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  setTimeout(() => t.className = "toast", 1800);
+}
+async function api(path, opts) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) { const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail || r.statusText); }
+  return r.status === 204 ? null : r.json();
+}
+
+async function loadStats() {
+  try {
+    const s = await api("/api/stats");
+    const bs = s.by_status || {};
+    $("#stats").innerHTML =
+      `<span>문제 <b>${s.total}</b></span>` +
+      `<span><i class="dot" style="background:var(--draft)"></i>draft <b>${bs.draft||0}</b></span>` +
+      `<span><i class="dot" style="background:var(--review)"></i>review <b>${bs.review||0}</b></span>` +
+      `<span><i class="dot" style="background:var(--published)"></i>published <b>${bs.published||0}</b></span>` +
+      `<span>케이스 <b>${s.test_cases}</b></span>`;
+  } catch (e) { $("#stats").innerHTML = `<span style="color:var(--danger)">DB 연결 실패: ${esc(e.message)}</span>`; }
+}
+
+async function loadList() {
+  const qs = new URLSearchParams();
+  if (state.status) qs.set("status", state.status);
+  if (state.q) qs.set("q", state.q);
+  try {
+    state.items = await api("/api/problems?" + qs.toString());
+    renderList();
+  } catch (e) { $("#list").innerHTML = `<div style="padding:1rem;color:var(--danger)">${esc(e.message)}</div>`; }
+}
+
+function renderList() {
+  const el = $("#list");
+  if (!state.items.length) { el.innerHTML = `<div style="padding:1.2rem;color:var(--muted);font-size:.85rem">결과 없음</div>`; return; }
+  el.innerHTML = state.items.map(p => `
+    <div class="row ${p.id===state.selected?'sel':''}" data-id="${p.id}">
+      <div class="t">${esc(p.title) || "(제목 없음)"}</div>
+      <div class="meta">
+        ${p.seed ? `<span class="seed">${esc(p.seed)}</span>` : ""}
+        <span class="pill ${p.status}">${esc(p.status)}</span>
+        <span>TC ${p.test_case_count}</span>
+        ${p.time_limit_ms ? `<span>${p.time_limit_ms}ms</span>` : ""}
+      </div>
+    </div>`).join("");
+  el.querySelectorAll(".row").forEach(r => r.onclick = () => selectProblem(r.dataset.id));
+}
+
+async function selectProblem(id) {
+  state.selected = id; renderList();
+  try { state.detail = await api("/api/problems/" + id); renderDetail(); }
+  catch (e) { toast(e.message, true); }
+}
+
+function field(label, id, value, opts={}) {
+  const v = esc(value);
+  if (opts.textarea) return `<div class="field"><label>${label}</label><textarea id="${id}" rows="${opts.rows||3}" class="${opts.mono?'code':''}">${v}</textarea></div>`;
+  if (opts.select) return `<div class="field"><label>${label}</label><select id="${id}">${opts.select.map(o=>`<option value="${o}" ${o===value?'selected':''}>${o}</option>`).join("")}</select></div>`;
+  return `<div class="field"><label>${label}</label><input id="${id}" value="${v}" class="${opts.mono?'mono':''}" ${opts.type?`type="${opts.type}"`:''}/></div>`;
+}
+function jsonBlock(label, id, obj) {
+  return `<details><summary>${label}</summary><div class="body"><textarea id="${id}">${esc(JSON.stringify(obj ?? null, null, 2))}</textarea></div></details>`;
+}
+
+function renderDetail() {
+  const p = state.detail;
+  const tc = p.test_cases || [];
+  $("#detail").innerHTML = `
+    <div class="toolbar">
+      <button class="btn primary" id="save">저장</button>
+      <span class="saved" id="saved">✓ 저장됨</span>
+      <div class="spacer"></div>
+      <button class="btn danger" id="del">삭제</button>
+    </div>
+    <h2>${esc(p.title) || "(제목 없음)"}</h2>
+    <div class="idline">${esc(p.id)} · 생성 ${esc((p.created_at||"").slice(0,19).replace("T"," "))}</div>
+    ${field("제목", "f_title", p.title)}
+    ${field("지문 (description)", "f_description", p.description, {textarea:true, rows:6})}
+    <div class="grid2">
+      ${field("입력 형식", "f_input_format", p.input_format, {textarea:true, rows:3, mono:true})}
+      ${field("출력 형식", "f_output_format", p.output_format, {textarea:true, rows:3, mono:true})}
+    </div>
+    <div class="grid2">
+      ${field("상태", "f_status", p.status, {select:["draft","review","published"]})}
+      ${field("시간제한 (ms)", "f_time_limit_ms", p.time_limit_ms ?? "", {type:"number"})}
+    </div>
+    ${field("정해 언어", "f_solution_language", p.solution_language ?? "", {mono:true})}
+    <details><summary>정해 코드 (solution_code · 응시자 비노출)</summary><div class="body"><textarea id="f_solution_code">${esc(p.solution_code ?? "")}</textarea></div></details>
+    ${jsonBlock("constraints (JSON)", "f_constraints", p.constraints)}
+    ${jsonBlock("samples (JSON)", "f_samples", p.samples)}
+    ${jsonBlock("internal_meta (JSON · 시드/QA/composition)", "f_internal_meta", p.internal_meta)}
+
+    <div class="tc-head"><h3>테스트 케이스</h3><span class="count">${tc.length}개</span><div class="spacer" style="flex:1"></div><button class="btn" id="addtc">+ 케이스 추가</button></div>
+    <table class="tc">
+      <thead><tr><th>#</th><th>input</th><th>expected</th><th>category</th><th></th></tr></thead>
+      <tbody id="tcbody">${tc.map(c => tcRow(c)).join("")}</tbody>
+    </table>`;
+  $("#save").onclick = saveProblem;
+  $("#del").onclick = deleteProblem;
+  $("#addtc").onclick = addCase;
+  bindCaseRows();
+}
+
+function tcRow(c) {
+  return `<tr data-cid="${c.id}">
+    <td class="seq">${c.seq}</td>
+    <td><textarea class="tc-input">${esc(c.input)}</textarea></td>
+    <td><textarea class="tc-expected">${esc(c.expected)}</textarea></td>
+    <td><textarea class="tc-category" style="min-height:2.2rem">${esc(c.category ?? "")}</textarea></td>
+    <td><button class="x" title="삭제">✕</button></td>
+  </tr>`;
+}
+function bindCaseRows() {
+  $("#tcbody").querySelectorAll("tr").forEach(tr => {
+    const cid = tr.dataset.cid;
+    tr.querySelectorAll("textarea").forEach(ta => {
+      ta.addEventListener("change", () => saveCase(cid, tr));
+    });
+    tr.querySelector(".x").onclick = () => deleteCase(cid, tr);
+  });
+}
+
+function parseJSON(id) {
+  const raw = $("#"+id).value.trim();
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { throw new Error(`${id}: JSON 파싱 실패 — ${e.message}`); }
+}
+
+async function saveProblem() {
+  try {
+    const body = {
+      title: $("#f_title").value,
+      description: $("#f_description").value,
+      input_format: $("#f_input_format").value,
+      output_format: $("#f_output_format").value,
+      status: $("#f_status").value,
+      time_limit_ms: $("#f_time_limit_ms").value === "" ? null : Number($("#f_time_limit_ms").value),
+      solution_language: $("#f_solution_language").value || null,
+      solution_code: $("#f_solution_code").value || null,
+      constraints: parseJSON("f_constraints"),
+      samples: parseJSON("f_samples"),
+      internal_meta: parseJSON("f_internal_meta"),
+    };
+    state.detail = await api("/api/problems/" + state.detail.id, {
+      method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    $("#saved").className = "saved show"; setTimeout(()=>$("#saved").className="saved", 1500);
+    loadList(); loadStats();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteProblem() {
+  if (!confirm("이 문제와 모든 테스트 케이스를 삭제합니다. 계속할까요?")) return;
+  try {
+    await api("/api/problems/" + state.detail.id, { method: "DELETE" });
+    toast("삭제됨"); state.selected = null; state.detail = null;
+    $("#detail").innerHTML = `<div class="empty">삭제되었습니다.</div>`;
+    loadList(); loadStats();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function saveCase(cid, tr) {
+  try {
+    const body = {
+      input: tr.querySelector(".tc-input").value,
+      expected: tr.querySelector(".tc-expected").value,
+      category: tr.querySelector(".tc-category").value || null,
+    };
+    await api("/api/test_cases/" + cid, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    toast("케이스 저장됨");
+  } catch (e) { toast(e.message, true); }
+}
+async function deleteCase(cid, tr) {
+  if (!confirm("이 케이스를 삭제할까요?")) return;
+  try { await api("/api/test_cases/" + cid, { method:"DELETE" }); tr.remove(); toast("케이스 삭제됨"); loadStats(); }
+  catch (e) { toast(e.message, true); }
+}
+async function addCase() {
+  try {
+    const c = await api("/api/problems/" + state.detail.id + "/test_cases", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({input:"", expected:""})
+    });
+    const tb = $("#tcbody"); tb.insertAdjacentHTML("beforeend", tcRow(c)); bindCaseRows(); loadStats();
+  } catch (e) { toast(e.message, true); }
+}
+
+let searchTimer;
+$("#search").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { state.q = e.target.value; loadList(); }, 200);
+});
+$("#filters").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("#filters").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); state.status = b.dataset.status; loadList();
+});
+
+loadStats(); loadList();
+</script>
+</body>
+</html>
