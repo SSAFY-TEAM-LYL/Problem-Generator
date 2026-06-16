@@ -216,6 +216,64 @@ def test_strategist_user_prompt_injects_palette() -> None:
         assert v in prompt
 
 
+def test_domain_palette_deterministic_and_in_pool() -> None:
+    """도메인 팔레트는 run_id 결정적(재현) + 전부 _DOMAIN_POOL 내."""
+    from ipe.v2.nodes.strategist import (
+        _DOMAIN_PALETTE_SIZE,
+        _DOMAIN_POOL,
+        _domain_palette,
+    )
+
+    a = _domain_palette("run-xyz")
+    b = _domain_palette("run-xyz")
+    assert a == b  # 같은 run_id → 같은 팔레트
+    assert len(a) == _DOMAIN_PALETTE_SIZE
+    assert all(d in _DOMAIN_POOL for d in a)
+
+
+def test_domain_palette_rotates_and_spreads() -> None:
+    """run 마다 회전 → 도메인 분산. 다수 run 누적 시 어느 도메인도 과점하지 않고
+    pool 전체가 고르게 제안된다(banking 단일화의 구조적 해소 — composition fenwick
+    68% 보다 심한 domain banking 100% 가 동일 처방으로 분산)."""
+    import collections
+
+    from ipe.v2.nodes.strategist import _DOMAIN_POOL, _domain_palette
+
+    counter: collections.Counter[str] = collections.Counter()
+    runs = 200
+    for i in range(runs):
+        for d in _domain_palette(f"run-{i}"):
+            counter[d] += 1
+    # 다른 run_id 는 다른 팔레트(고정 아님)
+    assert _domain_palette("run-0") != _domain_palette("run-1")
+    # pool 전체가 제안됨 (사각지대 없음)
+    assert len(counter) == len(_DOMAIN_POOL)
+    # 어느 도메인도 과점하지 않음 — 균등 기대 ~PALETTE/POOL, 상한 55% 가드
+    top_share = counter.most_common(1)[0][1] / runs
+    assert top_share < 0.55
+
+
+def test_strategist_user_prompt_injects_domain_palette() -> None:
+    """node 가 user 프롬프트에 이번 run 도메인 팔레트를 주입 — LLM 이 그 안에서 고름."""
+    from ipe.v2.nodes.strategist import _build_user_prompt, _domain_palette
+
+    state = initial_v2_state("run-abc", TargetAlgorithm.KNAPSACK)
+    prompt = _build_user_prompt(state)
+    assert "도메인 팔레트" in prompt
+    for d in _domain_palette("run-abc"):
+        assert d in prompt
+
+
+def test_strategist_prompt_encourages_domain_diversity() -> None:
+    """domain 다양성 규율 — DB 16문제 실측 banking 100% 단일화(composition fenwick
+    68% 보다 심함, domain 은 strategist 자유선택). 해법: 매 run 회전하는 결정적
+    '도메인 팔레트' 안에서 고르게 강제 → 제안 도메인 집합 자체를 통제. 드리프트 방지."""
+    from ipe.v2.nodes.strategist import _SYSTEM_PROMPT
+
+    assert "도메인 팔레트" in _SYSTEM_PROMPT  # 회전 팔레트 안에서 선택
+    assert "단일화" in _SYSTEM_PROMPT  # banking mode-collapse 방어 명시
+
+
 def test_narrative_prompt_forbids_format_prose() -> None:
     """지문 형식서술 금지 규율이 system prompt 에 명시 — QA anchor 0/3 의 공통
     blocker(description 'E V'·0-indexed 서술 ↔ io_contract canonical 렌더 모순)의
