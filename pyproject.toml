@@ -67,6 +67,12 @@ warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 
+# uvicorn 은 타입 스텁 미배포 — admin 콘솔의 server 기동(uvicorn.run)에서만 import.
+# CI mypy --strict 의 import-not-found 회피 (런타임 의존성은 pyproject 에 선언됨).
+[[tool.mypy.overrides]]
+module = "uvicorn.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
