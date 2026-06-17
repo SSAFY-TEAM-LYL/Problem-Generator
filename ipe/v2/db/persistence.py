@@ -50,6 +50,10 @@ def _insert_problem(conn: Connection, package: dict[str, Any], now: datetime) ->
             samples=problem.get("sample_testcases", []),
             internal_meta=package.get("meta", {}),
             algorithm=(package.get("meta") or {}).get("hidden_algorithm"),
+            # difficulty: meta.difficulty.label (사후 calibration, RFC R4) 승격. 미주석이면 None.
+            difficulty=((package.get("meta") or {}).get("difficulty") or {}).get(
+                "label"
+            ),
             solution_code=solution.get("golden_code"),
             solution_language=solution.get("language"),
             status="draft",

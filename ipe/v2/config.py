@@ -19,6 +19,10 @@ GOLDEN_MODELS: tuple[str, ...] = ("claude-opus-4-8", "claude-sonnet-4-6")
 BRUTE_MODEL = "claude-sonnet-4-6"  # golden 과 distinct → 독립 differential
 GOLDEN_MODELS_CLI_DEFAULT = ",".join(GOLDEN_MODELS)  # argparse comma-sep default
 
+# 난이도 calibration 모델 (RFC R4 — 사후 난이도 판별). QA Sonnet 승급과 동일 논리:
+# calibration 은 정성 판단이라 약한 모델이면 분산↑. 패키지당 1콜이라 비용 경미.
+DIFFICULTY_MODEL = "claude-sonnet-4-6"
+
 # --------------------------------------------------------------------------- #
 # iteration budget (narrative 재생성)                                           #
 # --------------------------------------------------------------------------- #

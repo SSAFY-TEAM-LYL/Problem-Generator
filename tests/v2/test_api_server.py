@@ -387,3 +387,45 @@ def test_graph_exception_surfaces_as_failed_job() -> None:
     data = _poll_completed(client, r.json()["job_id"])
     assert data["status"] == "failed"
     assert "RuntimeError" in data["error"]
+
+
+# ---------- 난이도 calibration (RFC R4 — 기본 off, 주입 시 meta.difficulty) ----------
+
+
+class _FakeDifficultyLLM:
+    """주입형 mock — 고정 BOJ 티어 반환 (실 LLM/anchor 불요)."""
+
+    def evaluate(self, package: Any, *, anchors: Any) -> Any:
+        from ipe.v1.schema import DifficultyFactors, DifficultyReport
+
+        return DifficultyReport(
+            label="Gold IV",
+            reasoning="bj_1753_gold5 와 동형 — 단일 출발점 다익스트라",
+            factors=DifficultyFactors(
+                algorithm="dijkstra", complexity="O((V+E) log V)", n_max=20000
+            ),
+            calibration_anchors=(),
+        )
+
+
+def test_difficulty_annotated_when_llm_injected() -> None:
+    """difficulty_llm 주입 시 success 패키지 meta.difficulty 동봉 (티어 파생 포함)."""
+    app = create_app(
+        graph_factory=lambda req: _FakeGraph(_final_state("success")),
+        api_key=_KEY,
+        difficulty_llm=_FakeDifficultyLLM(),
+    )
+    client = TestClient(app)
+    r = _generate(client)
+    data = _poll_completed(client, r.json()["job_id"])
+    diff = data["package"]["meta"]["difficulty"]
+    assert diff["label"] == "Gold IV"
+    assert diff["tier"] == "Gold"  # computed 파생
+
+
+def test_difficulty_absent_by_default() -> None:
+    """주입/ env 없으면 난이도 미주석 (기본 off — 라이브 경로 비용·지연 보호)."""
+    client = _client(_FakeGraph(_final_state("success")))
+    r = _generate(client)
+    data = _poll_completed(client, r.json()["job_id"])
+    assert "difficulty" not in data["package"]["meta"]

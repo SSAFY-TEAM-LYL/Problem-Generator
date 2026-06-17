@@ -53,6 +53,7 @@ from .api import (
     _build_package,
     _production_graph_factory,
 )
+from .difficulty import AnthropicDifficultyLLM, annotate_difficulty
 from .main_v2 import _normalize_final_state
 from .state import initial_v2_state
 
@@ -531,6 +532,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "(JSON 파일과 병행). 예: postgresql+psycopg://user:pw@host:5432/bank"
         ),
     )
+    parser.add_argument(
+        "--with-difficulty",
+        action="store_true",
+        help=(
+            "적재 직전 BOJ 티어 난이도(RFC R4)를 calibration 해 meta.difficulty + "
+            "problems.difficulty 컬럼에 주석 (--db-url 적재 시에만 적용, 패키지당 1 LLM콜)"
+        ),
+    )
     return parser
 
 
@@ -608,6 +617,11 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
         # 자격증명 비노출 — '@' 뒤 host/db 만 로그.
         print(f"[batch] DB 적재 활성화 → {args.db_url.rsplit('@', 1)[-1]}", flush=True)
 
+    # 난이도 calibration(RFC R4) — --with-difficulty 시에만. 적재 직전 주석(아래 persist).
+    difficulty_llm = AnthropicDifficultyLLM() if args.with_difficulty else None
+    if difficulty_llm is not None:
+        print("[batch] 난이도 calibration 활성화 (적재 패키지에 meta.difficulty 주석)", flush=True)
+
     out_dir.mkdir(parents=True, exist_ok=True)
     crashed = 0
     done = 0
@@ -662,6 +676,13 @@ def main(argv: Sequence[str] | None = None, *, graph_factory: Any = None) -> int
             if db_engine is not None:
                 # 적재 실패가 배치를 죽이지 않게 — run 파일은 이미 영속됨(재적재 가능).
                 try:
+                    if difficulty_llm is not None and body.get("package") is not None:
+                        body = {
+                            **body,
+                            "package": annotate_difficulty(
+                                body["package"], llm=difficulty_llm
+                            ),
+                        }
                     pid = persist_run(db_engine, body)
                     if pid:
                         print(f"[batch]   ↳ DB problem_id={pid}", flush=True)

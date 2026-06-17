@@ -45,6 +45,10 @@ problems = Table(
     # hidden_algorithm 과 동일값을 쿼리·필터·집계 편의를 위해 1급 컬럼으로 승격(응시자
     # 비노출 — 내부 운영 DB). 적재 시 필수 기록.
     Column("algorithm", String(64), nullable=True, index=True),
+    # difficulty: BOJ 티어 라벨(예: 'Gold IV'). meta.difficulty.label 에서 승격 — 쿼리·
+    # 필터·집계 편의로 1급 컬럼(algorithm 과 동형). 사후 calibration(RFC R4) 산출,
+    # 응시자 비노출(internal). 전체 report 는 internal_meta.difficulty 에 보존.
+    Column("difficulty", String(64), nullable=True, index=True),
     Column("solution_code", Text, nullable=True),  # 내부 정해 (응시자 비노출)
     Column("solution_language", String(16), nullable=True),
     Column("status", String(16), nullable=False, default="draft"),
