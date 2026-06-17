@@ -45,15 +45,38 @@
         수학적 정의에서 유도</strong>하는 결정론적 검증, typed artifact 라우팅, 그리고 모든 변경을 막아서는 측정 게이트.
       </p>
       <div class="flex flex-wrap justify-center gap-3">
-        <a href="dashboard.html" class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition hover:no-underline">
-          측정 Dashboard →
+        <a href="how-it-works.html" class="px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition hover:no-underline">
+          쉬운 설명부터 →
+        </a>
+        <a href="dashboard.html" class="px-6 py-3 border border-gray-700 rounded-lg font-semibold hover:bg-gray-800 transition hover:no-underline text-white">
+          측정 Dashboard
         </a>
         <a href="https://github.com/LsMin124/IPE/blob/main/docs/rfc/phase3_agentic-graph-rearchitecture.md" target="_blank" class="px-6 py-3 border border-gray-700 rounded-lg font-semibold hover:bg-gray-800 transition hover:no-underline text-white">
-          Phase 3 RFC 읽기
+          Phase 3 RFC
         </a>
       </div>
     </div>
   </section>
+
+  <!-- 처음 오셨나요 — 외부 개발자용 30초 소개 -->
+  <section class="section section-sm">
+    <div class="card" style="background:linear-gradient(135deg, rgba(47,129,247,0.08), rgba(63,185,80,0.05)); border-color:rgba(47,129,247,0.35);">
+      <div class="text-sm font-bold text-blue-300 mb-2">👋 처음 오셨나요? — 30초 설명</div>
+      <p class="text-gray-200 leading-relaxed mb-3">
+        IPE 는 <strong class="text-white">코딩 테스트 문제를 자동으로 만들어 주는 엔진</strong>이에요. AI 로 문제를 만들 때 가장
+        어려운 건 <strong class="text-white">"그 정답이 진짜 맞는지" 아무도 보장 못 한다</strong>는 점인데, IPE 의 핵심은
+        <strong class="text-white">정답을 AI 에게 다시 묻지 않고 — 그 알고리즘의 수학 정의를 담은 코드로 처음부터 다시
+        계산해 검산</strong>한다는 거예요. 그래서 "그럴듯한 오답"이 자동으로 걸러집니다.
+      </p>
+      <p class="text-gray-400 text-sm leading-relaxed mb-3">
+        용어가 생소해도 괜찮아요 — 전체 흐름을 비유와 실제 코드로 풀어 쓴 <a href="how-it-works.html">쉬운 설명</a> 부터 보시면 됩니다.
+        그리고 아래 숫자들(91.2% 등)은 광고 문구가 아니라 전부 <strong class="text-gray-300">측정 결과</strong>예요.
+      </p>
+      <a href="how-it-works.html" class="text-blue-400 hover:text-blue-300 text-sm font-semibold">→ 쉬운 설명으로 전체 따라가기</a>
+    </div>
+  </section>
+
+  <div class="divider"></div>
 
   <!-- key metrics -->
   <section class="section section-sm">
@@ -125,7 +148,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       <div class="card">
         <div class="text-blue-400 font-bold mb-1">4 → ~15 노드</div>
-        <div class="text-sm text-gray-400">linear → 4개 병렬 영역(solution / verification / test-gen / QA). 신규 노드 다수가 코드(비용 0)거나 Haiku.</div>
+        <div class="text-sm text-gray-400">linear → 4개 병렬 영역(solution / verification / test-gen / QA). 신규 노드 다수가 코드(비용 0)이고, 검증·집계는 코드로 처리.</div>
       </div>
       <div class="card">
         <div class="text-blue-400 font-bold mb-1">Tiered Trust (A/B/C)</div>
