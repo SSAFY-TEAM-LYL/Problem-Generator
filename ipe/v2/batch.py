@@ -44,6 +44,7 @@ from sqlalchemy.engine import Engine
 from ipe.v1.schema import TargetAlgorithm
 from ipe.v2.db import init_schema, persist_run
 
+from . import config
 from .api import (
     _MAX_ITERATIONS,
     _RECURSION_LIMIT,
@@ -55,12 +56,8 @@ from .api import (
 from .main_v2 import _normalize_final_state
 from .state import initial_v2_state
 
-# 공식 단가 per MTok (input, output) — 비용 실측 정정(계약 §5, 5fb370f)과 동일 기준.
-_PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
-    "opus": (5.0, 25.0),
-    "sonnet": (3.0, 15.0),
-    "haiku": (1.0, 5.0),
-}
+# 공식 단가 per MTok (input, output) — config 단일 소스(계약 §5, 5fb370f).
+_PRICING_PER_MTOK = config.PRICING_PER_MTOK
 # 실측 N=2 어림 (계약 §5) — 계획 출력용 추정치.
 _PER_RUN_COST_ESTIMATE = "$0.4~0.6"
 

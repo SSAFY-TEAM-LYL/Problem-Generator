@@ -36,6 +36,8 @@ from ipe.v1.schema import (
     VerificationResult,
 )
 
+from .config import MAX_ITERATIONS_DEFAULT
+
 V2FinalStatus = Literal[
     "success",
     "fail_spec_authoring",  # spec_bridge LLM structured output 실패 (가드 종료)
@@ -46,7 +48,8 @@ V2FinalStatus = Literal[
     "fail_budget_exhausted",
 ]
 
-DEFAULT_MAX_ITERATIONS = 8
+# config 단일 소스를 state 의 기존 공개 이름으로 재노출 (main_v2 가 여기서 import).
+DEFAULT_MAX_ITERATIONS = MAX_ITERATIONS_DEFAULT
 
 
 def _merge_candidates(

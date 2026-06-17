@@ -35,22 +35,24 @@ from dotenv import load_dotenv
 from ipe.v1.nodes import AnthropicCoderLLM
 from ipe.v1.schema import TargetAlgorithm
 
+from . import config
 from .graph import build_v2_graph
 from .state import DEFAULT_MAX_ITERATIONS, V2State, initial_v2_state
 
-# 모델링 루프 1회 = narrative+faithfulness+regen(3 step). recursion budget 여유.
-_RECURSION_PAD = 15
-# synthesis tail(spec_bridge→designer→fan-out→reconcile→bridge→executor) 단발 step 여유.
-_SYNTHESIS_RECURSION_PAD = 12
-# suite tail(generator_designer→input_generator→suite_assembler) 단발 step 여유.
-_SUITE_RECURSION_PAD = 6
+# recursion budget pad — 값은 config 단일 소스. 주석은 각 pad 의 근거(스테이지 tail).
+# 모델링 루프 1회 = narrative+faithfulness+regen(3 step).
+_RECURSION_PAD = config.RECURSION_PAD_BASE
+# synthesis tail(spec_bridge→designer→fan-out→reconcile→bridge→executor) 단발 step.
+_SYNTHESIS_RECURSION_PAD = config.RECURSION_PAD_SYNTHESIS
+# suite tail(generator_designer→input_generator→suite_assembler) 단발 step.
+_SUITE_RECURSION_PAD = config.RECURSION_PAD_SUITE
 # qa tail(리뷰어 4종 병렬 superstep→aggregator) + back-route revise 사이클
-# (routeback→narrative_revise→faithfulness_revise→spec_patch→재리뷰→집계) 여유.
-_QA_RECURSION_PAD = 14
+# (routeback→narrative_revise→faithfulness_revise→spec_patch→재리뷰→집계).
+_QA_RECURSION_PAD = config.RECURSION_PAD_QA
 
 # golden fan-out 은 distinct 모델로(차분 독립성, §7.4). brute 는 별도 origin 라벨.
-DEFAULT_GOLDEN_MODELS = "claude-opus-4-8,claude-sonnet-4-6"
-DEFAULT_BRUTE_MODEL = "claude-sonnet-4-6"
+DEFAULT_GOLDEN_MODELS = config.GOLDEN_MODELS_CLI_DEFAULT
+DEFAULT_BRUTE_MODEL = config.BRUTE_MODEL
 
 
 def _parse_target_algorithm(value: str) -> TargetAlgorithm:
