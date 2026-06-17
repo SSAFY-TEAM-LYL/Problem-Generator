@@ -100,7 +100,14 @@ def _build_user_prompt(state: V2State) -> str:
             f"description:\n{spec.description}",
             f"input_format: {spec.io_contract.input_format}",
             f"output_format: {spec.io_contract.output_format}",
-            f"constraints: {[c.name for c in spec.constraints]}",
+            "constraints: "
+            + (
+                ", ".join(
+                    f"{c.name} ∈ [{c.min_value}, {c.max_value}]"
+                    for c in spec.constraints
+                )
+                or "(미명시)"
+            ),
             f"samples (앞 2개):\n{samples}",
             "",
             "[채점셋 요약]",
