@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ipe.v1.schema import TargetAlgorithm, VerificationResult
 from ipe.v1.verification._exec import exception_signal
 
+from . import config
 from .main_v2 import _normalize_final_state
 from .state import V2State, initial_v2_state
 
@@ -38,12 +39,12 @@ DEFAULT_MAX_CONCURRENT = 2
 RETRY_AFTER_SECONDS = 60
 
 # e2e 실증값 (tests/v2/test_e2e_v2_qa_real_llm.py) — faithfulness regen +
-# QA back-route revise 사이클을 감당하는 바운드.
-_MAX_ITERATIONS = 4
-_RECURSION_LIMIT = 90
+# QA back-route revise 사이클을 감당하는 바운드. 값은 config 단일 소스.
+_MAX_ITERATIONS = config.MAX_ITERATIONS_API
+_RECURSION_LIMIT = config.RECURSION_LIMIT_API
 
-_GOLDEN_MODELS = ["claude-opus-4-8", "claude-sonnet-4-6"]
-_BRUTE_MODEL = "claude-sonnet-4-6"
+_GOLDEN_MODELS = list(config.GOLDEN_MODELS)
+_BRUTE_MODEL = config.BRUTE_MODEL
 
 # 계약 §2.3: 패키지(문제+채점셋)가 완성된 terminal — fail_qa 는 검수 구제 대상.
 _PACKAGED_STATUSES = ("success", "fail_qa")
