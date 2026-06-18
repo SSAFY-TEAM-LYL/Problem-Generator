@@ -312,3 +312,27 @@ def test_backfill_dry_run_measures_without_writing() -> None:
     with engine.connect() as c:
         row = c.execute(select(problems).where(problems.c.id == pid)).mappings().one()
         assert row["difficulty"] is None  # write 안 됨
+
+
+def test_backfill_force_recalibrates_annotated_rows() -> None:
+    """force=True → 이미 난이도 있는 행도 재측정·덮어쓰기 (anchor 확장 후 일관 재calibration)."""
+    from sqlalchemy import create_engine, select
+
+    from ipe.v2.db import init_schema
+    from ipe.v2.db.schema import problems
+    from ipe.v2.difficulty import backfill_difficulty
+
+    engine = create_engine("sqlite://")
+    init_schema(engine)
+    pid = _seed_problem(engine, "bf-force", annotated=True)  # 기존 difficulty=Gold IV
+
+    done = backfill_difficulty(
+        engine,
+        llm=_FakeDifficultyLLM(_report("Silver V")),
+        anchors=_ANCHORS,
+        force=True,
+    )
+    assert (pid, "Silver V") in done  # 이미 주석된 행도 재처리
+    with engine.connect() as c:
+        row = c.execute(select(problems).where(problems.c.id == pid)).mappings().one()
+        assert row["difficulty"] == "Silver V"  # 기존 Gold IV → 덮어써짐
