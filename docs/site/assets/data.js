@@ -10,10 +10,10 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "9200fdf",          // main HEAD — 난이도 판별 에이전트 RFC R4 BOJ 티어 calibration (#161)
-    devBranch: "— (v2 전 단계 + ingest + 난이도 R4 main 병합 완료)",
-    devCommit: "9200fdf",           // 활성 dev 트랙 없음 — canonical/hybrid ingest + 난이도 calibration 까지 통합
-    updated: "2026-06-18",
+    mainCommit: "8982bc9",          // main HEAD — 3세대→2 파이프라인 수렴(v0 제거 + v1 prune) + 빌드 수정 (#163)
+    devBranch: "— (v0 제거 후 v1 canonical + v2 fresh 2-파이프라인 수렴)",
+    devCommit: "8982bc9",           // 활성 dev 트랙 없음 — 난이도 anchor 20티어(#162) + 파이프라인 수렴(#163)
+    updated: "2026-06-19",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 836,                     // v1 573 + v2 263 collected (이번 주기 collect-only 실측; canonical/hybrid ingest #160 + 난이도 R4 #161 로 v2 +32)
+    tests: 724,                     // v1 500 + v2 224 collected (이번 주기 collect-only 실측; #163 3세대→2 파이프라인 수렴 — v0 제거 + v1 prune 으로 레거시 정리, 수치 감소는 코드 제거분)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). 이어 synthesis 견고화(샘플 결정적 생성·canonical 파서 게이트, #153~154)·QA 리뷰어 Sonnet 승급(#156, 품질 게이트 정성판단 강화)·알고리즘 분류 DB 1급 컬럼(#157)·문제 은행 관리 콘솔(단일 페이지 CRUD, #155)·QA-fix remediation(fail_qa 지문 수정→재리뷰, #158)·도메인 팔레트 분산(#159)으로 운영·품질을 강화했다. 또한 쉬운 문제 적재 브리지 + 풀 채점셋 확장(canonical/hybrid ingest, #160)으로 문제 은행 적재 경로를 넓혔고, 난이도 판별 에이전트(RFC R4 — BOJ 티어 calibration, #161)로 별도 트랙이던 난이도 보정에 착수했다. v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). 이어 synthesis 견고화(샘플 결정적 생성·canonical 파서 게이트, #153~154)·QA 리뷰어 Sonnet 승급(#156, 품질 게이트 정성판단 강화)·알고리즘 분류 DB 1급 컬럼(#157)·문제 은행 관리 콘솔(단일 페이지 CRUD, #155)·QA-fix remediation(fail_qa 지문 수정→재리뷰, #158)·도메인 팔레트 분산(#159)으로 운영·품질을 강화했다. 또한 쉬운 문제 적재 브리지 + 풀 채점셋 확장(canonical/hybrid ingest, #160)으로 문제 은행 적재 경로를 넓혔고, 난이도 판별 에이전트(RFC R4 — BOJ 티어 calibration, #161)로 별도 트랙이던 난이도 보정에 착수, 이어 solved.ac 실측 20티어(Bronze~Platinum) anchor 로 확장(#162)했다. 그리고 #163 에서 3세대(v0/v1/v2) → 2 파이프라인으로 수렴 — 레거시 v0 제거 + v1 standalone/ingest/운영 prune 으로 코드베이스를 정리했다(테스트 수 감소는 제거분). v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -120,8 +120,6 @@ window.IPE_DATA = {
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 142, title: "v2 — composition 다양성 규율 (내장 기법 장식·최빈 패턴 고정 금지)", type: "feat", impact: "합성 다양성 ↑ — leakage 직결 변수 제어" },
-    { num: 143, title: "v2 — spec_bridge 중괄호 이스케이프 + 전 노드 템플릿 변수 무결성 게이트", type: "fix", impact: "프롬프트 템플릿 변수 누락 결정론 차단" },
     { num: 144, title: "API 서버 Slice 1 — B2C 계약 v1.0 (generate/jobs/healthz)", type: "feat", impact: "FastAPI HTTP delivery layer 착수" },
     { num: 145, title: "API 배포 Slice 2 — Dockerfile.api + 배포 가이드 + 컨테이너 smoke", type: "feat", impact: "컨테이너 실 LLM smoke 검증" },
     { num: 146, title: "배치 검증/문제 은행 적재 CLI — 시드 전수 × N run 풀 스윕", type: "feat", impact: "문제 은행 대량 적재 경로" },
@@ -140,6 +138,8 @@ window.IPE_DATA = {
     { num: 159, title: "도메인 팔레트 — banking 100% 단일화를 결정적 회전 분산", type: "feat", impact: "도메인 다양성 (leakage 방어, #152 동형)" },
     { num: 160, title: "쉬운 문제 적재 브리지 + 풀 채점셋 확장 (canonical/hybrid ingest)", type: "feat", impact: "문제 은행 적재 경로 확장" },
     { num: 161, title: "난이도 판별 에이전트 — RFC R4 BOJ 티어 calibration", type: "feat", impact: "별도 트랙(R4) 난이도 보정 착수" },
+    { num: 162, title: "난이도 anchor 확장 — solved.ac 실측 20티어 (Bronze~Platinum)", type: "feat", impact: "R4 난이도 보정 실측 anchor" },
+    { num: 163, title: "3세대 → 2 파이프라인 수렴 — v0 제거 + v1 prune", type: "refactor", impact: "레거시 정리 — v1 canonical + v2 fresh 2축" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
@@ -183,7 +183,7 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "v1 573 + v2 263 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 500 + v2 224 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
     { id: "NFR-7",  title: "비용 효율",   metric: "1 run 실측 $0.4~0.6 (백엔드 계약 §5 정정), list price 대비 ≈0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner" },
@@ -209,7 +209,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 573 + v2 263 collected" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 500 + v2 224 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
