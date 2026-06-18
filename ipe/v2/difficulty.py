@@ -237,19 +237,23 @@ def backfill_difficulty(
     anchors: list[dict[str, Any]] | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    force: bool = False,
 ) -> list[tuple[str, str]]:
     """난이도 미주석(``difficulty IS NULL``) problems 행을 calibration → (id, label).
 
     LLM 호출은 트랜잭션 밖에서, UPDATE 는 행별 짧은 트랜잭션으로 — 긴 락 회피.
     ``dry_run`` 이면 측정만 하고 write 하지 않는다. ``difficulty`` 컬럼(승격)과
-    ``internal_meta.difficulty``(전체 report) 둘 다 갱신.
+    ``internal_meta.difficulty``(전체 report) 둘 다 갱신. ``force=True`` 면 이미
+    난이도가 있는 행도 **재calibration**(anchor 확장/모델 교체 후 일관 재측정).
     """
     from sqlalchemy import select, update
 
     from ipe.v2.db.schema import problems
 
     with engine.connect() as conn:
-        stmt = select(problems).where(problems.c.difficulty.is_(None))
+        stmt = select(problems)
+        if not force:
+            stmt = stmt.where(problems.c.difficulty.is_(None))
         if limit is not None:
             stmt = stmt.limit(limit)
         rows = list(conn.execute(stmt).mappings().all())
@@ -284,6 +288,11 @@ def _build_parser() -> Any:
     p.add_argument(
         "--dry-run", action="store_true", help="측정만 — DB write 안 함(미리보기)"
     )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="이미 난이도가 있는 행도 재calibration (anchor 확장/모델 교체 후 일관 재측정)",
+    )
     return p
 
 
@@ -303,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         llm=AnthropicDifficultyLLM(),
         limit=args.limit,
         dry_run=args.dry_run,
+        force=args.force,
     )
     tag = "(dry-run)" if args.dry_run else ""
     for pid, label in done:

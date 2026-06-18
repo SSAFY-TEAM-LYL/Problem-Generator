@@ -5,37 +5,48 @@
     "summary": "A+B — 두 정수를 읽어 합 출력 (입출력 + 정수 덧셈)",
     "factors": {
       "algorithm": "implementation",
-      "n_max": 1,
+      "n_max": null,
       "complexity": "O(1)",
       "data_structures": []
     }
   },
   {
-    "id": "bj_2557_bronze5",
-    "label": "Bronze V",
-    "summary": "Hello World 출력",
+    "id": "bj_2562_bronze3",
+    "label": "Bronze III",
+    "summary": "9개 수 중 최댓값과 그 위치 출력 (배열 순회)",
     "factors": {
       "algorithm": "implementation",
-      "n_max": 1,
-      "complexity": "O(1)",
+      "n_max": 9,
+      "complexity": "O(N)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_10872_bronze3",
+    "label": "Bronze III",
+    "summary": "N! 계산 (N ≤ 12, 반복/재귀)",
+    "factors": {
+      "algorithm": "math",
+      "n_max": 12,
+      "complexity": "O(N)",
       "data_structures": []
     }
   },
   {
-    "id": "bj_2750_silver5",
-    "label": "Silver V",
-    "summary": "수 정렬 — N개 정수를 오름차순 정렬 (N ≤ 1000)",
+    "id": "bj_2750_bronze2",
+    "label": "Bronze II",
+    "summary": "N개 정수 오름차순 정렬 (N ≤ 1000, O(N^2) 허용)",
     "factors": {
       "algorithm": "sorting",
       "n_max": 1000,
-      "complexity": "O(N^2) or O(N log N)",
+      "complexity": "O(N^2)",
       "data_structures": ["array"]
     }
   },
   {
     "id": "bj_2751_silver5",
     "label": "Silver V",
-    "summary": "수 정렬 2 — 효율적 정렬 알고리즘 필요 (N ≤ 1,000,000)",
+    "summary": "N개 정수 정렬 (N ≤ 1,000,000, 효율적 정렬 필요)",
     "factors": {
       "algorithm": "sorting",
       "n_max": 1000000,
@@ -44,9 +55,86 @@
     }
   },
   {
-    "id": "bj_1753_gold5",
+    "id": "bj_11047_silver4",
+    "label": "Silver IV",
+    "summary": "동전 최소 개수 — 배수 보장 그리디 (N ≤ 10, 금액 ≤ 1e8)",
+    "factors": {
+      "algorithm": "greedy",
+      "n_max": 10,
+      "complexity": "O(N)",
+      "data_structures": []
+    }
+  },
+  {
+    "id": "bj_1003_silver3",
+    "label": "Silver III",
+    "summary": "fibonacci 호출 시 0/1 출력 횟수 — 메모이제이션 DP (N ≤ 40)",
+    "factors": {
+      "algorithm": "dp",
+      "n_max": 40,
+      "complexity": "O(N)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_1929_silver3",
+    "label": "Silver III",
+    "summary": "M~N 소수 출력 — 에라토스테네스의 체 (N ≤ 1,000,000)",
+    "factors": {
+      "algorithm": "sieve",
+      "n_max": 1000000,
+      "complexity": "O(N log log N)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_1012_silver2",
+    "label": "Silver II",
+    "summary": "격자 연결 요소 개수 — BFS/DFS flood fill (≤ 50×50)",
+    "factors": {
+      "algorithm": "flood_fill",
+      "n_max": 2500,
+      "complexity": "O(N*M)",
+      "data_structures": ["grid", "queue"]
+    }
+  },
+  {
+    "id": "bj_2178_silver1",
+    "label": "Silver I",
+    "summary": "격자 최단 경로 칸 수 — BFS (≤ 100×100)",
+    "factors": {
+      "algorithm": "bfs",
+      "n_max": 10000,
+      "complexity": "O(N*M)",
+      "data_structures": ["grid", "queue"]
+    }
+  },
+  {
+    "id": "bj_1916_gold5",
     "label": "Gold V",
-    "summary": "최단경로 — 단일 출발점 다익스트라 (V ≤ 20000, E ≤ 300000, 양수 가중치)",
+    "summary": "단일 출발점 최소비용 — 다익스트라 (V ≤ 1000, E ≤ 100000)",
+    "factors": {
+      "algorithm": "dijkstra",
+      "n_max": 1000,
+      "complexity": "O((V+E) log V)",
+      "data_structures": ["priority_queue", "adjacency_list"]
+    }
+  },
+  {
+    "id": "bj_12865_gold5",
+    "label": "Gold V",
+    "summary": "0/1 배낭 — 무게-가치 DP (N ≤ 100, 한도 K ≤ 100000)",
+    "factors": {
+      "algorithm": "knapsack_dp",
+      "n_max": 100,
+      "complexity": "O(N*K)",
+      "data_structures": ["array"]
+    }
+  },
+  {
+    "id": "bj_1753_gold4",
+    "label": "Gold IV",
+    "summary": "단일 출발점 최단경로 — 우선순위 큐 다익스트라 (V ≤ 20000, E ≤ 300000)",
     "factors": {
       "algorithm": "dijkstra",
       "n_max": 20000,
@@ -55,36 +143,80 @@
     }
   },
   {
+    "id": "bj_1197_gold4",
+    "label": "Gold IV",
+    "summary": "최소 신장 트리 가중치 합 — 크루스칼 + 유니온파인드 (V ≤ 10000, E ≤ 100000)",
+    "factors": {
+      "algorithm": "mst_kruskal",
+      "n_max": 10000,
+      "complexity": "O(E log E)",
+      "data_structures": ["union_find", "sorted_edges"]
+    }
+  },
+  {
     "id": "bj_11657_gold4",
     "label": "Gold IV",
-    "summary": "타임머신 — 벨만-포드 (음수 가중치 + 음수 사이클 검출, V ≤ 500, E ≤ 6000)",
+    "summary": "음수 간선 최단경로 + 음수 사이클 검출 — 벨만-포드 (V ≤ 500, E ≤ 6000)",
     "factors": {
       "algorithm": "bellman_ford",
       "n_max": 500,
-      "complexity": "O(VE)",
+      "complexity": "O(V*E)",
       "data_structures": ["edge_list"]
     }
   },
   {
-    "id": "bj_2887_gold2",
-    "label": "Gold II",
-    "summary": "행성 터널 — 최소 신장 트리 + 좌표 분리 트릭 (N ≤ 100,000)",
+    "id": "bj_11404_gold4",
+    "label": "Gold IV",
+    "summary": "모든 쌍 최단경로 — 플로이드-워셜 (도시 n ≤ 100)",
     "factors": {
-      "algorithm": "mst_kruskal",
-      "n_max": 100000,
-      "complexity": "O(N log N)",
-      "data_structures": ["union_find", "sorted_edges"]
+      "algorithm": "floyd_warshall",
+      "n_max": 100,
+      "complexity": "O(V^3)",
+      "data_structures": ["matrix"]
+    }
+  },
+  {
+    "id": "bj_9663_gold4",
+    "label": "Gold IV",
+    "summary": "N-퀸 배치 경우의 수 — 백트래킹 (N ≤ 14)",
+    "factors": {
+      "algorithm": "backtracking",
+      "n_max": 14,
+      "complexity": "O(N!)",
+      "data_structures": []
+    }
+  },
+  {
+    "id": "bj_2042_gold1",
+    "label": "Gold I",
+    "summary": "갱신 있는 구간 합 — 세그먼트 트리/펜윅 (N ≤ 1,000,000, 쿼리 ≤ 10000)",
+    "factors": {
+      "algorithm": "segment_tree",
+      "n_max": 1000000,
+      "complexity": "O(log N) per query",
+      "data_structures": ["segment_tree"]
+    }
+  },
+  {
+    "id": "bj_2098_gold1",
+    "label": "Gold I",
+    "summary": "외판원 최소 비용 — 비트마스크 DP (N ≤ 16)",
+    "factors": {
+      "algorithm": "tsp_bitmask_dp",
+      "n_max": 16,
+      "complexity": "O(N^2 * 2^N)",
+      "data_structures": ["bitmask_dp_table"]
     }
   },
   {
     "id": "bj_1761_platinum5",
     "label": "Platinum V",
-    "summary": "정점들의 거리 — LCA + 가중치 트리 거리 쿼리 (N ≤ 40000, M ≤ 10000)",
+    "summary": "트리 두 정점 거리 쿼리 — LCA 희소 배열 (N ≤ 40000, M ≤ 10000)",
     "factors": {
       "algorithm": "lca_sparse_table",
       "n_max": 40000,
       "complexity": "O((N+M) log N)",
-      "data_structures": ["sparse_table", "tree", "dfs_order"]
+      "data_structures": ["sparse_table", "tree"]
     }
   }
 ]
