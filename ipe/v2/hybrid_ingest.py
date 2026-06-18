@@ -39,6 +39,7 @@ from ipe.v1.schema import (
 from ipe.v1.state import V1State
 from ipe.v2.canonical_ingest import canonical_body
 from ipe.v2.db import persist_run
+from ipe.v2.difficulty import AnthropicDifficultyLLM, annotate_difficulty
 from ipe.v2.grading_expand import (
     AnthropicGradingInputGeneratorLLM,
     GradingInputGeneratorLLM,
@@ -188,6 +189,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-iter", type=int, default=6)
     p.add_argument("--db-url", default=os.environ.get("IPE_ADMIN_DB_URL"))
     p.add_argument("--out", default=None, help="v2-body JSON dump 디렉토리(선택)")
+    p.add_argument(
+        "--with-difficulty",
+        action="store_true",
+        help="BOJ 티어 난이도(RFC R4) calibration 주석 (meta.difficulty + DB 컬럼)",
+    )
     return p
 
 
@@ -203,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         from sqlalchemy import create_engine
 
         engine = create_engine(args.db_url, pool_pre_ping=True)
+    difficulty_llm = AnthropicDifficultyLLM() if args.with_difficulty else None
     out_dir = Path(args.out) if args.out else None
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -246,6 +253,13 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             n_tc = len(body["package"]["test_suite"]["cases"])
             if engine is not None:
+                if difficulty_llm is not None:
+                    body = {
+                        **body,
+                        "package": annotate_difficulty(
+                            body["package"], llm=difficulty_llm
+                        ),
+                    }
                 pid = persist_run(engine, body)
                 if pid:
                     persisted += 1

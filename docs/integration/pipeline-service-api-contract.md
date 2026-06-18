@@ -166,6 +166,13 @@ two_sum, segtree, fenwick, heap, sieve, string_match
     "hidden_algorithm": "dijkstra",         // ⚠ 내부 전용 — 유저 응답에서 제외할 것
     "composition": ["union_find", "toposort"],  // ⚠ 내부 전용 (합성 기법)
     "domain": "waterworks",
+    "difficulty": {                         // ⚠ 내부 메타 — RFC R4 사후 calibration (옵션: 켜진 경우만)
+      "label": "Gold IV",                   // BOJ 티어 라벨 → problems.difficulty 1급 컬럼 승격
+      "tier": "Gold",                       // label 파생 그룹 (필터·집계용)
+      "reasoning": "bj_1753_gold5 와 동형 — 단일 출발점 다익스트라, V≈20000",
+      "factors": { "algorithm": "dijkstra", "complexity": "O((V+E) log V)", "n_max": 20000, "data_structures": ["priority_queue"] },
+      "calibration_anchors": ["bj_1753_gold5"]   // 비교에 쓴 anchor id
+    },
     "golden_language": "python",            // TL 언어 보정 기준
     "qa": {
       "overall_pass": true,
@@ -199,8 +206,15 @@ two_sum, segtree, fenwick, heap, sieve, string_match
   `test_suite` 는 초안(검수 대상)이라 일부 케이스 `expected_output` 이 빌 수 있으므로
   채점에 그대로 사용 금지** — `fail_qa` 는 사람 검수로 구제·재생성하고, 구제 시
   채점셋 재조립이 필요하다.
-- 난이도 필드는 **제공하지 않음** (자동 calibration 미구현) — 백엔드에서 수동
-  태깅하거나 미표기.
+- **`meta.difficulty` (RFC R4 사후 calibration)** — BOJ 표준 anchor 대비 측정한 티어
+  주석. **옵션 필드**: 파이프라인이 `--with-difficulty`(배치/ingest) 또는
+  `IPE_WITH_DIFFICULTY`(API)로 켜진 경우에만 동봉되며, 아니면 키 자체가 없다(additive,
+  `package_version` 무변경 — 기존 백엔드는 무시해도 안전). `label`(예: `"Gold IV"`)은
+  `problems.difficulty` 1급 컬럼으로 승격(쿼리·필터·집계용), 전체 report 는
+  `internal_meta.difficulty` 에 보존. **내부 운영 메타** — 난이도 표시 자체는 보통 노출
+  가능하나 `reasoning`/`factors` 는 정해 단서가 될 수 있어 비노출 권장(노출 정책은 백엔드
+  product 단 결정). **출하 게이트가 아니라 측정값** — 모든 난이도가 양산 대상이며 난이도로
+  reject 하지 않는다(퇴화/모순 게이트는 QA `difficulty` charter 가 별도로 담당).
 
 ### 2.6 `GET /healthz`
 

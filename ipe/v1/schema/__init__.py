@@ -17,6 +17,7 @@ from .blueprint import (
     ProblemBlueprint,
     StrategySeed,
 )
+from .difficulty import DifficultyFactors, DifficultyReport, DifficultyTier
 from .iteration_context import FailedStrategy, IterationContext, IterationRecord
 from .problem_spec import (
     ConstraintRange,
@@ -49,6 +50,9 @@ __all__ = [
     "BlueprintFormalization",
     "ComplexityBound",
     "ConstraintRange",
+    "DifficultyFactors",
+    "DifficultyReport",
+    "DifficultyTier",
     "EdgeCase",
     "EdgeCaseSpec",
     "FailedStrategy",

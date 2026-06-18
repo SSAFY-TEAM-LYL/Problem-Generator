@@ -30,6 +30,7 @@ from ipe.v1.schema import TargetAlgorithm, VerificationResult
 from ipe.v1.verification._exec import exception_signal
 
 from . import config
+from .difficulty import AnthropicDifficultyLLM, DifficultyLLM, annotate_difficulty
 from .main_v2 import _normalize_final_state
 from .state import V2State, initial_v2_state
 
@@ -73,6 +74,8 @@ class _Job:
     error: str | None = None
     started_at: float = field(default_factory=time.monotonic)
     elapsed_s: float | None = None
+    # 난이도 주석된 패키지 캐시 — _run_job 에서 1회 계산(get_job 폴링마다 재계산 방지).
+    package: dict[str, Any] | None = None
 
 
 def _production_graph_factory(req: GenerateRequest) -> Any:
@@ -231,6 +234,7 @@ def create_app(
     graph_factory: Any = None,
     api_key: str | None = None,
     max_concurrent: int | None = None,
+    difficulty_llm: DifficultyLLM | None = None,
 ) -> FastAPI:
     """API app 팩토리 — production 은 인자 없이 (env 기반), 테스트는 주입.
 
@@ -244,6 +248,15 @@ def create_app(
     resolved_factory = (
         graph_factory if graph_factory is not None else _production_graph_factory
     )
+    # 난이도 calibration(RFC R4) — 기본 off. 주입(테스트) > ``IPE_WITH_DIFFICULTY`` env
+    # (production opt-in) > None. 켜지면 _run_job 이 패키지에 meta.difficulty 를 주석한다.
+    resolved_difficulty: DifficultyLLM | None
+    if difficulty_llm is not None:
+        resolved_difficulty = difficulty_llm
+    elif os.environ.get("IPE_WITH_DIFFICULTY"):
+        resolved_difficulty = AnthropicDifficultyLLM()
+    else:
+        resolved_difficulty = None
     slots = threading.BoundedSemaphore(
         max_concurrent
         if max_concurrent is not None
@@ -277,10 +290,24 @@ def create_app(
             )
             raw = graph.invoke(initial, config={"recursion_limit": _RECURSION_LIMIT})
             final = _normalize_final_state(raw)
+            elapsed_s = round(time.monotonic() - job.started_at, 1)
+            # 난이도 주석(RFC R4) — 켜진 경우만, 락 밖에서 1회 계산(LLM 호출). 실패해도
+            # 패키지 출하는 막지 않는다(난이도는 주석, 게이트 아님).
+            annotated: dict[str, Any] | None = None
+            if resolved_difficulty is not None:
+                pkg = _build_package(final, mode=job.mode, elapsed_s=elapsed_s)
+                if pkg is not None:
+                    try:
+                        annotated = annotate_difficulty(
+                            pkg, llm=resolved_difficulty
+                        )
+                    except Exception:  # noqa: BLE001 — 주석 실패는 무시(패키지 보존)
+                        annotated = None
             with lock:
                 job.final = final
                 job.status = "completed"
-                job.elapsed_s = round(time.monotonic() - job.started_at, 1)
+                job.elapsed_s = elapsed_s
+                job.package = annotated
         except Exception as exc:  # noqa: BLE001 — job 격리 (failed = 백엔드 재시도 신호)
             with lock:
                 job.error = f"{type(exc).__name__}: {exc}"[:500]
@@ -326,7 +353,12 @@ def create_app(
             return {"status": "failed", "error": job.error}
         final = job.final
         assert final is not None  # completed 이면 항상 set (불변식)
-        package = _build_package(final, mode=job.mode, elapsed_s=job.elapsed_s)
+        # 난이도 주석된 패키지가 캐시돼 있으면 재사용(폴링마다 재계산·재호출 방지).
+        package = (
+            job.package
+            if job.package is not None
+            else _build_package(final, mode=job.mode, elapsed_s=job.elapsed_s)
+        )
         body: dict[str, Any] = {
             "status": "completed",
             "final_status": final.final_status,
