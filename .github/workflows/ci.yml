@@ -50,10 +50,10 @@ jobs:
           pip install -e .
 
       - name: Lint (ruff)
-        run: ruff check ipe tests main.py
+        run: ruff check ipe tests
 
       - name: Type check (mypy --strict)
-        run: mypy --strict ipe main.py
+        run: mypy --strict ipe
 
       - name: Unit + integration tests (skip e2e)
         run: pytest -q -m "not e2e" --cov=ipe --cov-report=term

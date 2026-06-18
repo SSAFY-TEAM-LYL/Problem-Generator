@@ -16,8 +16,8 @@ install:
 	pip install -e ".[dev]"
 
 lint:
-	ruff check ipe tests main.py
-	mypy --strict ipe main.py
+	ruff check ipe tests
+	mypy --strict ipe
 
 test:
 	pytest -q -m "not e2e" --cov=ipe --cov-report=term
