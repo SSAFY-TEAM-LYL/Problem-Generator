@@ -13,9 +13,9 @@ from ipe.calibration import ANCHORS_PATH, load_anchors
 
 
 def test_default_anchors_load() -> None:
-    """프로젝트 default anchors.json은 4~8개 anchor를 포함."""
+    """프로젝트 default anchors.json은 충분한 수(현재 20개, Bronze~Platinum)의 anchor를 포함."""
     anchors = load_anchors()
-    assert 4 <= len(anchors) <= 8
+    assert len(anchors) >= 12  # 확장된 calibration set (RFC R4) — truncation 가드
     # 모든 entry가 (id, label, summary, factors) 4개 필드를 보유
     for a in anchors:
         assert "id" in a and isinstance(a["id"], str)

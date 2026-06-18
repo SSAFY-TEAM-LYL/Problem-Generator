@@ -16,14 +16,14 @@ from ipe.v1.schema import DifficultyFactors, DifficultyReport
 def _report(label: str = "Gold IV") -> DifficultyReport:
     return DifficultyReport(
         label=label,
-        reasoning="bj_1753_gold5 와 동형 — 단일 출발점 다익스트라, V≈20000.",
+        reasoning="bj_1753_gold4 와 동형 — 단일 출발점 다익스트라, V≈20000.",
         factors=DifficultyFactors(
             algorithm="dijkstra",
             complexity="O((V+E) log V)",
             n_max=20000,
             data_structures=("priority_queue", "adjacency_list"),
         ),
-        calibration_anchors=("bj_1753_gold5",),
+        calibration_anchors=("bj_1753_gold4",),
     )
 
 
@@ -78,7 +78,7 @@ def test_factors_require_nonempty_algorithm_and_complexity() -> None:
 # --------------------------------------------------------------------------- #
 _ANCHORS: list[dict[str, object]] = [
     {
-        "id": "bj_1753_gold5",
+        "id": "bj_1753_gold4",
         "label": "Gold V",
         "summary": "단일 출발점 다익스트라",
         "factors": {"algorithm": "dijkstra", "n_max": 20000},
@@ -139,10 +139,10 @@ def test_evaluate_filters_hallucinated_anchor_ids() -> None:
     from ipe.v2.difficulty import evaluate_difficulty
 
     rep = _report().model_copy(
-        update={"calibration_anchors": ("bj_1753_gold5", "bj_9999_fake")}
+        update={"calibration_anchors": ("bj_1753_gold4", "bj_9999_fake")}
     )
     out = evaluate_difficulty(_package(), llm=_FakeDifficultyLLM(rep), anchors=_ANCHORS)
-    assert out.calibration_anchors == ("bj_1753_gold5",)  # 환각 id drop
+    assert out.calibration_anchors == ("bj_1753_gold4",)  # 환각 id drop
 
 
 def test_evaluate_defaults_to_loaded_anchors() -> None:
@@ -152,7 +152,7 @@ def test_evaluate_defaults_to_loaded_anchors() -> None:
     llm = _FakeDifficultyLLM(_report())
     evaluate_difficulty(_package(), llm=llm)
     assert llm.seen_anchors  # 비어있지 않은 로드 anchor
-    assert any(a.get("id") == "bj_1753_gold5" for a in llm.seen_anchors)
+    assert any(a.get("id") == "bj_1753_gold4" for a in llm.seen_anchors)  # 실제 anchors.json
 
 
 def test_annotate_difficulty_is_immutable() -> None:
@@ -176,7 +176,7 @@ def test_user_prompt_includes_solution_and_anchor_ids() -> None:
     from ipe.v2.difficulty import _build_user_prompt
 
     text = _build_user_prompt(_package(), _ANCHORS)
-    assert "bj_1753_gold5" in text  # anchor 블록
+    assert "bj_1753_gold4" in text  # anchor 블록
     assert "dijkstra" in text  # 정해/내부 힌트
     assert "최단경로" in text  # 지문
 
