@@ -51,10 +51,10 @@
       <div class="card">
         <div class="text-red-400 font-bold text-lg mb-3">✗ 범위 외 (현재)</div>
         <ul class="space-y-2 text-sm text-gray-300">
-          <li>• 웹 UI / 사용자 인증 / 다중 사용자 세션 (HTTP API delivery layer 는 #144~145 로 착수 — generate/jobs/healthz)</li>
-          <li>• 자동 채점 시스템 통합 (출력 schema·samples 만 호환)</li>
+          <li>• 웹 UI / 사용자 인증 / 다중 사용자 세션 (HTTP API delivery layer 는 #144~145 로 <strong class="text-gray-300">구현</strong> — generate/jobs/healthz + 컨테이너 배포; 인증·멀티테넌트는 후속)</li>
+          <li>• 자동 채점 시스템 통합 (출력 schema·samples 만 호환) — 단 공유 PostgreSQL 문제 은행 적재 + 백엔드 계약 v3.1 은 구현(#150·#166~168)</li>
           <li>• 알고리즘 은닉 · 기법 합성 · hiring-grade 난이도 → <strong class="text-gray-300">Phase 3 (v2) M0~M6 구현 완료</strong></li>
-          <li>• 난이도 calibration (별도 RFC 로 분리)</li>
+          <li>• 난이도 calibration (별도 트랙 R4) → <strong class="text-gray-300">구현 완료</strong> — solved.ac 실측 20티어 보정(#161~162)</li>
         </ul>
       </div>
     </div>
@@ -95,7 +95,7 @@
       <div class="card">
         <div class="text-green-400 font-bold mb-3">✅ 코드 품질</div>
         <ul class="space-y-1 text-sm text-gray-300">
-          <li>✓ v1 500 + v2 224 collected — 3세대→2 파이프라인 수렴(v0 제거+v1 prune, #163); ipe/v2 M0~M6 + API + 배치/은행 + DB·관리콘솔·QA Sonnet + ingest·난이도R4·anchor(#144~162)</li>
+          <li>✓ v1 500 + v2 227 collected — 3세대→2 파이프라인 수렴(v0 제거+v1 prune, #163); ipe/v2 M0~M6 + API + 배치/은행 + DB·관리콘솔·QA Sonnet + ingest·난이도R4·알고리즘 N:M정션·공개번호·계약 v3.1(#144~168)</li>
           <li>✓ coverage 87% (ipe/v1)</li>
           <li>✓ ruff 0 / mypy --strict 0</li>
           <li>✓ typed artifact 노드 계약 (Pydantic v2)</li>

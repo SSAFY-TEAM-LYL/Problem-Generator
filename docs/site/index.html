@@ -30,7 +30,7 @@
       <div class="inline-flex flex-wrap items-center justify-center gap-2 mb-6">
         <span class="badge badge-success" id="hero-version">v1.0</span>
         <span class="badge badge-accent" id="hero-gate">91.2% Gate</span>
-        <span class="badge" id="hero-tests">724 tests</span>
+        <span class="badge" id="hero-tests">727 tests</span>
         <span class="badge badge-warning">Phase 3 (v2) M0~M6 완료</span>
       </div>
       <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
@@ -172,6 +172,34 @@
 
   <div class="divider"></div>
 
+  <!-- delivery & integration -->
+  <section class="section section-sm">
+    <h2 class="text-3xl font-bold mb-2 text-white">전달 · 연동 <span class="text-gray-500 text-2xl font-normal">Delivery &amp; Integration</span></h2>
+    <p class="text-gray-400 mb-8">
+      v2 그래프가 완성된 뒤, 생성 엔진을 <strong class="text-gray-300">실제 백엔드·서비스에 연결</strong>하는 스택을 구축했다 —
+      HTTP API, 공유 PostgreSQL 문제 은행, 난이도 보정, 알고리즘 분류, 공개 검색 번호, 그리고 백엔드 전달 계약(<span class="text-blue-300 font-semibold" id="d-contract">v3.1</span>).
+      전부 측정 게이트를 통과해 main 에 병합됐고, 계약 문서 3종까지 동기화돼 있다.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8" id="delivery-grid"></div>
+
+    <!-- prod problem-bank snapshot -->
+    <div class="card" style="background:linear-gradient(135deg, rgba(63,185,80,0.06), rgba(47,129,247,0.04)); border-color:rgba(63,185,80,0.3);">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div class="font-bold text-white text-lg">📦 문제 은행 prod 스냅샷</div>
+        <span class="badge" id="bank-asof"></span>
+      </div>
+      <div class="grid grid-cols-3 gap-4" id="bank-stats"></div>
+      <div class="mt-5 pt-4 flex flex-wrap items-center gap-2" style="border-top:1px solid rgba(48,54,61,0.6);">
+        <span class="text-sm text-gray-400">난이도 분포</span>
+        <span class="font-semibold text-white" id="bank-diff"></span>
+        <span class="text-xs text-gray-500">· solved.ac 20티어 보정 (응시자 비노출)</span>
+      </div>
+      <div class="text-xs text-gray-500 mt-3" id="bank-note"></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
   <!-- recent progress -->
   <section class="section section-sm">
     <h2 class="text-3xl font-bold mb-2 text-white">최근 진행</h2>
@@ -306,6 +334,45 @@
         <td><span class="badge ${typeColor[pr.type]||''}">${pr.type}</span></td>
         <td class="text-gray-400">${pr.impact}</td>`;
       prBody.appendChild(tr);
+    });
+
+    // delivery & integration
+    document.getElementById('d-contract').textContent = M.contract;
+    const dGrid = document.getElementById('delivery-grid');
+    D.delivery.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'card lift';
+      el.innerHTML = `<div class="flex items-start gap-3">
+          <span class="text-2xl flex-shrink-0">${d.icon}</span>
+          <div>
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="font-bold text-white">${d.title}</span>
+              <span class="text-xs text-gray-500">${d.ref}</span>
+            </div>
+            <div class="text-sm text-gray-400 leading-relaxed">${d.desc}</div>
+          </div>
+        </div>`;
+      dGrid.appendChild(el);
+    });
+
+    // prod problem-bank snapshot
+    const bank = D.bank;
+    document.getElementById('bank-asof').textContent = `${bank.asOf} · migration ${bank.head}`;
+    document.getElementById('bank-diff').textContent = bank.difficulty;
+    document.getElementById('bank-note').textContent = bank.note;
+    const bankStats = [
+      { v: bank.problems, l: '적재 문제', s: `공개번호 ${bank.numberFrom}~${bank.numberTo}` },
+      { v: `${bank.algoCore}+${bank.algoComposition}`, l: 'algo (core+comp)', s: `distinct ${bank.algoDistinct}종` },
+      { v: `0003→${bank.head}`, l: 'migration', s: '무손실 이행' },
+    ];
+    const bsEl = document.getElementById('bank-stats');
+    bankStats.forEach(b => {
+      const el = document.createElement('div');
+      el.className = 'text-center';
+      el.innerHTML = `<div class="text-2xl font-bold text-green-400">${b.v}</div>
+        <div class="text-sm text-gray-400 mt-1">${b.l}</div>
+        <div class="text-xs text-gray-500">${b.s}</div>`;
+      bsEl.appendChild(el);
     });
 
     // principles
