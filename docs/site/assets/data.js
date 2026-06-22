@@ -10,10 +10,10 @@ window.IPE_DATA = {
   meta: {
     version: "v1.0 · Phase 3 (v2) 진행 중",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "8982bc9",          // main HEAD — 3세대→2 파이프라인 수렴(v0 제거 + v1 prune) + 빌드 수정 (#163)
-    devBranch: "— (v0 제거 후 v1 canonical + v2 fresh 2-파이프라인 수렴)",
-    devCommit: "8982bc9",           // 활성 dev 트랙 없음 — 난이도 anchor 20티어(#162) + 파이프라인 수렴(#163)
-    updated: "2026-06-19",
+    mainCommit: "d0d0eb2",          // main HEAD — 계약 v2.0 동기화(mode p1/p2) (#165), P1/P2 2-모드 수렴 (#164)
+    devBranch: "— (2 파이프라인 + P1/P2 2-모드 수렴 완료)",
+    devCommit: "d0d0eb2",           // 활성 dev 트랙 없음 — composition_mode + qa_kinds + 진입점 mode 선택까지 통합
+    updated: "2026-06-22",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 724,                     // v1 500 + v2 224 collected (이번 주기 collect-only 실측; #163 3세대→2 파이프라인 수렴 — v0 제거 + v1 prune 으로 레거시 정리, 수치 감소는 코드 제거분)
+    tests: 724,                     // v1 500 + v2 224 collected (d0d0eb2 실측; #163 v0 제거+v1 prune 정리 후 안정, #164 모드수렴·#165 docs 는 수치 불변)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -40,7 +40,7 @@ window.IPE_DATA = {
       "v1.0 출시 완료 (anchor freeze). v0 27% → 91.2% (52/57), 19 algorithm catalog, " +
       "samples_engaged 99.1%, mean iteration 1.07. 해자는 '고품질 LLM 생산'이 아니라 " +
       "정답을 코드가 알고리즘의 수학적 정의에서 유도하는 독립 검증 + typed artifact 라우팅 + 측정 게이트다. " +
-      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). 이어 synthesis 견고화(샘플 결정적 생성·canonical 파서 게이트, #153~154)·QA 리뷰어 Sonnet 승급(#156, 품질 게이트 정성판단 강화)·알고리즘 분류 DB 1급 컬럼(#157)·문제 은행 관리 콘솔(단일 페이지 CRUD, #155)·QA-fix remediation(fail_qa 지문 수정→재리뷰, #158)·도메인 팔레트 분산(#159)으로 운영·품질을 강화했다. 또한 쉬운 문제 적재 브리지 + 풀 채점셋 확장(canonical/hybrid ingest, #160)으로 문제 은행 적재 경로를 넓혔고, 난이도 판별 에이전트(RFC R4 — BOJ 티어 calibration, #161)로 별도 트랙이던 난이도 보정에 착수, 이어 solved.ac 실측 20티어(Bronze~Platinum) anchor 로 확장(#162)했다. 그리고 #163 에서 3세대(v0/v1/v2) → 2 파이프라인으로 수렴 — 레거시 v0 제거 + v1 standalone/ingest/운영 prune 으로 코드베이스를 정리했다(테스트 수 감소는 제거분). v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
+      "Phase 3 = v2 agentic graph 재공사 — RFC 마일스톤 M0~M6 전부 구현 완료. 시드→blueprint→narrative 은닉→faithfulness→spec→synthesis→verification→풀 채점셋→QA 4관점 게이트→기법 합성 전 경로 배선, QA fail 시 자동 back-route(revise→재리뷰)까지 실 LLM 으로 실증. 이후 spec 저작 가드(#141)·composition 다양성 규율(#142)·전 노드 템플릿 변수 무결성 게이트(#143)로 견고화. 이어 HTTP delivery layer 착수 — FastAPI API 서버(generate/jobs/healthz, B2C 계약 v1.0, #144) + Dockerfile.api·배포 가이드·컨테이너 실 LLM smoke(#145). 이어 배치 검증/문제 은행 적재 CLI(시드 전수 × N run 풀 스윕, #146) + 코더 파서 규율·입력 원소 캡으로 array/value 출하 병목 해소(#147). 이어 QA 하류 병목 규율(#148)·답 유일성(tie-break) 규율 + 배치 비용상한 견고화(#149)로 출하 품질을 다졌다. 최근에는 전달 인프라로 진입 — 공유 PostgreSQL DB 영속화 레이어(#150)·결정적 stdin 파서 주입(#151)·composition 회전 팔레트로 fenwick leakage 구조적 분산(#152). 이어 synthesis 견고화(샘플 결정적 생성·canonical 파서 게이트, #153~154)·QA 리뷰어 Sonnet 승급(#156, 품질 게이트 정성판단 강화)·알고리즘 분류 DB 1급 컬럼(#157)·문제 은행 관리 콘솔(단일 페이지 CRUD, #155)·QA-fix remediation(fail_qa 지문 수정→재리뷰, #158)·도메인 팔레트 분산(#159)으로 운영·품질을 강화했다. 또한 쉬운 문제 적재 브리지 + 풀 채점셋 확장(canonical/hybrid ingest, #160)으로 문제 은행 적재 경로를 넓혔고, 난이도 판별 에이전트(RFC R4 — BOJ 티어 calibration, #161)로 별도 트랙이던 난이도 보정에 착수, 이어 solved.ac 실측 20티어(Bronze~Platinum) anchor 로 확장(#162)했다. 그리고 #163 에서 3세대(v0/v1/v2) → 2 파이프라인으로 수렴 — 레거시 v0 제거 + v1 standalone/ingest/운영 prune 으로 코드베이스를 정리했고(테스트 수 감소는 제거분), 이어 P1/P2 2-모드로 수렴 완료(#164~165, 계약 v2.0) — 한 모드 노브가 합성·은닉·지문·QA관점 4축을 한 번에 결정한다(p1=단일·공개·QA 3종 / p2=합성·은닉·QA 4종). v1(canonical)은 CANONICAL.md 로 동결, ipe/v2 가 fresh 파이프라인. 다음은 정리·전달 국면(leakage corpus·docs).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -120,8 +120,6 @@ window.IPE_DATA = {
 
   // ── 최근 대표 PR (v1.0 마무리 → Phase 3 착수) ─────────────────────
   recentPrs: [
-    { num: 144, title: "API 서버 Slice 1 — B2C 계약 v1.0 (generate/jobs/healthz)", type: "feat", impact: "FastAPI HTTP delivery layer 착수" },
-    { num: 145, title: "API 배포 Slice 2 — Dockerfile.api + 배포 가이드 + 컨테이너 smoke", type: "feat", impact: "컨테이너 실 LLM smoke 검증" },
     { num: 146, title: "배치 검증/문제 은행 적재 CLI — 시드 전수 × N run 풀 스윕", type: "feat", impact: "문제 은행 대량 적재 경로" },
     { num: 147, title: "코더 파서 규율 + 입력 원소 캡 — array/value 출하 병목 해소", type: "fix", impact: "array/value 산출물 출하율 회복" },
     { num: 148, title: "QA 하류 병목 규율 — 중복 카운트 io_schema + 지문 풀이방법 유출 차단", type: "feat", impact: "QA 통과 품질·유출 방어 강화" },
@@ -140,6 +138,8 @@ window.IPE_DATA = {
     { num: 161, title: "난이도 판별 에이전트 — RFC R4 BOJ 티어 calibration", type: "feat", impact: "별도 트랙(R4) 난이도 보정 착수" },
     { num: 162, title: "난이도 anchor 확장 — solved.ac 실측 20티어 (Bronze~Platinum)", type: "feat", impact: "R4 난이도 보정 실측 anchor" },
     { num: 163, title: "3세대 → 2 파이프라인 수렴 — v0 제거 + v1 prune", type: "refactor", impact: "레거시 정리 — v1 canonical + v2 fresh 2축" },
+    { num: 164, title: "P1/P2 2-모드 수렴 — composition_mode + qa_kinds + 진입점 mode 선택", type: "feat", impact: "p1=단일·공개·QA3 / p2=합성·은닉·QA4 단일 노브" },
+    { num: 165, title: "계약 v2.0 동기화 — mode p1/p2 breaking + difficulty/algorithm 컬럼", type: "docs", impact: "백엔드 계약 major 갱신 + 변경이력" },
   ],
 
   // ── 후속 / 별도 트랙 (본 RFC 범위 밖, 추적용) ─────────────────────
