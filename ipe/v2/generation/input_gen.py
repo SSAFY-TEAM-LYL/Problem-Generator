@@ -19,13 +19,19 @@ LLM(step2)이 설계한 ``GeneratorContract``(scale_families + edge_cases)와 fr
 - 여러 필드는 io_schema 순서로 줄 join.
 
 graph 필드는 **self-contained** (V/E 헤더 포함) — V:int 필드를 따로 두는 분리 모델링
-은 중복/모순을 낳으므로 formalizer prompt 가 단일 graph 필드로 유도한다. 정점 참조
-스칼라(s/t 등)의 value_range ↔ V 결합은 formalizer 책임(size 하한 이내). 규약↔골든
-파서 정합은 assembled 비율 anchor 로 실측(known item).
+은 중복/모순을 낳으므로 formalizer prompt 가 단일 graph 필드로 유도한다.
+
+정점/원소 참조 스칼라(s/t/질의 index)는 ``IOFieldSpec.references`` 로 가리키는
+collection 필드명을 선언하면, 2-pass 직렬화가 그 필드의 **실제 생성 크기**에 맞춰
+``[1, 실제크기]`` 1-indexed 로 생성한다(value_range·tier 무시). 정적 ConstraintRange
+로는 데이터 의존 차원을 표현할 수 없어 s 가 V 와 무관하게 ``[1,2]``(trivial)·V 초과
+(범위밖 RTE)로 생성되던 결함의 구조적 해소. int_matrix/grid 의 열 수는 ``cols_range``
+로 행 수(size_range)와 분리 고정(레코드 고정 K 속성). 규약↔골든 파서 정합은 assembled
+비율 anchor 로 실측(known item).
 
 tier 적용: ScaleFamily.field_bounds(이름=필드명)는 스칼라의 **값**, sized 타입의
 **크기**(graph 는 정점 수 V)를 그 tier 로 좁힌다. 원소/가중치 값은 io_schema 의
-value_range.
+value_range. 참조 스칼라는 tier 를 보지 않는다(실제 크기에 바인딩).
 """
 
 from __future__ import annotations
@@ -34,11 +40,10 @@ import hashlib
 import random
 from typing import TYPE_CHECKING, Literal
 
-from ipe.v1.schema import GeneratedTestCase
+from ipe.v1.schema import ConstraintRange, GeneratedTestCase
 
 if TYPE_CHECKING:
     from ipe.v1.schema import (
-        ConstraintRange,
         GeneratorContract,
         IOFieldSpec,
         IOSchema,
@@ -90,13 +95,135 @@ _FORMAT_TEXT = {
 
 
 def _render_field(field: IOFieldSpec) -> str:
+    if _is_reference(field):
+        # 참조 스칼라 — 가리키는 collection 의 1-indexed 원소/정점 번호 (1 이상 그 크기 이하).
+        return (
+            f"{field.name}: 한 줄에 정수 하나 — {field.references} 의 원소/정점을 가리키는 "
+            f"1-indexed 번호 (1 이상 {field.references} 의 크기 이하)."
+        )
     if field.type == "tree_edges":
         edge_line = "'u v w'(간선과 정수 가중치)" if field.value_range else "'u v'"
         return (
             f"{field.name}: 첫 줄에 정점 수 V, 이어서 V-1 줄에 {edge_line}. "
             "정점 번호는 1..V (1-indexed), 트리(연결·무사이클) 보장."
         )
+    if field.type in ("int_matrix", "grid") and field.cols_range is not None:
+        cr = field.cols_range
+        cols = (
+            f"열 수 C={cr.min_value} 고정"
+            if cr.min_value == cr.max_value
+            else f"열 수 C∈[{cr.min_value}..{cr.max_value}]"
+        )
+        return (
+            f"{field.name}: 첫 줄에 'R C'(행 수, {cols}), 이어서 R 줄에 각 C 개의 "
+            "공백구분 정수."
+        )
     return f"{field.name}: {_FORMAT_TEXT[field.type]}"
+
+
+def describe_io_field(field: IOFieldSpec) -> str:
+    """io_schema 한 필드의 설계용 요약 (design 프롬프트 공용) — name:type + 범위/참조/열수.
+
+    spec_bridge·generator_designer 가 동일 포맷으로 LLM 에 필드를 기술하게 한다(DRY).
+    참조 스칼라는 ``→refs X(1..|X|)`` 로, 고정 열 행렬은 ``cols[K..K]`` 로 노출해
+    constraint/field_bounds 저작이 trivial [1,2] 대신 honest 한 관계를 쓰게 한다.
+    """
+    head = f"{field.name}:{field.type}"
+    if _is_reference(field):
+        return f"{head} →refs {field.references}(1..|{field.references}|)"
+    rng = ""
+    if field.size_range is not None:
+        rng += f" size[{field.size_range.min_value}..{field.size_range.max_value}]"
+    if field.cols_range is not None:
+        rng += f" cols[{field.cols_range.min_value}..{field.cols_range.max_value}]"
+    if field.value_range is not None:
+        rng += f" val[{field.value_range.min_value}..{field.value_range.max_value}]"
+    return head + rng
+
+
+# 컬렉션 size 차원의 관용 기호 + 한국어 라벨 (constraints 코드 파생용).
+_SIZE_SYMBOL: dict[str, tuple[str, str]] = {
+    "weighted_edges": ("V", "정점 수"),
+    "tree_edges": ("V", "정점 수"),
+    "int_array": ("N", "원소 개수"),
+    "int_matrix": ("R", "행 수"),
+    "grid": ("R", "행 수"),
+}
+
+
+def render_constraints(io_schema: IOSchema) -> list[ConstraintRange]:
+    """io_schema → constraints 코드 파생 (LLM 저작 대체 — 단일 진실원천 투영).
+
+    spec_bridge LLM 이 constraints 를 손저작하면 graph 의 V 를 E 로 오라벨하거나 V 범위
+    자체를 누락하고, 참조 스칼라를 ``[1,2]`` 같은 리터럴로 적어 QA ambiguity 로 reject
+    됐다(N=18 실측). io_schema 에서 코드로 파생하면 io_contract·parser·생성기와 **같은
+    규약**을 보므로 드리프트가 사라진다. 참조 스칼라는 가리키는 컬렉션 크기에 묶고
+    (``1 ≤ s ≤ V``), 행렬 고정 열은 ``C=K`` 로, 컬렉션은 size(V/N/R)+value 를 명시한다.
+    """
+    sized = {f.name: f for f in io_schema.inputs}
+    out: list[ConstraintRange] = []
+    for f in io_schema.inputs:
+        if _is_reference(f):
+            ref = sized.get(f.references) if f.references is not None else None
+            hi = (
+                ref.size_range.max_value
+                if ref is not None and ref.size_range is not None
+                else 1
+            )
+            out.append(
+                ConstraintRange(
+                    name=f.name,
+                    min_value=1,
+                    max_value=hi,
+                    description=(
+                        f"{f.references} 의 1-indexed 번호 "
+                        f"(1 이상 {f.references} 의 크기 이하)"
+                    ),
+                )
+            )
+            continue
+        if f.type in ("int", "bool", "float"):
+            if f.value_range is not None:
+                out.append(
+                    ConstraintRange(
+                        name=f.name,
+                        min_value=f.value_range.min_value,
+                        max_value=f.value_range.max_value,
+                        description=f"{f.name} 값",
+                    )
+                )
+            continue
+        # collection (array/matrix/graph)
+        if f.size_range is not None and f.type in _SIZE_SYMBOL:
+            sym, label = _SIZE_SYMBOL[f.type]
+            out.append(
+                ConstraintRange(
+                    name=sym,
+                    min_value=f.size_range.min_value,
+                    max_value=f.size_range.max_value,
+                    description=f"{f.name} 의 {label}",
+                )
+            )
+        if f.cols_range is not None:
+            out.append(
+                ConstraintRange(
+                    name="C",
+                    min_value=f.cols_range.min_value,
+                    max_value=f.cols_range.max_value,
+                    description=f"{f.name} 의 열(속성) 수",
+                )
+            )
+        if f.value_range is not None:
+            is_graph = f.type in ("weighted_edges", "tree_edges")
+            out.append(
+                ConstraintRange(
+                    name="w" if is_graph else f"{f.name}_값",
+                    min_value=f.value_range.min_value,
+                    max_value=f.value_range.max_value,
+                    description="간선 가중치" if is_graph else f"{f.name} 원소 값",
+                )
+            )
+    return out
 
 
 def render_input_format(io_schema: IOSchema) -> str:
@@ -137,6 +264,11 @@ def generate_inputs(
     return tuple(cases)
 
 
+def _is_reference(field: IOFieldSpec) -> bool:
+    """참조 스칼라 여부 — int 타입 + references 지정 (방어: 비-int references 는 무시)."""
+    return field.type == "int" and field.references is not None
+
+
 def _serialize_inputs(
     io_schema: IOSchema,
     tier_bounds: dict[str, ConstraintRange],
@@ -144,11 +276,24 @@ def _serialize_inputs(
     *,
     bias: _Bias,
 ) -> str:
-    parts = [
-        _serialize_field(f, tier_bounds.get(f.name), rng, bias=bias)
-        for f in io_schema.inputs
-    ]
-    return "\n".join(parts)
+    """2-pass — 비참조 필드 먼저(실제 addressable 크기 기록) → 참조 스칼라를 그 크기에
+    바인딩. 참조 없는 schema 는 1-pass 와 동일 rng 순서(기존 출력 보존). 선언 순서로 join.
+    """
+    texts: dict[str, str] = {}
+    sizes: dict[str, int] = {}
+    deferred: list[IOFieldSpec] = []
+    for f in io_schema.inputs:
+        if _is_reference(f):
+            deferred.append(f)  # pass 2 — 참조 대상 크기 확정 후 생성
+            continue
+        text, size = _serialize_field(f, tier_bounds.get(f.name), rng, bias=bias)
+        texts[f.name] = text
+        if size is not None:
+            sizes[f.name] = size
+    for f in deferred:
+        ref_size = sizes.get(f.references) if f.references is not None else None
+        texts[f.name] = _serialize_reference(ref_size, bias, rng)
+    return "\n".join(texts[f.name] for f in io_schema.inputs)
 
 
 def _serialize_field(
@@ -157,19 +302,22 @@ def _serialize_field(
     rng: random.Random,
     *,
     bias: _Bias,
-) -> str:
+) -> tuple[str, int | None]:
+    """필드 직렬화 → (text, addressable 크기). 크기는 참조 스칼라가 바인딩할 대상
+    (배열 N · 행렬 R · 그래프 V); 순수 스칼라(int/bool/float)는 None.
+    """
     t = field.type
     if t == "int":
-        return str(_pick_value(_value_bounds(field, tier_bound), bias, rng))
+        return str(_pick_value(_value_bounds(field, tier_bound), bias, rng)), None
     if t == "bool":
-        return "1" if _bool_value(bias, rng) else "0"
+        return ("1" if _bool_value(bias, rng) else "0"), None
     if t == "float":
         lo, hi = _value_bounds(field, tier_bound)
-        return f"{_pick_float(lo, hi, bias, rng):.4f}"
+        return f"{_pick_float(lo, hi, bias, rng):.4f}", None
     if t == "string":
         n = max(_pick_size(_size_bounds(field, tier_bound), bias, rng), _STRING_MIN_LEN)
         n = min(n, _MAX_ELEMENTS)  # 길이 캡
-        return "".join(rng.choice(_ALPHABET) for _ in range(n))
+        return "".join(rng.choice(_ALPHABET) for _ in range(n)), n
     if t == "int_array":
         return _serialize_int_array(field, tier_bound, rng, bias=bias)
     if t in ("int_matrix", "grid"):  # grid = int_matrix 와 동일 canonical 규약
@@ -182,20 +330,33 @@ def _serialize_field(
     raise NotImplementedError(msg)
 
 
+def _serialize_reference(
+    ref_size: int | None, bias: _Bias, rng: random.Random
+) -> str:
+    """참조 스칼라 값 — 참조 대상의 **실제 크기**에 1-indexed 바인딩 [1, size].
+
+    value_range·tier 를 보지 않는다 (정적 range 로 표현 불가한 데이터 의존 차원). dangling
+    /빈 컬렉션이면 size=1 로 안전 default(crash 회피). bias 는 경계 선택(min/empty→1,
+    max→size).
+    """
+    size = max(ref_size if ref_size is not None else 1, 1)
+    return str(_pick_value((1, size), bias, rng))
+
+
 def _serialize_int_array(
     field: IOFieldSpec,
     tier_bound: ConstraintRange | None,
     rng: random.Random,
     *,
     bias: _Bias,
-) -> str:
+) -> tuple[str, int]:
     n = _pick_size(_size_bounds(field, tier_bound), bias, rng)
     if n <= 0:
-        return "0"
+        return "0", 0
     n = min(n, _MAX_ELEMENTS)  # 원소 총량 캡 (패키지 비대화/생성 OOM 차단)
     lo, hi = _element_bounds(field)
     vals = " ".join(str(rng.randint(lo, hi)) for _ in range(n))
-    return f"{n}\n{vals}"
+    return f"{n}\n{vals}", n  # 크기 = 원소 개수 N (참조 바인딩 대상)
 
 
 def _cap_matrix(r: int, c: int) -> tuple[int, int]:
@@ -213,18 +374,20 @@ def _serialize_int_matrix(
     rng: random.Random,
     *,
     bias: _Bias,
-) -> str:
+) -> tuple[str, int]:
     size = _size_bounds(field, tier_bound)
     r = _pick_size(size, bias, rng)
-    c = _pick_size(size, bias, rng)
+    # 열 수: cols_range 가 있으면 그 범위(레코드 고정 K 속성), 없으면 size 와 동일(현행).
+    cols = _range_or(field.cols_range, size)
+    c = _pick_size(cols, bias, rng)
     if r <= 0 or c <= 0:
-        return f"{max(r, 0)} {max(c, 0)}"
+        return f"{max(r, 0)} {max(c, 0)}", max(r, 0)
     r, c = _cap_matrix(r, c)  # R*C 총량 캡
     lo, hi = _element_bounds(field)
     rows = "\n".join(
         " ".join(str(rng.randint(lo, hi)) for _ in range(c)) for _ in range(r)
     )
-    return f"{r} {c}\n{rows}"
+    return f"{r} {c}\n{rows}", r  # 크기 = 행 수 R (참조 바인딩 대상)
 
 
 # ---------- graph serialization (step3b) ----------
@@ -255,10 +418,16 @@ def _serialize_weighted_edges(
     rng: random.Random,
     *,
     bias: _Bias,
-) -> str:
-    """``V E`` + E 줄 ``u v w`` (1-indexed). backbone 연결 + bias 별 밀도/구조."""
+) -> tuple[str, int]:
+    """``V E`` + E 줄 ``u v w`` (1-indexed). backbone 연결 + bias 별 밀도/구조.
+
+    반환 크기 = 정점 수 V (참조 스칼라 s/t 가 [1,V] 로 바인딩할 대상).
+    """
     if bias == "empty":
-        return "1 0"  # 단일 정점, 간선 0 (퇴화 최소 그래프)
+        # 퇴화 최소 그래프 — 단, size_range.min 을 존중(V≥2 스키마면 '2 0').
+        # 하한 무시하고 V=1 을 내면 constraints(V≥min)와 모순돼 QA reject(N=18 실측).
+        vmin = max(_size_bounds(field, tier_bound)[0], 1)
+        return f"{vmin} 0", vmin  # V_min 정점, 간선 0
     v = _graph_vertex_count(field, tier_bound, rng, bias)
     v = min(v, _MAX_ELEMENTS // 2)  # E ≤ 2V → 간선 총량 캡
     if bias == "disconnected":
@@ -277,7 +446,7 @@ def _serialize_weighted_edges(
                 edges.append((u, t))
     lo, hi = _element_bounds(field)  # value_range = 가중치
     lines = [f"{u} {t} {rng.randint(lo, hi)}" for u, t in edges]
-    return "\n".join([f"{v} {len(edges)}", *lines])
+    return "\n".join([f"{v} {len(edges)}", *lines]), v
 
 
 def _serialize_tree_edges(
@@ -286,22 +455,26 @@ def _serialize_tree_edges(
     rng: random.Random,
     *,
     bias: _Bias,
-) -> str:
+) -> tuple[str, int]:
     """``V`` + (V-1) 줄 ``u v`` (value_range 있으면 ``u v w``). 랜덤 부착 트리.
 
-    트리는 정의상 연결 — disconnected bias 는 크기 random 으로만 작용.
+    트리는 정의상 연결 — disconnected bias 는 크기 random 으로만 작용. 반환 크기 = V.
     """
     if bias == "empty":
-        return "1"  # 단일 정점 트리
-    v = _graph_vertex_count(field, tier_bound, rng, bias)
+        # 최소 트리 — size_range.min 존중(V≥2 스키마면 단일 정점이 아니라 V_min 트리).
+        v = max(_size_bounds(field, tier_bound)[0], 1)
+    else:
+        v = _graph_vertex_count(field, tier_bound, rng, bias)
     v = min(v, _MAX_ELEMENTS)  # V-1 간선
+    if v <= 1:
+        return "1", 1  # 단일 정점 트리
     edges = _backbone(1, v, rng)
     if field.value_range is not None:
         lo, hi = _element_bounds(field)
         lines = [f"{u} {t} {rng.randint(lo, hi)}" for u, t in edges]
     else:
         lines = [f"{u} {t}" for u, t in edges]
-    return "\n".join([str(v), *lines])
+    return "\n".join([str(v), *lines]), v
 
 
 # ---------- bounds resolution ----------
