@@ -18,6 +18,9 @@ from ipe.v1.schema import (
 )
 from ipe.v2.generation.input_gen import (
     _MAX_ELEMENTS,
+    derive_edge_cases,
+    derive_generator_contract,
+    derive_scale_families,
     describe_io_field,
     format_constraint,
     generate_inputs,
@@ -910,3 +913,147 @@ def test_render_constraints_reference_respects_zero_indexing() -> None:
     cons = {c.name: c for c in render_constraints(schema)}
     assert cons["s"].min_value == 0 and cons["s"].max_value == 99  # [0, V-1]
     assert "미만" in cons["s"].description
+
+
+# ---------- GeneratorContract 순수 투영 (Phase 3 — derive_*) ----------
+
+
+def _derive_edges_field(
+    *, lo: int = 2, hi: int = 1000, shape: GraphShape | None = None
+) -> IOFieldSpec:
+    return IOFieldSpec(
+        name="edges",
+        type="weighted_edges",
+        size_range=ConstraintRange(name="V", min_value=lo, max_value=hi),
+        value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+        graph_shape=shape,
+    )
+
+
+def test_derive_scalar_schema_single_nominal_family() -> None:
+    """sized 필드 없는 스칼라 schema — 좁힐 규모가 없어 단일 nominal family, edge 없음."""
+    schema = _io_schema(
+        IOFieldSpec(
+            name="N",
+            type="int",
+            value_range=ConstraintRange(name="N", min_value=1, max_value=100),
+        )
+    )
+    families = derive_scale_families(schema)
+    assert [f.name for f in families] == ["nominal"]
+    assert families[0].field_bounds == ()  # 좁힐 규모 없음
+    assert derive_edge_cases(schema) == ()  # 스칼라엔 실현 가능 퇴화 없음
+
+
+def test_derive_graph_schema_tiers_and_edges() -> None:
+    """weighted_edges(shape=None 레거시) — small/large tier + 4 실현가능 edge."""
+    schema = _io_schema(_derive_edges_field())
+    assert {f.name for f in derive_scale_families(schema)} == {"small", "large"}
+    assert {e.name for e in derive_edge_cases(schema)} == {
+        "min_size",
+        "max_size",
+        "empty",
+        "disconnected",
+    }
+
+
+def test_derive_int_array_min_one_excludes_empty() -> None:
+    """크기 하한 1 배열 — empty(크기 0)는 제약(크기≥1) 위반이라 미방출(realizability gate)."""
+    schema = _io_schema(
+        IOFieldSpec(
+            name="arr",
+            type="int_array",
+            size_range=ConstraintRange(name="arr", min_value=1, max_value=50),
+        )
+    )
+    assert {e.name for e in derive_edge_cases(schema)} == {"min_size", "max_size"}
+
+
+def test_derive_int_array_min_zero_includes_empty() -> None:
+    """크기 하한 0 허용 배열 — empty(크기 0)가 제약과 정합이라 방출."""
+    schema = _io_schema(
+        IOFieldSpec(
+            name="arr",
+            type="int_array",
+            size_range=ConstraintRange(name="arr", min_value=0, max_value=50),
+        )
+    )
+    assert "empty" in {e.name for e in derive_edge_cases(schema)}
+
+
+def test_derive_tree_edges_no_disconnected() -> None:
+    """tree_edges 는 정의상 연결 → disconnected 미방출. size_min>=2 면 최소 트리도 간선
+    1+개라 'empty'(간선없는) 거짓 → 미방출 (카테고리명↔입력 정합, F18 류 불일치 방지)."""
+    schema = _io_schema(
+        IOFieldSpec(
+            name="tree",
+            type="tree_edges",
+            size_range=ConstraintRange(name="V", min_value=2, max_value=100),
+        )
+    )
+    names = {e.name for e in derive_edge_cases(schema)}
+    assert "disconnected" not in names
+    assert names == {"min_size", "max_size"}  # V_min=2 트리는 간선 1개 — empty 거짓
+
+
+def test_derive_tree_edges_empty_only_when_single_vertex() -> None:
+    """tree_edges size_min<=1 — empty 가 단일 정점('1', 간선 0)으로 genuine → 방출·실현."""
+    schema = _io_schema(
+        IOFieldSpec(
+            name="tree",
+            type="tree_edges",
+            size_range=ConstraintRange(name="V", min_value=1, max_value=100),
+        )
+    )
+    contract = derive_generator_contract(schema)
+    by_cat = {c.category: c for c in generate_inputs(contract, schema, seed=3)}
+    assert by_cat["empty"].input_text == "1"  # 단일 정점·간선 0 (genuine empty)
+
+
+def test_derive_connected_graph_excludes_disconnected() -> None:
+    """connectivity='connected' 핀 그래프 — 직렬화기가 단일 컴포넌트 강제라 disconnected 미방출."""
+    shape = GraphShape(directed=True, connectivity="connected")
+    schema = _io_schema(_derive_edges_field(shape=shape))
+    assert "disconnected" not in {e.name for e in derive_edge_cases(schema)}
+
+
+def test_derive_scale_tiers_within_declared_range() -> None:
+    """tier field_bounds 는 io_schema size_range 경계 안 + log 중앙 분할(small ≤ large)."""
+    schema = _io_schema(_derive_edges_field(lo=2, hi=1000))
+    families = {f.name: f for f in derive_scale_families(schema)}
+    small = families["small"].field_bounds[0]
+    large = families["large"].field_bounds[0]
+    assert small.min_value == 2 and large.max_value == 1000  # 선언 범위 경계 보존
+    assert 2 <= small.max_value <= large.max_value <= 1000  # log 중앙 분할·범위 내
+
+
+def test_derive_contract_round_trips_to_realizable_inputs() -> None:
+    """파생 계약 round-trip: empty edge='V_min 0', disconnected edge=V-2 edges."""
+    schema = _io_schema(_derive_edges_field(lo=2, hi=20))
+    contract = derive_generator_contract(schema)
+    by_cat = {c.category: c for c in generate_inputs(contract, schema, seed=7)}
+    # empty = 정점 하한·간선 0 (size_range.min 존중 → 제약 모순 없음)
+    assert by_cat["empty"].input_text == "2 0"
+    # disconnected = 두 backbone(각 component-1) = V-2 간선 (분리 실현)
+    v, e = (int(x) for x in by_cat["disconnected"].input_text.splitlines()[0].split())
+    assert e == v - 2
+
+
+def test_derive_empty_suppressed_when_any_sized_field_unsafe() -> None:
+    """graph(empty-safe) + array(min>=1, empty-unsafe) 혼합 — empty bias 가 전 필드 동시
+    적용이라 array 가 크기 0 으로 제약 위반. 모든 sized 가 안전할 때만 empty 방출 → 미방출."""
+    schema = IOSchema(
+        inputs=(
+            _derive_edges_field(lo=2, hi=20),
+            IOFieldSpec(
+                name="arr",
+                type="int_array",
+                size_range=ConstraintRange(name="arr", min_value=1, max_value=10),
+            ),
+        ),
+        output_type="int",
+        output_format="x",
+    )
+    names = {e.name for e in derive_edge_cases(schema)}
+    assert "empty" not in names  # array(min=1) 가 empty 를 억제
+    assert {"min_size", "max_size", "disconnected"} <= names  # 나머지는 여전히 방출

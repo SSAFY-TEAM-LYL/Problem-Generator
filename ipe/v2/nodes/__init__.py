@@ -18,11 +18,7 @@ from .formalizer import (
     FormalizerLLM,
     make_formalizer_node,
 )
-from .generator_designer import (
-    AnthropicGeneratorDesignerLLM,
-    GeneratorDesignerLLM,
-    make_generator_designer_node,
-)
+from .generator_designer import make_generator_designer_node
 from .input_generator import make_input_generator_node
 from .narrative import (
     AnthropicNarrativeLLM,
@@ -53,14 +49,12 @@ from .validator import make_validator_node, validate_ir
 __all__ = [
     "AnthropicFaithfulnessLLM",
     "AnthropicFormalizerLLM",
-    "AnthropicGeneratorDesignerLLM",
     "AnthropicNarrativeLLM",
     "AnthropicQAReviewerLLM",
     "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
-    "GeneratorDesignerLLM",
     "NarrativeLLM",
     "QAReviewerLLM",
     "SpecBridgeLLM",

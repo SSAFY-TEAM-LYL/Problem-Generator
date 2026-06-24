@@ -25,7 +25,7 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
 ``with_test_suite=True`` (M4 풀 채점셋 — verification 통과 후)::
 
     executor → route ─(pass)→ generator_designer → input_generator → suite_assembler
-                                (contract 저작)     (결정론 생성)      (golden→expected)
+                                (contract 투영)     (결정론 생성)      (golden→expected)
 
 ``with_qa=True`` (M5 QA/Critic 병렬 게이트 — with_test_suite 필수, ``qa_kinds`` fan-out)::
 
@@ -72,7 +72,6 @@ from .config import PipelineMode
 from .nodes import (
     FaithfulnessLLM,
     FormalizerLLM,
-    GeneratorDesignerLLM,
     NarrativeLLM,
     QAReviewerLLM,
     SpecBridgeLLM,
@@ -231,7 +230,6 @@ def build_v2_graph(
     runner: ExecutorRunner | None = None,
     verifier_getter: VerifierGetter = get_verifier,
     with_test_suite: bool = False,
-    generator_designer_llm: GeneratorDesignerLLM | None = None,
     with_qa: bool = False,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
     qa_kinds: tuple[QAReviewerKind, ...] = (
@@ -340,7 +338,6 @@ def build_v2_graph(
         runner=runner,
         verifier_getter=verifier_getter,
         with_test_suite=with_test_suite,
-        generator_designer_llm=generator_designer_llm,
         with_qa=with_qa,
         qa_reviewer_llms=qa_reviewer_llms,
         qa_kinds=qa_kinds,
@@ -364,7 +361,6 @@ def _wire_synthesis(
     runner: ExecutorRunner | None,
     verifier_getter: VerifierGetter,
     with_test_suite: bool = False,
-    generator_designer_llm: GeneratorDesignerLLM | None = None,
     with_qa: bool = False,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
     qa_kinds: tuple[QAReviewerKind, ...] = (
@@ -502,12 +498,12 @@ def _wire_synthesis(
     builder.add_edge("end_synthesis_rejected", END)
 
     if with_test_suite:
-        # M4: contract 저작(LLM) → 결정론 입력 생성 → verified golden 으로 expected.
-        # 세 노드 모두 v2-native(V2State 주석) — v1 임피던스 래퍼 불요. full-state
-        # 재emit 은 candidates dedup reducer 가 멱등 처리.
+        # M4: contract 투영(순수, Phase 3) → 결정론 입력 생성 → verified golden 으로
+        # expected. 세 노드 모두 v2-native(V2State 주석)·LLM 0 — v1 임피던스 래퍼 불요.
+        # full-state 재emit 은 candidates dedup reducer 가 멱등 처리.
         builder.add_node(
             "generator_designer",
-            cast(Any, make_generator_designer_node(generator_designer_llm)),
+            cast(Any, make_generator_designer_node()),
         )
         builder.add_node("input_generator", cast(Any, make_input_generator_node()))
         builder.add_node(

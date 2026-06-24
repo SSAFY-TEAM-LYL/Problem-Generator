@@ -21,9 +21,6 @@ from ipe.v1.schema import (
     AlgorithmDesign,
     BlueprintFormalization,
     ComplexityBound,
-    ConstraintRange,
-    EdgeCaseSpec,
-    GeneratorContract,
     Invariant,
     IOContract,
     IOFieldSpec,
@@ -35,7 +32,6 @@ from ipe.v1.schema import (
     QAReview,
     QAReviewerKind,
     SampleTestCase,
-    ScaleFamily,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -109,23 +105,6 @@ class _CoderLLM:
 
     def generate(self, state: Any) -> SolutionAttempt:
         return SolutionAttempt(code=self._code, iteration=0)
-
-
-class _FixedGeneratorDesignerLLM:
-    def design(self, state: Any) -> GeneratorContract:
-        return GeneratorContract(
-            scale_families=(
-                ScaleFamily(
-                    name="small",
-                    case_count=2,
-                    field_bounds=(
-                        ConstraintRange(name="N", min_value=5, max_value=5),
-                    ),
-                ),
-            ),
-            edge_cases=(EdgeCaseSpec(name="zero"),),
-            determinism_seed=7,
-        )
 
 
 class _EchoRunner:
@@ -204,7 +183,6 @@ def _qa_graph(
         runner=_EchoRunner(),
         verifier_getter=lambda _a: None,
         with_test_suite=True,
-        generator_designer_llm=_FixedGeneratorDesignerLLM(),
         with_qa=True,
         qa_reviewer_llms=qa_llms,
     )

@@ -23,8 +23,6 @@ from ipe.v1.schema import (
     BlueprintFormalization,
     ComplexityBound,
     ConstraintRange,
-    EdgeCaseSpec,
-    GeneratorContract,
     Invariant,
     InvariantViolation,
     IOContract,
@@ -34,7 +32,6 @@ from ipe.v1.schema import (
     NarrativeFaithfulnessReport,
     ProblemSpec,
     SampleTestCase,
-    ScaleFamily,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -55,9 +52,21 @@ class _FixedStrategistLLM:
 
 class _FixedFormalizerLLM:
     def formalize(self, state: Any) -> BlueprintFormalization:
+        # weighted_edges schema — 순수 투영(Phase 3)이 small/large tier + 실현가능
+        # edge(min_size/max_size/empty/disconnected)를 결정론 파생. V_min=3 이라 'empty'
+        # edge 는 항상 '3 0'(정점 3·간선 0)이고, 연결 그래프(small/large/min/max/
+        # disconnected)는 V>=3 → 간선 >=2 이라 '3 0' 과 절대 충돌 안 함 → partial-drop
+        # 이 'empty' 케이스만 결정론적으로 떨굴 수 있다.
         return BlueprintFormalization(
             io_schema=IOSchema(
-                inputs=(IOFieldSpec(name="N", type="int"),),
+                inputs=(
+                    IOFieldSpec(
+                        name="edges",
+                        type="weighted_edges",
+                        size_range=ConstraintRange(name="V", min_value=3, max_value=8),
+                        value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+                    ),
+                ),
                 output_type="int",
                 output_format="단일 정수",
             )
@@ -116,39 +125,6 @@ class _CoderLLM:
         return SolutionAttempt(code=self._code, iteration=0)
 
 
-# ---------- generator designer mock (M4) ----------
-
-
-class _FixedGeneratorDesignerLLM:
-    """결정론 검증용 contract — tier bound 를 단일값으로 고정해 입력을 예측가능하게.
-
-    small×2(N=5..5) + large×1(N=9..9) + edge 'zero'(empty bias → 기본범위 하한 0)
-    → 입력 ["5", "5", "9", "0"], planned 총 4.
-    """
-
-    def design(self, state: Any) -> GeneratorContract:
-        return GeneratorContract(
-            scale_families=(
-                ScaleFamily(
-                    name="small",
-                    case_count=2,
-                    field_bounds=(
-                        ConstraintRange(name="N", min_value=5, max_value=5),
-                    ),
-                ),
-                ScaleFamily(
-                    name="large",
-                    case_count=1,
-                    field_bounds=(
-                        ConstraintRange(name="N", min_value=9, max_value=9),
-                    ),
-                ),
-            ),
-            edge_cases=(EdgeCaseSpec(name="zero"),),
-            determinism_seed=7,
-        )
-
-
 # ---------- scripted runner ----------
 
 
@@ -173,9 +149,10 @@ def _echo_answer(code: str, stdin: str) -> tuple[str, str]:
     return ("OK", f"ans-{stdin}")
 
 
-def _fail_on_nine(code: str, stdin: str) -> tuple[str, str]:
-    """생성 입력 '9'(large tier)만 실행 실패 — synthesis sample(i0..i2)은 무관."""
-    if stdin.strip() == "9":
+def _fail_on_empty_graph(code: str, stdin: str) -> tuple[str, str]:
+    """'empty' edge('3 0' — 정점 3·간선 0)만 실행 실패. 연결 그래프(V>=3 → 간선 >=2)는
+    이 패턴과 절대 충돌 안 함 → 그 케이스만 결정론적으로 drop. synthesis sample 도 무관."""
+    if stdin.strip() == "3 0":
         return ("RTE", "")
     return _echo_answer(code, stdin)
 
@@ -206,7 +183,6 @@ def _suite_graph(
             verifier_getter if verifier_getter is not None else (lambda _a: None)
         ),
         with_test_suite=True,
-        generator_designer_llm=_FixedGeneratorDesignerLLM(),
     )
 
 
@@ -242,21 +218,32 @@ def test_suite_pipeline_success() -> None:
     # 상류 아티팩트 (synthesis 까지 기존과 동일)
     assert final.verification is not None and final.verification.overall_pass is True
     assert len(final.candidates) == 3  # suite 노드 full-state 재emit 에도 dedup 유지
-    # M4 아티팩트
-    assert final.generator_contract is not None
-    assert final.generator_contract.total_planned_cases == 4
+    # M4 아티팩트 — 순수 투영(Phase 3) 계약: small/large tier + 실현가능 edge
+    contract = final.generator_contract
+    assert contract is not None
+    assert {f.name for f in contract.scale_families} == {"small", "large"}
+    assert {e.name for e in contract.edge_cases} == {
+        "min_size",
+        "max_size",
+        "empty",
+        "disconnected",
+    }
     suite = final.test_suite
     assert suite is not None
     assert suite.is_assembled is True
     assert suite.golden_origin == "opus"  # reconciliation.adopted_origin provenance
-    assert [c.input_text for c in suite.cases] == ["5", "5", "9", "0"]
-    assert [c.category for c in suite.cases] == ["small", "small", "large", "zero"]
-    assert [c.expected_output for c in suite.cases] == [
-        "ans-5",
-        "ans-5",
-        "ans-9",
-        "ans-0",
-    ]
+    # drop 없음 → 계획 전부 assembled, 카테고리 = tier + 실현가능 edge
+    assert len(suite.cases) == contract.total_planned_cases
+    assert {c.category for c in suite.cases} == {
+        "small",
+        "large",
+        "min_size",
+        "max_size",
+        "empty",
+        "disconnected",
+    }
+    # echo runner → expected = ans-{input} (golden 부트스트랩 정합)
+    assert all(c.expected_output == f"ans-{c.input_text}" for c in suite.cases)
 
 
 # ---------- 2. verification fail → suite 미진입 ----------
@@ -277,17 +264,19 @@ def test_suite_skipped_on_verification_fail() -> None:
 
 
 def test_suite_partial_drop_keeps_rest() -> None:
-    graph = _suite_graph(runner_fn=_fail_on_nine)
+    graph = _suite_graph(runner_fn=_fail_on_empty_graph)
     final = _run(graph, "run-suite-drop")
 
     assert final.final_status == "success"
-    assert final.generator_contract is not None
-    assert final.generator_contract.total_planned_cases == 4  # anchor 분모 보존
+    contract = final.generator_contract
+    assert contract is not None
+    planned = contract.total_planned_cases  # anchor 분모 보존
     suite = final.test_suite
     assert suite is not None
     assert suite.is_assembled is True
-    assert len(suite.cases) == 3  # '9'(large) 만 drop
-    assert [c.category for c in suite.cases] == ["small", "small", "zero"]
+    # 'empty'('3 0') 케이스만 golden 실행 실패 → 그것만 drop, 나머지 assembled
+    assert len(suite.cases) == planned - 1
+    assert "empty" not in {c.category for c in suite.cases}
 
 
 # ---------- 4. build guard ----------

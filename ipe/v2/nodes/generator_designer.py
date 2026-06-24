@@ -1,139 +1,37 @@
-"""generator_designer 노드 — frozen blueprint → GeneratorContract (M4 step2).
+"""generator_designer 노드 — frozen io_schema → GeneratorContract (순수 투영, Phase 3).
 
-frozen blueprint(io_schema + reduction_core + output_invariants)을 받아 **입력 생성기
-계약**(``GeneratorContract``: 규모 family + 엣지 케이스)을 LLM 으로 저작한다. 입력
-*생성* 자체는 결정론(step3)이지만, **무엇을 생성할지의 전략**(어떤 규모 tier·엣지가
-이 알고리즘의 정확성 채점에 중요한가)은 reduction_core 를 아는 LLM 이 설계한다
-(RFC §4 — generator_contract 는 blueprint 의 일부, 형식 계약 author).
-
-expected output 은 계약에 없음(순환 §7) — suite assembler(step4)가 verified golden
-실행으로 채운다. carry-over 강제는 없음: scale_families/edge_cases 는 blueprint 의
-기존 필드를 바꾸는 게 아니라 **새 생성 전략** 이라 freeze 충돌이 없다 (node 는 LLM
-산출을 그대로 store). 단 field_bounds 는 io_schema field 이름을 따르도록 prompt 가
-유도 (step3 생성기가 매칭) — 형식 enforce 는 후속(step3 검증).
+이전엔 Opus LLM 이 scale_families/edge_cases 를 저작했으나, 그 계약은 io_schema 가 이미
+결정하는 정보(규모 tier·실현가능 퇴화)를 추가하지 않고 LLM 의 자유도는
+``input_gen._edge_bias`` 가 5개 bias 로 접었다 — unrealizable 카테고리(self_loop·특정
+위상 등)를 채점셋 이름에 남겨 형식 계약과 모순시키는 리스크(F18 reject, N=18 실측)만
+더했다. 단일 IR 리팩터(RFC §4)는 이 노드를 io_schema 의 **순수 투영**으로 강등한다:
+``derive_generator_contract`` 가 sized 필드 size_range 를 log-spaced scale tier 로,
+실현가능 퇴화를 edge case 로 결정론 파생한다. 효과 = Opus 호출 1 삭제 + unrealizable
+fail_qa → 0. 계약이 io_schema 의 함수이므로 다른 투영과 모순 불가(consistency-by-construction).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol
 
-from ipe.v1.schema import GeneratorContract
-
-from ..generation.input_gen import describe_io_field
+from ..generation.input_gen import derive_generator_contract
 from ..state import V2State
 
-GENERATOR_DESIGNER_MODEL = "claude-opus-4-8"
-GENERATOR_DESIGNER_TEMPERATURE = 0.2  # 형식 계약 설계 (발산 금지)
 
+def make_generator_designer_node() -> Callable[[V2State], V2State]:
+    """factory — frozen blueprint.io_schema → GeneratorContract (순수, LLM 없음).
 
-_SYSTEM_PROMPT = """\
-당신은 algorithmic problem **test-suite 입력 생성 계약 설계자** 다. 이미 동결된 형식
-계약(io_schema + 숨은 reduction_core + output_invariants)을 받아, 그 문제의 채점셋
-입력을 어떻게 생성할지의 계약(GeneratorContract)을 설계한다.
-
-typed GeneratorContract (구조화된 tool call) 로 반환:
-- scale_families: 입력 규모 tier 들 (>=1). 각 ScaleFamily =
-  - name: tier 이름 (예: 'small'/'medium'/'large'/'stress').
-  - case_count: 이 tier 에서 생성할 케이스 수 (>0). small 은 손검증용 소수, large/
-    stress 는 성능·정확성 경계용 더 많이.
-  - field_bounds: 이 tier 의 per-field 크기/값 범위 (ConstraintRange list). **io_schema
-    의 field 이름을 그대로** 쓰고, io_schema 의 전체 범위를 이 tier 로 **좁힌다**
-    (절대 io_schema 상한을 넘기지 말 것). 비우면 io_schema 기본 범위. 참조 스칼라
-    (``→refs X`` 표시)는 생성기가 참조 대상 X 의 실제 크기에 자동 바인딩하므로
-    **field_bounds 를 주지 말 것**(줘도 무시됨). 컬렉션 X 의 size 만 tier 로 좁히면 된다.
-  - description: 이 tier 가 무엇을 노리는지 한 줄.
-- edge_cases: 반드시 포함할 경계/퇴화 입력들 (EdgeCaseSpec name + description). 이
-  알고리즘에서 자주 틀리는 케이스 (예: 'empty'/'single'/'all_equal'/'disconnected'/
-  'max_size'/'negative_zero_weights' 등 — reduction_core 에 맞게).
-  **실현 가능한 종류만** 쓸 것 — 생성기는 크기/밀도 경계만 만든다: empty·single·
-  min/small(하한), max/large/stress(상한), disconnected/unreachable(분리, 그래프).
-  생성기가 **만들 수 없는 구조를 카테고리로 만들지 말 것** — 특히 ``self_loop``
-  (canonical 그래프엔 self-loop 가 없다)·specific 위상은 금지. 이런 카테고리는
-  채점셋 이름으로 남아 형식 계약과 모순돼 QA 가 reject 한다(N=18 실측). 카테고리
-  이름은 **실제 생성되는 입력**을 반영해야 한다.
-- determinism_seed: 보통 비워둔다 (생성기가 선택).
-- notes: 생성 시 주의점 (선택).
-
-규율:
-- 알고리즘/형식을 **재결정하지 말 것** — io_schema/reduction_core 는 동결. 당신은
-  '어떤 입력 분포·규모·엣지로 채점할지'의 생성 전략만 설계한다.
-- field_bounds 는 io_schema 의 size_range/value_range 안에 있어야 한다 (초과 금지).
-- 정확성 채점 강건성을 위해 small~large 규모 + 핵심 엣지를 고루 덮되, 과도한 case_count
-  로 채점 비용을 폭증시키지 말 것 (tier 당 합리적 수).
-"""
-
-
-def _build_user_prompt(state: V2State) -> str:
-    bp = state.blueprint
-    if bp is None:
-        msg = "generator_designer requires state.blueprint — formalizer must run first"
-        raise ValueError(msg)
-    fields = [describe_io_field(f) for f in bp.io_schema.inputs]
-    invariants = [f"{iv.kind}: {iv.description}" for iv in bp.output_invariants]
-    return "\n".join(
-        [
-            f"reduction_core (숨은 알고리즘): {bp.reduction_core.value}",
-            f"composition: {[a.value for a in bp.composition]}",
-            f"domain: {bp.domain}",
-            "",
-            f"io_schema.inputs: {fields}",
-            f"io_schema.output_type: {bp.io_schema.output_type}",
-            f"io_schema.output_format: {bp.io_schema.output_format}",
-            f"output_invariants: {invariants}",
-        ]
-    )
-
-
-class GeneratorDesignerLLM(Protocol):
-    """generator_designer 의 LLM dependency. test 가 mock 주입."""
-
-    def design(self, state: V2State) -> GeneratorContract: ...
-
-
-class AnthropicGeneratorDesignerLLM:
-    """production impl — Opus + structured output. lazy import (test 는 mock)."""
-
-    def __init__(self, model: str = GENERATOR_DESIGNER_MODEL) -> None:
-        from langchain_anthropic import ChatAnthropic
-        from langchain_core.prompts import ChatPromptTemplate
-
-        llm = ChatAnthropic(model_name=model, timeout=60, stop=None)
-        prompt = ChatPromptTemplate.from_messages(
-            [("system", _SYSTEM_PROMPT), ("user", "{user}")]
-        )
-        self._chain = (
-            prompt | llm.with_structured_output(GeneratorContract)
-        ).with_retry(stop_after_attempt=5, wait_exponential_jitter=True)
-
-    def design(self, state: V2State) -> GeneratorContract:
-        result = self._chain.invoke({"user": _build_user_prompt(state)})
-        if not isinstance(result, GeneratorContract):
-            msg = (
-                f"with_structured_output 가 {type(result).__name__} 반환 — "
-                "GeneratorContract 기대"
-            )
-            raise TypeError(msg)
-        return result
-
-
-def make_generator_designer_node(
-    llm: GeneratorDesignerLLM | None = None,
-) -> Callable[[V2State], V2State]:
-    """factory — frozen blueprint → GeneratorContract. test 는 mock 주입.
-
-    생성 전략(scale_families/edge_cases)은 새 설계라 carry-over 강제가 없다 — node 는
-    LLM 산출 계약을 ``generator_contract`` 채널에 그대로 store.
+    formalizer 가 freeze 한 io_schema 만 보고 결정론 투영한다(carry-over 강제 불요 —
+    계약은 io_schema 의 함수). validator(Phase 2)가 이미 io_schema 완전성(collection
+    size_range·참조 해소)을 보장하므로 verification 통과 후 도달하는 io_schema 는 well-formed.
     """
-    resolved_llm: GeneratorDesignerLLM = (
-        llm if llm is not None else AnthropicGeneratorDesignerLLM()
-    )
 
     def node(state: V2State) -> V2State:
-        if state.blueprint is None:
-            msg = "generator_designer requires state.blueprint"
+        bp = state.blueprint
+        if bp is None:
+            msg = "generator_designer requires state.blueprint — formalizer must run first"
             raise ValueError(msg)
-        contract = resolved_llm.design(state)
+        contract = derive_generator_contract(bp.io_schema)
         return state.model_copy(update={"generator_contract": contract})
 
     return node
