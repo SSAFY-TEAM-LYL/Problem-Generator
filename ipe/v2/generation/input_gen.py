@@ -296,44 +296,6 @@ def render_input_format(io_schema: IOSchema) -> str:
     return "표준입력으로 다음 필드들이 순서대로 줄 단위 주어진다:\n" + numbered
 
 
-def render_structural_facts(io_schema: IOSchema) -> list[str]:
-    """io_schema → 그래프 **구조 사실**의 기계 파생 진술 (단일 진실원천, F6~F8).
-
-    formalizer/narrative 프롬프트의 self-loop/다중간선/방향성 prose 규칙을 대체한다 —
-    narrative 는 이것을 DATA 로 받아 '서술'하고(규칙 회피가 아니라), QA/faithfulness 는
-    narrative ↔ 이 사실을 **기계 비교**로 검증한다. graph_shape 가 핀된 graph 필드만
-    대상(없으면 빈 list = 비-graph 문제엔 구조 사실 없음). 인덱싱(F9)은 의미가 아니라
-    **형식**이므로 여기 넣지 않는다(render_input_format 의 format 계약 몫).
-    """
-    facts: list[str] = []
-    for f in io_schema.inputs:
-        shape = f.graph_shape
-        if f.type not in ("weighted_edges", "tree_edges") or shape is None:
-            continue
-        prefix = f"{f.name}(그래프)"
-        direction = "단방향(u→v)" if shape.directed else "양방향(u↔v, 무방향)"
-        loop = "자기 간선(self-loop) 가능" if shape.self_loops else "자기 간선 없음"
-        multi = (
-            "같은 쌍 다중 간선 가능"
-            if shape.multi_edges
-            else "같은 쌍 다중 간선 없음(단순 그래프)"
-        )
-        conn = (
-            "연결 보장"
-            if shape.connectivity == "connected"
-            else "연결 비보장(분리 컴포넌트·도달 불가 가능)"
-        )
-        facts.extend(
-            [
-                f"{prefix}: {direction} 간선",
-                f"{prefix}: {loop}",
-                f"{prefix}: {multi}",
-                f"{prefix}: {conn}",
-            ]
-        )
-    return facts
-
-
 def generate_inputs(
     contract: GeneratorContract,
     io_schema: IOSchema,

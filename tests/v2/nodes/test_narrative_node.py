@@ -112,7 +112,7 @@ def test_narrative_preserves_original_state() -> None:
 
 
 def _graph_blueprint() -> ProblemBlueprint:
-    """graph_shape 핀된 weighted_edges 형상 — render_structural_facts 가 사실 방출."""
+    """graph_shape 핀된 weighted_edges 형상 — backbone(structural_facts) 이 사실 방출."""
     return ProblemBlueprint(
         reduction_core=TargetAlgorithm.DIJKSTRA,
         domain="logistics",

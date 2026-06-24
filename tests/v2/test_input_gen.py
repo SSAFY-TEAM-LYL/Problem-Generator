@@ -23,7 +23,6 @@ from ipe.v2.generation.input_gen import (
     generate_inputs,
     render_constraints,
     render_input_format,
-    render_structural_facts,
     seed_from_run_id,
 )
 
@@ -880,51 +879,6 @@ def test_indexing_one_is_byte_identical_to_default() -> None:
     a = generate_inputs(contract, default, seed=5)
     b = generate_inputs(contract, explicit, seed=5)
     assert [c.input_text for c in a] == [c.input_text for c in b]
-
-
-# ---------- render_structural_facts: 구조 사실 투영 (narrative/QA 용 DATA) ----------
-
-
-def test_render_structural_facts_emits_pinned_graph_facts() -> None:
-    field = _shaped_edges(
-        GraphShape(
-            directed=False,
-            self_loops=False,
-            multi_edges=True,
-            connectivity="connected",
-        ),
-        2,
-        10,
-    )
-    joined = " | ".join(render_structural_facts(_io_schema(field)))
-    assert "양방향" in joined  # directed=False
-    assert "자기 간선 없음" in joined
-    assert "다중 간선 가능" in joined
-    assert "연결 보장" in joined
-    assert "edges" in joined  # 필드명 prefix
-
-
-def test_render_structural_facts_directed_self_loop_multi() -> None:
-    field = _shaped_edges(
-        GraphShape(
-            directed=True,
-            self_loops=True,
-            multi_edges=False,
-            connectivity="maybe_disconnected",
-        ),
-        2,
-        10,
-    )
-    joined = " | ".join(render_structural_facts(_io_schema(field)))
-    assert "단방향" in joined
-    assert "자기 간선(self-loop) 가능" in joined
-    assert "단순 그래프" in joined  # multi_edges=False
-    assert "도달 불가 가능" in joined  # maybe_disconnected
-
-
-def test_render_structural_facts_empty_without_shape_or_non_graph() -> None:
-    assert render_structural_facts(_io_schema(_weighted_edges_field(2, 10))) == []
-    assert render_structural_facts(_io_schema(_int_array_field())) == []
 
 
 def test_render_input_format_reflects_graph_shape_and_indexing() -> None:

@@ -20,7 +20,7 @@ from typing import Protocol
 
 from ipe.v1.schema import NarrativeFaithfulnessReport
 
-from ..generation.input_gen import render_structural_facts
+from ..backbone import resolve_backbone
 from ..state import V2State
 
 FAITHFULNESS_MODEL = "claude-opus-4-8"
@@ -75,7 +75,7 @@ def _build_user_prompt(state: V2State) -> str:
         for f in bp.io_schema.inputs
     ]
     mode = "hidden (은닉 — 알고리즘 누락 정상)" if narrative.hidden else "direct"
-    structural = render_structural_facts(bp.io_schema)
+    structural = resolve_backbone(bp.io_schema).structural_facts(bp.io_schema)
     parts = [
         f"render mode: {mode}",
         f"domain: {bp.domain}",

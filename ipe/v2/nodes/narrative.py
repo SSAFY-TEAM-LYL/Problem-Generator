@@ -16,7 +16,7 @@ from typing import Protocol
 
 from ipe.v1.schema import Narrative, NarrativeDraft
 
-from ..generation.input_gen import render_structural_facts
+from ..backbone import resolve_backbone
 from ..state import V2State
 
 NARRATIVE_MODEL = "claude-sonnet-4-6"
@@ -135,7 +135,7 @@ def _build_user_prompt(state: V2State, *, hidden: bool) -> str:
         f"io_schema.output_format: {bp.io_schema.output_format}",
         f"output_invariants: {invariants}",
     ]
-    structural = render_structural_facts(bp.io_schema)
+    structural = resolve_backbone(bp.io_schema).structural_facts(bp.io_schema)
     if structural:  # graph_shape 핀된 graph 필드만 — narrative 가 이 DATA 와 일치 서술
         parts.extend(["", "[구조 사실 — 지문에 일치하게 서술 (모순 금지)]", *structural])
     feedback = _qa_feedback_lines(state)
