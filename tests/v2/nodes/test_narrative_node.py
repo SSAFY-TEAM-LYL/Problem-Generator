@@ -51,15 +51,16 @@ def _state_with_blueprint() -> V2State:
 
 
 class _RecordingNarrativeLLM:
-    """고정 scenario 를 반환하고 받은 hidden 플래그를 기록하는 mock."""
+    """고정 title/scenario 를 반환하고 받은 hidden 플래그를 기록하는 mock."""
 
-    def __init__(self, scenario: str) -> None:
+    def __init__(self, scenario: str, title: str = "배송 센터 경로 비용") -> None:
         self._scenario = scenario
+        self._title = title
         self.received_hidden: bool | None = None
 
     def render(self, state: V2State, *, hidden: bool) -> NarrativeDraft:
         self.received_hidden = hidden
-        return NarrativeDraft(scenario=self._scenario)
+        return NarrativeDraft(title=self._title, scenario=self._scenario)
 
 
 def test_narrative_renders_hidden_by_default() -> None:
@@ -68,6 +69,7 @@ def test_narrative_renders_hidden_by_default() -> None:
 
     nar = out.narrative
     assert isinstance(nar, Narrative)
+    assert nar.title == "배송 센터 경로 비용"  # draft.title 스탬프 (creative slot 1)
     assert nar.scenario == "물류 센터의 배송 경로 ..."  # LLM 산출
     assert nar.hidden is True  # 기본 B2B 은닉
     assert nar.domain == "logistics"  # blueprint carry-over
@@ -130,6 +132,15 @@ def _graph_blueprint() -> ProblemBlueprint:
             output_format="단일 정수",
         ),
     )
+
+
+def test_narrative_prompt_instructs_hidden_safe_title() -> None:
+    """Phase 4: narrative 가 title(creative slot 1)을 저작하되 은닉/유출 규율을 따르도록
+    지시 (spec_bridge Opus 호출 강등으로 제목 저작이 narrative 로 접힘). 드리프트 방지."""
+    from ipe.v2.nodes.narrative import _SYSTEM_PROMPT
+
+    assert "title:" in _SYSTEM_PROMPT  # 제목 저작 지령
+    assert "은닉" in _SYSTEM_PROMPT  # 은닉 모드 누설 금지
 
 
 def test_narrative_prompt_instructs_structural_facts_description() -> None:

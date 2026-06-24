@@ -24,22 +24,16 @@ from ipe.v1.schema import (
     ComplexityBound,
     Invariant,
     InvariantViolation,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
-    ProblemSpec,
-    SampleTestCase,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
 )
 from ipe.v2.graph import build_v2_graph
 from ipe.v2.state import V2State, initial_v2_state
-
-_INPUTS = ["i0", "i1", "i2"]
-
 
 # ---------- modeling mocks ----------
 
@@ -62,7 +56,7 @@ class _FixedFormalizerLLM:
 
 class _FixedNarrativeLLM:
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
-        return NarrativeDraft(scenario="물류 시나리오")
+        return NarrativeDraft(title="물류 경로", scenario="물류 시나리오")
 
 
 class _FaithfulLLM:
@@ -71,25 +65,6 @@ class _FaithfulLLM:
 
 
 # ---------- synthesis mocks ----------
-
-
-class _SpecBridgeLLM:
-    """expected = f'{prefix}-{input}' 인 spec 저작. prefix='ans' 면 runner 와 일치."""
-
-    def __init__(self, prefix: str = "ans") -> None:
-        self._prefix = prefix
-
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.DIJKSTRA,
-            title="t",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"{self._prefix}-{i}")
-                for i in _INPUTS
-            ],
-        )
 
 
 class _DesignerLLM:
@@ -143,12 +118,10 @@ def _final(raw: Any) -> V2State:
 
 def _full_graph(
     *,
-    spec_prefix: str = "ans",
     golden_codes: list[str],
     brute_code: str = "# B",
     strategist_llm: Any | None = None,
     verifier_getter: Any | None = None,
-    spec_bridge_llm: Any | None = None,
 ) -> Any:
     return build_v2_graph(
         composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
@@ -158,11 +131,6 @@ def _full_graph(
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
-        spec_bridge_llm=(
-            spec_bridge_llm
-            if spec_bridge_llm is not None
-            else _SpecBridgeLLM(spec_prefix)
-        ),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM(c) for c in golden_codes],
         brute_llm=_CoderLLM(brute_code),
@@ -311,30 +279,5 @@ def test_uncomposed_keeps_symbolic_dispatch() -> None:
     assert getter.calls == [TargetAlgorithm.DIJKSTRA]  # 기존 경로 그대로
 
 
-# ---------- 5. spec 저작 실패 가드 ----------
-
-
-class _RaisingSpecBridgeLLM:
-    """structured output 5-retry 전멸을 모사 (BS-run3 실측 crash)."""
-
-    def author(self, state: Any) -> ProblemSpec:
-        msg = "io_contract 가 string — schema 검증 거부"
-        raise RuntimeError(msg)
-
-
-def test_spec_authoring_failure_ends_valid_without_crash() -> None:
-    """spec_bridge LLM 실패가 graph 밖 crash 로 전파되지 않고 valid
-    ``fail_spec_authoring`` 종료 — 에러 요약 보존 + synthesis 미진입
-    (candidates/verification 미생성)."""
-    graph = _full_graph(
-        golden_codes=["# G0", "# G1"], spec_bridge_llm=_RaisingSpecBridgeLLM()
-    )
-    final = _run(graph, "run-spec-authoring-fail")
-
-    assert final.final_status == "fail_spec_authoring"
-    assert final.spec is None
-    assert final.spec_authoring_error is not None
-    assert "RuntimeError" in final.spec_authoring_error
-    # 가드 종료 — 하류 synthesis 미진입
-    assert final.candidates == []
-    assert final.verification is None
+# spec_bridge 는 순수 투영(Phase 4) — 저작 실패 클래스(fail_spec_authoring) 제거됨.
+# spec 부재는 배선 버그로 즉시 raise(노드 단위 테스트가 커버), graph 종료 상태 아님.

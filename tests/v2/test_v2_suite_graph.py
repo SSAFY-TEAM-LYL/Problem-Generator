@@ -25,22 +25,16 @@ from ipe.v1.schema import (
     ConstraintRange,
     Invariant,
     InvariantViolation,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
-    ProblemSpec,
-    SampleTestCase,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
 )
 from ipe.v2.graph import build_v2_graph
 from ipe.v2.state import V2State, initial_v2_state
-
-_SAMPLE_INPUTS = ["i0", "i1", "i2"]
-
 
 # ---------- modeling mocks ----------
 
@@ -75,7 +69,7 @@ class _FixedFormalizerLLM:
 
 class _FixedNarrativeLLM:
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
-        return NarrativeDraft(scenario="물류 시나리오")
+        return NarrativeDraft(title="물류 경로", scenario="물류 시나리오")
 
 
 class _FaithfulLLM:
@@ -84,25 +78,6 @@ class _FaithfulLLM:
 
 
 # ---------- synthesis mocks ----------
-
-
-class _SpecBridgeLLM:
-    """expected = f'{prefix}-{input}' 인 spec 저작. prefix='ans' 면 runner 와 일치."""
-
-    def __init__(self, prefix: str = "ans") -> None:
-        self._prefix = prefix
-
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.SORT,
-            title="t",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"{self._prefix}-{i}")
-                for i in _SAMPLE_INPUTS
-            ],
-        )
 
 
 class _DesignerLLM:
@@ -163,7 +138,6 @@ def _final(raw: Any) -> V2State:
 
 def _suite_graph(
     *,
-    spec_prefix: str = "ans",
     runner_fn: Callable[[str, str], tuple[str, str]] = _echo_answer,
     verifier_getter: Any = None,
 ) -> Any:
@@ -173,7 +147,6 @@ def _suite_graph(
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
-        spec_bridge_llm=_SpecBridgeLLM(spec_prefix),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM("# G0"), _CoderLLM("# G1")],
         brute_llm=_CoderLLM("# B"),

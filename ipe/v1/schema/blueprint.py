@@ -222,22 +222,28 @@ class Narrative(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    title: str = Field(..., min_length=1, description="문제 제목 (narrative author 저작)")
     scenario: str = Field(..., min_length=1, description="현실 시나리오 지문")
     hidden: bool = Field(..., description="알고리즘 은닉 렌더 여부")
     domain: str = Field(..., min_length=1)
 
 
 class NarrativeDraft(BaseModel):
-    """Narrative Author(창작) LLM 의 structured output — scenario 프로즈만 (M3 step3).
+    """Narrative Author(창작) LLM 의 structured output — title + scenario 프로즈 (M3 step3).
 
     Narrative 노드는 이 draft 에 ``hidden``(렌더 모드, graph config)과 ``domain``
     (frozen blueprint 에서 carry-over)을 스탬프해 ``Narrative`` 로 완성한다. LLM 은
-    **시나리오 지문만** 쓰고 hidden/domain 은 노드가 authoritative — Formalizer 의
-    carry-over 규율과 동일 (렌더 모드/도메인을 LLM 이 임의로 못 바꿈).
+    **제목과 시나리오 지문만** 쓰고 hidden/domain 은 노드가 authoritative — Formalizer 의
+    carry-over 규율과 동일 (렌더 모드/도메인을 LLM 이 임의로 못 바꿈). ``title`` 은
+    RFC §F21 의 creative slot — spec_bridge 가 순수 투영으로 강등되며 제목 저작이
+    narrative 로 접혔다 (별도 Opus 호출 제거).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    title: str = Field(
+        ..., min_length=1, description="문제 제목 (도메인 한 줄 — 은닉 모드면 알고리즘명 누설 금지)"
+    )
     scenario: str = Field(..., min_length=1, description="현실 시나리오 지문 (은닉/직접)")
 
 

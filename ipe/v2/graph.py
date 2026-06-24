@@ -41,9 +41,10 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
   ``composition_mode`` 로 single(합성 금지)/composed(합성 필수) 분기.
 - synthesis 는 **v1 M2 노드 재사용**(designer/synthesis_coder/reconciler/synth_bridge/
   executor) — V2State 가 design/attempt 채널 + target_algorithm property 로 적응(step2a).
-  spec_bridge LLM 은 sample **input 만** 저작, expected 는 sample_filler 가 canonical
-  golden 실행으로 채움(사용자 원칙: 정답은 golden 부트스트랩). golden↔brute differential
-  + symbolic verifier 가 검증. fix-loop 없음(단발, M3+ 반복정제 별개).
+  spec_bridge 는 **순수 투영**(Phase 4, LLM 없음) — io_schema 에서 sample **input 만**
+  결정적 생성, expected 는 sample_filler 가 canonical golden 실행으로 채움(사용자 원칙:
+  정답은 golden 부트스트랩). golden↔brute differential + symbolic verifier 가 검증.
+  fix-loop 없음(단발, M3+ 반복정제 별개).
 - test-suite 는 **verification 통과 후에만** — expected 는 검증된 golden 실행으로
   부트스트랩(RFC §7 순환 회피)이라 검증 실패 경로에선 채점셋을 만들지 않는다.
 
@@ -74,7 +75,6 @@ from .nodes import (
     FormalizerLLM,
     NarrativeLLM,
     QAReviewerLLM,
-    SpecBridgeLLM,
     StrategistLLM,
     make_faithfulness_node,
     make_formalizer_node,
@@ -93,7 +93,6 @@ from .nodes import (
 from .router import (
     route_after_faithfulness,
     route_after_qa,
-    route_after_spec_bridge,
     route_after_validator,
 )
 from .state import V2FinalStatus, V2State
@@ -221,7 +220,6 @@ def build_v2_graph(
     faithfulness_llm: FaithfulnessLLM | None = None,
     hidden: bool = True,
     composition_mode: CompositionMode = "composed",
-    spec_bridge_llm: SpecBridgeLLM | None = None,
     designer_llm: DesignerLLM | None = None,
     golden_llms: Sequence[CoderLLM] | None = None,
     brute_llm: CoderLLM | None = None,
@@ -329,7 +327,6 @@ def build_v2_graph(
 
     _wire_synthesis(
         builder,
-        spec_bridge_llm=spec_bridge_llm,
         designer_llm=designer_llm,
         golden_llms=golden_llms,
         brute_llm=brute_llm,
@@ -352,7 +349,6 @@ def build_v2_graph(
 def _wire_synthesis(
     builder: Any,
     *,
-    spec_bridge_llm: SpecBridgeLLM | None,
     designer_llm: DesignerLLM | None,
     golden_llms: Sequence[CoderLLM] | None,
     brute_llm: CoderLLM | None,
@@ -393,7 +389,7 @@ def _wire_synthesis(
         raise ValueError(msg)
     synth_runner: Any = runner if runner is not None else pick_runner()
 
-    builder.add_node("spec_bridge", cast(Any, make_spec_bridge_node(spec_bridge_llm)))
+    builder.add_node("spec_bridge", cast(Any, make_spec_bridge_node()))
     builder.add_node(
         "designer", cast(Any, _v2_full_node(make_designer_node(designer_llm)))
     )
@@ -450,20 +446,9 @@ def _wire_synthesis(
         "end_synthesis_rejected",
         cast(Any, _make_finalizer("fail_synthesis_rejected")),
     )
-    builder.add_node(
-        "end_spec_authoring", cast(Any, _make_finalizer("fail_spec_authoring"))
-    )
 
-    # spec 저작 실패(LLM structured output 전멸) 가드 — crash 대신 valid fail 종료
-    builder.add_conditional_edges(
-        "spec_bridge",
-        cast(Any, route_after_spec_bridge),
-        cast(
-            Any,
-            {"designer": "designer", "end_spec_authoring": "end_spec_authoring"},
-        ),
-    )
-    builder.add_edge("end_spec_authoring", END)
+    # spec_bridge 는 순수 투영(Phase 4) — 실패 클래스 없음, designer 로 직진.
+    builder.add_edge("spec_bridge", "designer")
     builder.add_edge("designer", "dispatch")
     for name in (*golden_names, "brute"):
         builder.add_edge("dispatch", name)  # fan-out (parallel superstep)

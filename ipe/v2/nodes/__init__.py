@@ -32,11 +32,7 @@ from .qa_reviewer import (
     make_qa_reviewer_node,
 )
 from .sample_filler import make_sample_filler_node
-from .spec_bridge import (
-    AnthropicSpecBridgeLLM,
-    SpecBridgeLLM,
-    make_spec_bridge_node,
-)
+from .spec_bridge import make_spec_bridge_node
 from .spec_patch import make_spec_patch_node
 from .strategist import (
     AnthropicStrategistLLM,
@@ -51,13 +47,11 @@ __all__ = [
     "AnthropicFormalizerLLM",
     "AnthropicNarrativeLLM",
     "AnthropicQAReviewerLLM",
-    "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
     "NarrativeLLM",
     "QAReviewerLLM",
-    "SpecBridgeLLM",
     "StrategistLLM",
     "make_faithfulness_node",
     "make_formalizer_node",

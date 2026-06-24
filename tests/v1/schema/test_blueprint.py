@@ -179,15 +179,19 @@ def test_io_schema_indexing_rejects_out_of_range() -> None:
 
 
 def test_narrative_hidden_and_direct() -> None:
-    hidden = Narrative(scenario="물류 센터 ...", hidden=True, domain="logistics")
-    direct = Narrative(scenario="다익스트라를 구현하라", hidden=False, domain="algo")
+    hidden = Narrative(
+        title="배송 비용", scenario="물류 센터 ...", hidden=True, domain="logistics"
+    )
+    direct = Narrative(
+        title="최단경로", scenario="다익스트라를 구현하라", hidden=False, domain="algo"
+    )
     assert hidden.hidden is True
     assert direct.hidden is False
 
 
 def test_narrative_requires_scenario() -> None:
     with pytest.raises(ValidationError):
-        Narrative(scenario="", hidden=True, domain="d")
+        Narrative(title="t", scenario="", hidden=True, domain="d")
 
 
 # ---------- NarrativeFaithfulnessReport ----------
@@ -285,8 +289,9 @@ def test_blueprint_formalization_is_frozen_and_forbids_extra() -> None:
 # ---------- NarrativeDraft (M3 step3) ----------
 
 
-def test_narrative_draft_carries_scenario_only() -> None:
-    d = NarrativeDraft(scenario="물류 센터 시나리오 ...")
+def test_narrative_draft_carries_title_and_scenario() -> None:
+    d = NarrativeDraft(title="배송 센터 경로 비용", scenario="물류 센터 시나리오 ...")
+    assert d.title.startswith("배송")  # creative slot 1 (Phase 4 §F21)
     assert d.scenario.startswith("물류")
     # hidden/domain 은 노드가 스탬프 — draft 에는 없음 (Author 가 못 바꿈)
     assert not hasattr(d, "hidden")
@@ -295,12 +300,17 @@ def test_narrative_draft_carries_scenario_only() -> None:
 
 def test_narrative_draft_requires_scenario() -> None:
     with pytest.raises(ValidationError):
-        NarrativeDraft(scenario="")  # min_length=1
+        NarrativeDraft(title="t", scenario="")  # min_length=1
+
+
+def test_narrative_draft_requires_title() -> None:
+    with pytest.raises(ValidationError):
+        NarrativeDraft(title="", scenario="s")  # min_length=1
 
 
 def test_narrative_draft_is_frozen_and_forbids_extra() -> None:
-    d = NarrativeDraft(scenario="s")
+    d = NarrativeDraft(title="t", scenario="s")
     with pytest.raises(ValidationError):
         d.scenario = "other"  # type: ignore[misc]
     with pytest.raises(ValidationError):
-        NarrativeDraft(scenario="s", hidden=True)  # type: ignore[call-arg]
+        NarrativeDraft(title="t", scenario="s", hidden=True)  # type: ignore[call-arg]

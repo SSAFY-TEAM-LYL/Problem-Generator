@@ -16,12 +16,11 @@ import pytest
 from langchain_core.prompts import ChatPromptTemplate
 
 # strategist 는 composition_mode 별 함수(_system_prompt) — 아래 전용 테스트로 분리.
-# generator_designer 는 Phase 3 에서 순수 투영으로 강등(LLM/prompt 삭제) → 제외.
+# generator_designer/spec_bridge 는 순수 투영으로 강등(LLM/prompt 삭제, Phase 3/4) → 제외.
 _PROMPT_MODULES = [
     "ipe.v2.nodes.formalizer",
     "ipe.v2.nodes.narrative",
     "ipe.v2.nodes.faithfulness",
-    "ipe.v2.nodes.spec_bridge",
 ]
 
 

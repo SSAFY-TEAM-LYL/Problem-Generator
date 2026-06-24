@@ -19,15 +19,12 @@ from ipe.v1.schema import (
     BlueprintFormalization,
     ComplexityBound,
     Invariant,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
-    ProblemSpec,
     QAReview,
     QAReviewerKind,
-    SampleTestCase,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -35,7 +32,6 @@ from ipe.v1.schema import (
 from ipe.v2.graph import build_v2_graph
 from ipe.v2.main_v2 import main
 
-_SYNTH_INPUTS = ["i0", "i1", "i2"]
 _ALL_QA_KINDS: tuple[QAReviewerKind, ...] = get_args(QAReviewerKind)
 
 
@@ -60,7 +56,7 @@ class _FixedFormalizerLLM:
 
 class _FixedNarrativeLLM:
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
-        return NarrativeDraft(scenario="물류 시나리오 지문")
+        return NarrativeDraft(title="물류 경로 비용", scenario="물류 시나리오 지문")
 
 
 class _ScriptedFaithfulnessLLM:
@@ -77,22 +73,6 @@ class _ScriptedFaithfulnessLLM:
 
 
 # ---------- synthesis / suite / qa mocks ----------
-
-
-class _SpecBridgeLLM:
-    """expected = f'ans-{input}' 인 spec 저작 — _MarkerRunner 와 일치."""
-
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.DIJKSTRA,
-            title="hidden-problem",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"ans-{i}")
-                for i in _SYNTH_INPUTS
-            ],
-        )
 
 
 class _DesignerLLM:
@@ -153,7 +133,6 @@ def _full_graph(
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_ScriptedFaithfulnessLLM(faithful_seq or [True]),
-        spec_bridge_llm=_SpecBridgeLLM(),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM(c) for c in (golden_codes or ["# G0", "# G1"])],
         brute_llm=_CoderLLM("# B"),

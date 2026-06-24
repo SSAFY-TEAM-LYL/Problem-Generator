@@ -27,6 +27,7 @@ from ipe.v1.schema import (
     QAFinding,
     QAReport,
     QAReview,
+    ReconciliationResult,
     SampleResult,
     SampleTestCase,
     SolutionAttempt,
@@ -135,8 +136,12 @@ def _final_state(final_status: str, *, qa: QAReport | None = None) -> V2State:
                 "qa_report": qa if qa is not None else _qa_pass(),
             }
         )
-    if final_status == "fail_spec_authoring":
-        update["spec_authoring_error"] = "KeyError: boom"
+    if final_status == "fail_synthesis_rejected":
+        update["reconciliation"] = ReconciliationResult(
+            candidate_count=2,
+            all_agree=False,
+            disagreements=("golden≠brute: KeyError on sample 1",),
+        )
     return base.model_copy(update=update)
 
 
@@ -280,13 +285,13 @@ def test_fail_qa_returns_package_with_qa_findings() -> None:
 
 
 def test_other_fail_has_no_package_but_diagnostics() -> None:
-    client = _client(_FakeGraph(_final_state("fail_spec_authoring")))
+    client = _client(_FakeGraph(_final_state("fail_synthesis_rejected")))
     r = _generate(client)
     data = _poll_completed(client, r.json()["job_id"])
 
-    assert data["final_status"] == "fail_spec_authoring"
+    assert data["final_status"] == "fail_synthesis_rejected"
     assert data["package"] is None
-    assert "KeyError" in data["diagnostics"]["detail"]
+    assert "KeyError" in data["diagnostics"]["detail"]  # reconcile disagreement
 
 
 def test_diagnostics_unpacks_verification_failure_evidence() -> None:

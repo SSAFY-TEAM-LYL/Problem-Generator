@@ -64,7 +64,7 @@ def _package_state() -> V2State:
         update={
             "blueprint": blueprint,
             "narrative": Narrative(
-                scenario="물류 시나리오", hidden=True, domain="logistics"
+                title="물류 경로", scenario="물류 시나리오", hidden=True, domain="logistics"
             ),
             "spec": spec,
             "test_suite": suite,

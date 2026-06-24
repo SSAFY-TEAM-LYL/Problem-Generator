@@ -1,10 +1,9 @@
-"""spec_bridge 노드 단위 테스트 (Phase 3 v2 synthesis 통합 step1).
+"""spec_bridge 노드 단위 테스트 (Phase 4 — 순수 투영, LLM 없음).
 
-- ``make_spec_bridge_node``: blueprint + narrative → ProblemSpec (state.spec). LLM 이
-  title/io_contract/constraints/sample_testcases 저작 → 노드가 target_algorithm
-  (=blueprint.reduction_core) + description(=narrative.scenario) 강제 carry-over.
-
-mock LLM 으로 sandbox/네트워크 없이 결정론 검증.
+``make_spec_bridge_node``: blueprint + narrative + io_schema → ProblemSpec (state.spec).
+모든 필드가 IR 의 함수 — target_algorithm=blueprint.reduction_core,
+title=narrative.title, description=narrative.scenario, constraints/io_contract/parser/
+samples=io_schema 코드 투영. LLM 저작 없음(Opus 호출 강등, fail_spec_authoring 제거).
 """
 
 from __future__ import annotations
@@ -12,13 +11,11 @@ from __future__ import annotations
 import pytest
 
 from ipe.v1.schema import (
-    IOContract,
     IOFieldSpec,
     IOSchema,
     Narrative,
     ProblemBlueprint,
     ProblemSpec,
-    SampleTestCase,
     TargetAlgorithm,
 )
 from ipe.v2.generation.input_gen import render_input_format
@@ -41,23 +38,10 @@ def _blueprint() -> ProblemBlueprint:
 
 def _narrative() -> Narrative:
     return Narrative(
-        scenario="물류 센터 최소 이동 비용 지문", hidden=True, domain="logistics"
-    )
-
-
-def _authored_spec() -> ProblemSpec:
-    """LLM 이 저작한 spec — target_algorithm/description 은 일부러 '틀리게' 두어
-    노드의 carry-over override 를 실증."""
-    return ProblemSpec(
-        target_algorithm=TargetAlgorithm.KNAPSACK,  # 틀림 → 노드가 DIJKSTRA 로 override
-        title="배송 경로 최적화",
-        description="LLM 이 쓴 잘못된 설명",  # → 노드가 narrative.scenario 로 override
-        io_contract=IOContract(input_format="N", output_format="정수"),
-        sample_testcases=[
-            SampleTestCase(input_text="3", expected_output="1"),
-            SampleTestCase(input_text="4", expected_output="2"),
-            SampleTestCase(input_text="5", expected_output="3"),
-        ],
+        title="배송 센터 경로 비용",
+        scenario="물류 센터 최소 이동 비용 지문",
+        hidden=True,
+        domain="logistics",
     )
 
 
@@ -71,35 +55,34 @@ def _state(*, with_blueprint: bool = True, with_narrative: bool = True) -> V2Sta
     return base.model_copy(update=update)
 
 
-class _FixedSpecBridgeLLM:
-    def __init__(self, spec: ProblemSpec) -> None:
-        self._spec = spec
-
-    def author(self, state: V2State) -> ProblemSpec:
-        return self._spec
-
-
-def test_spec_bridge_populates_spec_with_authored_fields() -> None:
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+def test_spec_bridge_populates_spec() -> None:
+    out = make_spec_bridge_node()(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
-    # LLM 저작 필드
-    assert spec.title == "배송 경로 최적화"
     assert len(spec.sample_testcases) == 3
 
 
-def test_spec_bridge_generates_samples_deterministically_empties_expected() -> None:
-    """A(샘플-too-short): input_text 도 LLM 을 안 믿고 io_schema 에서 결정적 생성
-    (형식 항상 정합 → 골든 파서 IndexError 차단). expected 는 비우고 하류
-    sample_filler 가 golden 으로 채운다. 같은 run_id → 같은 샘플(재현)."""
-    from ipe.v2.nodes.spec_bridge import _SAMPLE_COUNT, _generate_sample_inputs
-
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+def test_spec_bridge_title_from_narrative() -> None:
+    """title 은 narrative author 저작(creative slot 1) — 순수 carry-over (Phase 4)."""
+    out = make_spec_bridge_node()(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
-    # LLM 의 ['3','4','5'] 무시, io_schema 에서 결정적 생성 (run_id 'run-v2')
+    assert spec.title == "배송 센터 경로 비용"  # narrative.title
+
+
+def test_spec_bridge_generates_samples_deterministically_empties_expected() -> None:
+    """input_text 는 io_schema 에서 결정적 생성(형식 항상 정합 → 골든 파서 IndexError
+    차단). expected 는 비우고 하류 sample_filler 가 golden 으로 채운다. 같은 run_id →
+    같은 샘플(재현)."""
+    from ipe.v2.nodes.spec_bridge import _SAMPLE_COUNT, _generate_sample_inputs
+
+    out = make_spec_bridge_node()(_state())
+
+    spec = out.spec
+    assert isinstance(spec, ProblemSpec)
+    # io_schema 에서 결정적 생성 (run_id 'run-v2')
     expected_inputs = _generate_sample_inputs(_blueprint().io_schema, "run-v2")
     assert [s.input_text for s in spec.sample_testcases] == expected_inputs
     assert len(spec.sample_testcases) == _SAMPLE_COUNT
@@ -109,38 +92,30 @@ def test_spec_bridge_generates_samples_deterministically_empties_expected() -> N
 
 
 def test_spec_bridge_carry_over_target_algorithm_and_description() -> None:
-    """target_algorithm/description 은 blueprint/narrative 가 authoritative (override)."""
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+    """target_algorithm=blueprint.reduction_core, description=narrative.scenario."""
+    out = make_spec_bridge_node()(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
-    # LLM 이 KNAPSACK 을 줬어도 blueprint.reduction_core(DIJKSTRA) 로 강제
-    assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA
-    # LLM 설명 대신 narrative.scenario 로 강제
-    assert spec.description == "물류 센터 최소 이동 비용 지문"
+    assert spec.target_algorithm is TargetAlgorithm.DIJKSTRA  # blueprint.reduction_core
+    assert spec.description == "물류 센터 최소 이동 비용 지문"  # narrative.scenario
 
 
 def test_spec_bridge_freezes_io_contract_to_canonical_render() -> None:
-    """io_contract 는 LLM 산출 무시 — input_format=canonical 렌더, output_format=
-    io_schema carry-over (step6: 직렬화 규약↔골든 파서 정렬, ratio 0.0 해소)."""
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+    """io_contract: input_format=canonical 렌더, output_format=io_schema carry-over
+    (step6: 직렬화 규약↔골든 파서 정렬, ratio 0.0 해소)."""
+    out = make_spec_bridge_node()(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
-    # LLM 이 'N' 이라는 prose 를 줬어도 io_schema 에서 렌더한 canonical 로 교체
-    assert spec.io_contract.input_format == render_input_format(
-        _blueprint().io_schema
-    )
-    # output_format 은 formalizer 가 동결한 io_schema.output_format carry-over
-    assert spec.io_contract.output_format == "단일 정수"
+    assert spec.io_contract.input_format == render_input_format(_blueprint().io_schema)
+    assert spec.io_contract.output_format == "단일 정수"  # io_schema.output_format
 
 
 def test_spec_bridge_freezes_input_parser_code_from_io_schema() -> None:
-    """#2: stdin 파서도 코드로 freeze — io_schema 에서 render_input_parser 로 파생.
-
-    synthesis 코더가 LLM 파서를 직접 쓰지 않고 이 preamble 을 받아 파서 분산(IndexError·
-    중복카운트 오독)을 구조적으로 차단한다."""
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(_state())
+    """stdin 파서도 io_schema 에서 render_input_parser 로 파생 — synthesis 코더가
+    파서 분산(IndexError·중복카운트) 없이 알고리즘만 작성."""
+    out = make_spec_bridge_node()(_state())
 
     spec = out.spec
     assert isinstance(spec, ProblemSpec)
@@ -149,55 +124,21 @@ def test_spec_bridge_freezes_input_parser_code_from_io_schema() -> None:
 
 
 def test_spec_bridge_requires_blueprint() -> None:
-    bare = _state(with_blueprint=False)
-    node = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))
+    node = make_spec_bridge_node()
     with pytest.raises(ValueError, match="blueprint"):
-        node(bare)
+        node(_state(with_blueprint=False))
 
 
 def test_spec_bridge_requires_narrative() -> None:
-    bare = _state(with_narrative=False)
-    node = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))
+    node = make_spec_bridge_node()
     with pytest.raises(ValueError, match="narrative"):
-        node(bare)
+        node(_state(with_narrative=False))
 
 
 def test_spec_bridge_preserves_original_state() -> None:
     state = _state()
-    out = make_spec_bridge_node(_FixedSpecBridgeLLM(_authored_spec()))(state)
+    out = make_spec_bridge_node()(state)
     assert state.spec is None  # 원본 불변
     assert out.spec is not None
     assert out.blueprint is state.blueprint
     assert out.narrative is state.narrative
-
-
-# ---------- LLM 저작 실패 가드 (BS-run3 실측 crash 대응) ----------
-
-
-class _RaisingSpecBridgeLLM:
-    """structured output 5-retry 전멸을 모사 — author() 가 예외를 던진다."""
-
-    def author(self, state: V2State) -> ProblemSpec:
-        msg = "structured output 거부 — io_contract 가 string"
-        raise RuntimeError(msg)
-
-
-def test_spec_bridge_llm_failure_records_error_without_crash() -> None:
-    """LLM 저작 실패(BS-run3: ValidationError 5-retry 전멸이 graph 밖 crash 로
-    전파)가 노드 가드로 회수 — spec=None 유지 + spec_authoring_error 에 예외
-    요약 기록 (silent swallow 금지, 라우터가 fail_spec_authoring 으로 종료)."""
-    out = make_spec_bridge_node(_RaisingSpecBridgeLLM())(_state())
-
-    assert out.spec is None
-    assert out.spec_authoring_error is not None
-    assert "RuntimeError" in out.spec_authoring_error
-    assert "structured output" in out.spec_authoring_error
-
-
-def test_spec_bridge_precondition_violation_still_raises() -> None:
-    """blueprint/narrative 부재는 LLM 신뢰성이 아니라 배선 버그 — 가드 대상이
-    아니며 기존대로 즉시 raise (오류 은폐 방지)."""
-    bare = _state(with_blueprint=False)
-    node = make_spec_bridge_node(_RaisingSpecBridgeLLM())
-    with pytest.raises(ValueError, match="blueprint"):
-        node(bare)

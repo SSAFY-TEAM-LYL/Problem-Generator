@@ -54,21 +54,6 @@ def route_after_validator(state: V2State) -> ValidatorDecision:
     return "end_validation"
 
 
-SpecAuthoringDecision = Literal["designer", "end_spec_authoring"]
-
-
-def route_after_spec_bridge(state: V2State) -> SpecAuthoringDecision:
-    """spec_bridge 후 가드 분기 — LLM 저작 실패 시 valid fail 종료.
-
-    structured output 재시도 전멸이 graph 밖 crash 로 전파되던 것(BS-run3 실측)을
-    ``fail_spec_authoring`` 종료로 회수. ``spec`` populate 시에만 synthesis 진행
-    (실패 사유는 ``state.spec_authoring_error`` 에 보존).
-    """
-    if state.spec is None:
-        return "end_spec_authoring"
-    return "designer"
-
-
 QADecision = Literal["end_success", "routeback", "end_qa"]
 
 

@@ -222,8 +222,6 @@ def _verification_detail(v: VerificationResult) -> list[str]:
 
 def _build_diagnostics(final: V2State) -> dict[str, Any]:
     detail: list[str] = []
-    if final.spec_authoring_error is not None:
-        detail.append(f"spec_authoring_error: {final.spec_authoring_error}")
     rec = final.reconciliation
     if rec is not None and not rec.all_agree:
         detail.extend(f"reconcile: {d}" for d in rec.disagreements)
