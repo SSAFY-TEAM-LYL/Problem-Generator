@@ -12,9 +12,9 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
 기본 흐름 (always)::
 
     START → strategist → formalizer → narrative → faithfulness → route ─┬─ regen→narrative
-              (시드)      (FREEZE)     (렌더)       (round-trip)         │  (faithful=False)
-                                          ▲                              │
-                                          └──────────────────────────────┘
+              (시드)      (FREEZE)     (렌더)       (round-trip)          │  (faithful=False)
+                                          ▲                             │
+                                          └─────────────────────────────┘
                        route(budget 소진) ── end_faithfulness
     faithfulness ─(faithful)→ spec_bridge → designer → dispatch ─┬→ golden_0..K ─┐
                                                                  └→ brute ───────┴→ reconciler
