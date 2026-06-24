@@ -19,6 +19,7 @@ from ipe.v1.schema import (
 from ipe.v2.generation.input_gen import (
     _MAX_ELEMENTS,
     describe_io_field,
+    format_constraint,
     generate_inputs,
     render_constraints,
     render_input_format,
@@ -628,6 +629,42 @@ def test_render_constraints_binds_reference_to_collection_max() -> None:
     for q in ("s", "t"):
         assert cons[q].min_value == 1 and cons[q].max_value == 5000
         assert "크기 이하" in cons[q].description
+
+
+def test_render_constraints_reference_uses_symbolic_max() -> None:
+    """참조 스칼라 constraint 는 정적 [1, V상한] 숫자가 아니라 기호 '≤V' 로 렌더 —
+    input_format 의 '크기 이하' 서술과 정합(graph QA ambiguity reject 근본원인 해소).
+    numeric max_value 는 fallback 으로 보존.
+    """
+    schema = _graph_and_query_schema(2, 5000)
+    cons = {c.name: c for c in render_constraints(schema)}
+    for q in ("s", "t"):
+        assert cons[q].symbolic_max == "V"  # 컬렉션 크기 기호
+        assert cons[q].max_value == 5000  # numeric fallback 보존
+        assert format_constraint(cons[q]) == f"{q} ∈ [1, V]"  # 기호 렌더
+    assert cons["V"].symbolic_max is None  # 컬렉션 크기는 numeric (데이터 의존 아님)
+    assert format_constraint(cons["V"]) == "V ∈ [2, 5000]"
+
+
+def test_render_constraints_reference_symbolic_zero_indexing() -> None:
+    """0-indexed 참조는 '크기 미만' = [0, V-1] 기호 렌더."""
+    schema = IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="grid",
+                type="weighted_edges",
+                size_range=ConstraintRange(name="grid", min_value=2, max_value=100),
+                value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+            ),
+            IOFieldSpec(name="s", type="int", references="grid"),
+        ),
+        output_type="int",
+        output_format="x",
+        indexing=0,
+    )
+    cons = {c.name: c for c in render_constraints(schema)}
+    assert cons["s"].symbolic_max == "V-1"
+    assert format_constraint(cons["s"]) == "s ∈ [0, V-1]"
 
 
 def test_render_constraints_states_fixed_matrix_columns() -> None:

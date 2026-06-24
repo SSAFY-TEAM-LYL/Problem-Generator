@@ -199,6 +199,18 @@ def render_constraints(io_schema: IOSchema) -> list[ConstraintRange]:
                 if ref is not None and ref.size_range is not None
                 else 1
             )
+            # 참조 상한을 컬렉션 크기 **기호**(V/N/R)로 — 정적 [1, V상한] 숫자가 아니라
+            # 데이터 의존 '≤V'. input_format 의 '크기 이하' 서술과 numeric/symbolic 모순이
+            # 나 graph 문제가 QA ambiguity 로 reject 되던 결함의 구조적 해소(실측 근본원인).
+            symbolic = (
+                _SIZE_SYMBOL[ref.type][0]
+                if ref is not None
+                and ref.type in _SIZE_SYMBOL
+                and ref.size_range is not None
+                else None
+            )
+            if symbolic is not None and base == 0:
+                symbolic = f"{symbolic}-1"  # 0-indexed → '크기 미만' = [0, V-1]
             label = "0-indexed" if base == 0 else "1-indexed"
             bound = "크기 미만" if base == 0 else "크기 이하"
             out.append(
@@ -206,6 +218,7 @@ def render_constraints(io_schema: IOSchema) -> list[ConstraintRange]:
                     name=f.name,
                     min_value=base,
                     max_value=base + size_hi - 1,
+                    symbolic_max=symbolic,
                     description=(
                         f"{f.references} 의 {label} 번호 "
                         f"({base} 이상 {f.references} 의 {bound})"
@@ -255,6 +268,18 @@ def render_constraints(io_schema: IOSchema) -> list[ConstraintRange]:
                 )
             )
     return out
+
+
+def format_constraint(c: ConstraintRange) -> str:
+    """ConstraintRange → ``name ∈ [min, upper]`` 텍스트 (constraints 블록 단일 렌더).
+
+    데이터 의존 상한(참조 스칼라 등)은 ``symbolic_max``(예 'V')로 렌더해 input_format 의
+    '크기 이하' 서술과 정합시킨다 — 정적 ``[1, V상한]`` 숫자 vs 기호 '≤V' 모순이 graph
+    문제를 QA ambiguity 로 reject 시키던 결함의 해소. symbolic_max=None 이면 max_value
+    숫자(현행). qa_reviewer·published 패키지가 동일 렌더를 쓰게 한다(드리프트 차단).
+    """
+    upper = c.symbolic_max if c.symbolic_max is not None else str(c.max_value)
+    return f"{c.name} ∈ [{c.min_value}, {upper}]"
 
 
 def render_input_format(io_schema: IOSchema) -> str:

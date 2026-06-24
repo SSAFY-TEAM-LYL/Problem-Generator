@@ -20,6 +20,7 @@ from typing import Any, Protocol
 
 from ipe.v1.schema import QAReview, QAReviewerKind
 
+from ..generation.input_gen import format_constraint
 from ..state import V2State
 
 # QA 는 출하 여부를 정하는 **최종 품질 게이트** — ambiguity/fairness/leakage/difficulty
@@ -102,10 +103,7 @@ def _build_user_prompt(state: V2State) -> str:
             f"output_format: {spec.io_contract.output_format}",
             "constraints: "
             + (
-                ", ".join(
-                    f"{c.name} ∈ [{c.min_value}, {c.max_value}]"
-                    for c in spec.constraints
-                )
+                ", ".join(format_constraint(c) for c in spec.constraints)
                 or "(미명시)"
             ),
             f"samples (앞 2개):\n{samples}",
