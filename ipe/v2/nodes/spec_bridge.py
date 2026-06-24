@@ -38,7 +38,9 @@ from ipe.v1.schema import (
 )
 
 from ..generation.input_gen import (
+    describe_io_field,
     generate_inputs,
+    render_constraints,
     render_input_format,
     seed_from_run_id,
 )
@@ -92,7 +94,13 @@ def _generate_sample_inputs(io_schema: IOSchema, run_id: str) -> list[str]:
     """
     schema = _sample_io_schema(io_schema)
     bounds = tuple(
-        ConstraintRange(name=f.name, min_value=1, max_value=_SAMPLE_SIZE_MAX)
+        ConstraintRange(
+            name=f.name,
+            # size_range.min 존중(상한 sample max 로 클램프) — min=1 강제 시 V≥2 스키마에
+            # V=1 샘플('1 0')이 생성돼 코드파생 constraints(V≥2)와 모순돼 QA reject(실측).
+            min_value=min(f.size_range.min_value, _SAMPLE_SIZE_MAX),
+            max_value=_SAMPLE_SIZE_MAX,
+        )
         for f in schema.inputs
         if f.size_range is not None
     )
@@ -118,7 +126,9 @@ typed ProblemSpec (구조화된 tool call) 로 반환:
 - description: 짧은 placeholder (node 가 narrative 로 대체하니 1줄이면 충분).
 - io_contract: user 메시지의 '입력 형식 (동결)' 텍스트를 input_format 에, io_schema.
   output_format 을 output_format 에 그대로 (node 가 어차피 canonical 로 강제한다).
-- constraints: io_schema 의 size_range/value_range 를 ConstraintRange list 로.
+- constraints: **비워둔다(빈 list)** — node 가 io_schema 에서 코드로 파생해 강제
+  주입한다 (V/N/R 크기·참조 ``1≤s≤V``·고정 열·값 범위). LLM 손저작은 graph V 를 E 로
+  오라벨하거나 V 를 누락해 QA reject 하던 원인이라 제거했다.
 - sample_testcases: 3~5개. **input_text 만 작성하고 expected_output 은 빈 문자열("")**
   로 둔다 — 정답은 하류에서 검증된 golden 실행으로 자동 채운다 (직접 계산 금지:
   LLM 손계산은 토큰 낭비이자 오답[sample_mismatch]의 원인).
@@ -145,14 +155,7 @@ def _build_user_prompt(state: V2State) -> str:
     if bp is None or nar is None:
         msg = "spec_bridge requires state.blueprint and state.narrative"
         raise ValueError(msg)
-    fields = []
-    for f in bp.io_schema.inputs:
-        rng = ""
-        if f.size_range is not None:
-            rng += f" size[{f.size_range.min_value}..{f.size_range.max_value}]"
-        if f.value_range is not None:
-            rng += f" val[{f.value_range.min_value}..{f.value_range.max_value}]"
-        fields.append(f"{f.name}:{f.type}{rng}")
+    fields = [describe_io_field(f) for f in bp.io_schema.inputs]
     invariants = [f"{iv.kind}: {iv.description}" for iv in bp.output_invariants]
     return "\n".join(
         [
@@ -237,6 +240,10 @@ def make_spec_bridge_node(
             update={
                 "target_algorithm": bp.reduction_core,
                 "description": nar.scenario,
+                # constraints 도 코드 파생(freeze) — LLM 손저작이 graph V 를 E 로 오라벨/
+                # V 누락/참조를 [1,2] 리터럴로 적어 QA reject 하던 것을 io_schema 투영으로
+                # 차단(io_contract/parser/생성기와 같은 단일 규약).
+                "constraints": render_constraints(bp.io_schema),
                 # step6: 형식 계약은 코드가 정한다 — 입력 생성기와 동일 규약 렌더
                 "io_contract": IOContract(
                     input_format=render_input_format(bp.io_schema),

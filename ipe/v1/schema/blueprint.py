@@ -47,10 +47,29 @@ class IOFieldSpec(BaseModel):
     name: str = Field(..., min_length=1, description="필드 이름 (예: 'N', 'edges')")
     type: IOFieldType
     size_range: ConstraintRange | None = Field(
-        default=None, description="배열/행렬/그래프의 원소·정점 수 범위"
+        default=None, description="배열/행렬/그래프의 원소·정점·행 수 범위"
     )
     value_range: ConstraintRange | None = Field(
         default=None, description="수치 값 범위 (가중치/원소값 등)"
+    )
+    references: str | None = Field(
+        default=None,
+        description=(
+            "정점/원소/행을 가리키는 **스칼라 int 참조** — 가리키는 collection 필드 "
+            "이름. 설정 시 입력 생성기가 그 필드의 **실제 생성 크기**에 맞춰 "
+            "[1, 실제크기] 1-indexed 로 생성한다(value_range·tier 무시). 정점 질의 "
+            "s/t 가 V 와 무관하게 [1,2](trivial)·V 초과(범위밖 RTE)로 생성되던 결함의 "
+            "구조적 해소 — 차원이 데이터 의존이라 정적 range 로 표현 불가하기 때문."
+        ),
+    )
+    cols_range: ConstraintRange | None = Field(
+        default=None,
+        description=(
+            "int_matrix/grid 의 **열 수(C) 범위** — size_range 는 행 수(N). 레코드가 "
+            "고정 K개 속성을 가지면 [K,K] 로 고정한다. None 이면 열 수도 size_range "
+            "에서(현행). 열 수가 무작위라 행별 속성 수가 흔들려 정해가 IndexError 로 "
+            "깨지던 결함의 해소."
+        ),
     )
     description: str = ""
 

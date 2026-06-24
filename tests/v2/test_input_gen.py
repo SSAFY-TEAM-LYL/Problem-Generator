@@ -17,7 +17,9 @@ from ipe.v1.schema import (
 )
 from ipe.v2.generation.input_gen import (
     _MAX_ELEMENTS,
+    describe_io_field,
     generate_inputs,
+    render_constraints,
     render_input_format,
     seed_from_run_id,
 )
@@ -404,6 +406,253 @@ def test_size_cap_preserves_inputs_under_limit() -> None:
     )
     v, _, _ = _parse_graph(edge.input_text)
     assert v == 5  # 캡 미만 → 상한 그대로
+
+
+# ---------- references: 정점/원소 참조 스칼라 (#1 graph trivial/범위밖 해소) ----------
+
+
+def _graph_and_query_schema(v_lo: int, v_hi: int) -> IOSchema:
+    """[weighted_edges grid, int s→grid, int t→grid] — dijkstra 형상."""
+    return IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="grid",
+                type="weighted_edges",
+                size_range=ConstraintRange(name="grid", min_value=v_lo, max_value=v_hi),
+                value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+            ),
+            IOFieldSpec(name="s", type="int", references="grid"),
+            IOFieldSpec(name="t", type="int", references="grid"),
+        ),
+        output_type="int",
+        output_format="x",
+    )
+
+
+def _query_value(text: str, idx: int) -> int:
+    """flat 토큰에서 graph(V E + E triples) 뒤의 idx 번째 스칼라."""
+    lines = text.split("\n")
+    v, e = (int(x) for x in lines[0].split())
+    return int(lines[1 + e + idx])
+
+
+def test_reference_scalar_stays_within_actual_vertex_count() -> None:
+    schema = _graph_and_query_schema(5, 5)  # V 고정 5
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=20),))
+    for c in generate_inputs(contract, schema, seed=11):
+        v = int(c.input_text.split("\n")[0].split()[0])
+        s, t = _query_value(c.input_text, 0), _query_value(c.input_text, 1)
+        assert 1 <= s <= v and 1 <= t <= v  # 실제 V 이내 (범위밖 RTE 소멸)
+
+
+def test_reference_scalar_not_trivially_pinned_to_two() -> None:
+    """[1,2] trivial 퇴화 회귀 — 큰 V 에서 질의가 2 초과 값을 실제로 가진다."""
+    schema = _graph_and_query_schema(50, 50)
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=30),))
+    seen = {
+        _query_value(c.input_text, 0)
+        for c in generate_inputs(contract, schema, seed=3)
+    }
+    assert max(seen) > 2  # [1,2] 고정이 아니라 전 범위 분산
+
+
+def test_reference_scalar_valid_even_for_degenerate_single_vertex() -> None:
+    """empty bias → V=1 그래프('1 0')라도 s=1 (s>V IndexError '1 0 2 1' 회귀)."""
+    schema = _graph_and_query_schema(1, 9)
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="empty"),),
+    )
+    empty = next(
+        c for c in generate_inputs(contract, schema, seed=0) if c.category == "empty"
+    )
+    lines = empty.input_text.split("\n")
+    assert lines[0] == "1 0"  # V=1, E=0
+    assert lines[1] == "1" and lines[2] == "1"  # s=t=1 (범위밖 아님)
+
+
+def test_reference_into_int_array_bound_to_element_count() -> None:
+    schema = IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="arr",
+                type="int_array",
+                size_range=ConstraintRange(name="arr", min_value=6, max_value=6),
+                value_range=ConstraintRange(name="v", min_value=0, max_value=9),
+            ),
+            IOFieldSpec(name="k", type="int", references="arr"),
+        ),
+        output_type="int",
+        output_format="x",
+    )
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=15),))
+    for c in generate_inputs(contract, schema, seed=2):
+        k = int(c.input_text.split("\n")[-1])
+        assert 1 <= k <= 6  # 원소 개수 이내 1-indexed
+
+
+def test_reference_resolves_regardless_of_field_order() -> None:
+    """참조 스칼라가 collection 보다 **앞**에 선언돼도 실제 크기에 바인딩."""
+    schema = IOSchema(
+        inputs=(
+            IOFieldSpec(name="s", type="int", references="grid"),
+            IOFieldSpec(
+                name="grid",
+                type="weighted_edges",
+                size_range=ConstraintRange(name="grid", min_value=4, max_value=4),
+                value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+            ),
+        ),
+        output_type="int",
+        output_format="x",
+    )
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=12),))
+    for c in generate_inputs(contract, schema, seed=8):
+        lines = c.input_text.split("\n")
+        s = int(lines[0])  # s 가 첫 줄 (선언 순서 유지)
+        v = int(lines[1].split()[0])  # grid 헤더
+        assert v == 4 and 1 <= s <= 4
+
+
+def test_reference_generation_is_deterministic() -> None:
+    schema = _graph_and_query_schema(2, 12)
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=6),))
+    a = generate_inputs(contract, schema, seed=5)
+    b = generate_inputs(contract, schema, seed=5)
+    assert [c.input_text for c in a] == [c.input_text for c in b]
+
+
+def test_dangling_reference_defaults_safely() -> None:
+    """존재하지 않는 필드 참조(LLM 오타)도 crash 없이 안전값(1)."""
+    schema = IOSchema(
+        inputs=(IOFieldSpec(name="s", type="int", references="nope"),),
+        output_type="int",
+        output_format="x",
+    )
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=3),))
+    for c in generate_inputs(contract, schema, seed=1):
+        assert c.input_text == "1"
+
+
+# ---------- cols_range: int_matrix 열 수 고정 (#2 sort IndexError 해소) ----------
+
+
+def test_matrix_cols_range_fixes_column_count() -> None:
+    """레코드 고정 K 속성 — 행 수는 변해도 열 수는 K 고정 (행별 속성 흔들림 소멸)."""
+    field = IOFieldSpec(
+        name="records",
+        type="int_matrix",
+        size_range=ConstraintRange(name="records", min_value=1, max_value=8),
+        value_range=ConstraintRange(name="v", min_value=0, max_value=9),
+        cols_range=ConstraintRange(name="cols", min_value=3, max_value=3),
+    )
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=20),))
+    for c in generate_inputs(contract, _io_schema(field), seed=7):
+        lines = c.input_text.split("\n")
+        r, cols = (int(x) for x in lines[0].split())
+        assert cols == 3  # 열 수 고정
+        for row in lines[1:]:
+            assert len(row.split()) == 3  # 모든 행이 정확히 3 속성
+
+
+def test_matrix_without_cols_range_unchanged() -> None:
+    """cols_range None 이면 현행 동작(열 수도 size_range 에서) — 회귀 안전."""
+    field = IOFieldSpec(
+        name="m",
+        type="int_matrix",
+        size_range=ConstraintRange(name="m", min_value=2, max_value=2),
+        value_range=ConstraintRange(name="v", min_value=0, max_value=0),
+    )
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=4),))
+    for c in generate_inputs(contract, _io_schema(field), seed=6):
+        lines = c.input_text.split("\n")
+        r, cols = (int(x) for x in lines[0].split())
+        assert r == 2 and cols == 2  # size_range 가 행·열 모두 (현행)
+
+
+def test_reference_render_states_relationship() -> None:
+    schema = _graph_and_query_schema(1, 100)
+    text = render_input_format(schema)
+    assert "grid" in text  # 참조 대상 명시
+    assert "1-indexed" in text or "1 이상" in text  # 참조 규약 노출
+
+
+def test_empty_graph_bias_respects_size_min() -> None:
+    """V≥2 스키마면 empty 엣지케이스도 '2 0'(V_min) — '1 0'(V=1)은 제약과 모순."""
+    schema = _io_schema(_weighted_edges_field(3, 50))  # V≥3
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="empty"),),
+    )
+    empty = next(
+        c for c in generate_inputs(contract, schema, seed=0) if c.category == "empty"
+    )
+    assert empty.input_text == "3 0"  # V_min=3, 간선 0 (V=1 아님)
+
+
+def test_empty_tree_bias_respects_size_min() -> None:
+    field = IOFieldSpec(
+        name="tree",
+        type="tree_edges",
+        size_range=ConstraintRange(name="tree", min_value=4, max_value=20),
+    )
+    contract = GeneratorContract(
+        scale_families=(ScaleFamily(name="s", case_count=1),),
+        edge_cases=(EdgeCaseSpec(name="empty"),),
+    )
+    empty = next(
+        c
+        for c in generate_inputs(contract, _io_schema(field), seed=0)
+        if c.category == "empty"
+    )
+    lines = empty.input_text.split("\n")
+    assert int(lines[0]) == 4 and len(lines) == 4  # V_min=4 트리 (V-1=3 간선)
+
+
+# ---------- render_constraints: 코드 파생 제약 (#1 E/V·V누락 해소) ----------
+
+
+def test_render_constraints_includes_vertex_count_and_weight() -> None:
+    schema = _graph_and_query_schema(2, 100000)
+    cons = {c.name: c for c in render_constraints(schema)}
+    assert "V" in cons and (cons["V"].min_value, cons["V"].max_value) == (2, 100000)
+    assert "w" in cons  # 가중치 누락 안 함
+
+
+def test_render_constraints_binds_reference_to_collection_max() -> None:
+    schema = _graph_and_query_schema(2, 5000)
+    cons = {c.name: c for c in render_constraints(schema)}
+    # 참조 스칼라 s/t 는 [1, V_max] 로 (리터럴 [1,2] 아님) + 의존 설명
+    for q in ("s", "t"):
+        assert cons[q].min_value == 1 and cons[q].max_value == 5000
+        assert "크기 이하" in cons[q].description
+
+
+def test_render_constraints_states_fixed_matrix_columns() -> None:
+    field = IOFieldSpec(
+        name="records",
+        type="int_matrix",
+        size_range=ConstraintRange(name="records", min_value=1, max_value=2000),
+        value_range=ConstraintRange(name="v", min_value=0, max_value=1000),
+        cols_range=ConstraintRange(name="cols", min_value=3, max_value=3),
+    )
+    cons = {c.name: c for c in render_constraints(_io_schema(field))}
+    assert "R" in cons and (cons["R"].min_value, cons["R"].max_value) == (1, 2000)
+    assert "C" in cons and (cons["C"].min_value, cons["C"].max_value) == (3, 3)
+
+
+def test_describe_io_field_surfaces_reference_and_cols() -> None:
+    ref = describe_io_field(IOFieldSpec(name="s", type="int", references="grid"))
+    assert "→refs grid" in ref and "1..|grid|" in ref  # 참조 관계 노출
+    mtx = describe_io_field(
+        IOFieldSpec(
+            name="m",
+            type="int_matrix",
+            size_range=ConstraintRange(name="m", min_value=1, max_value=9),
+            cols_range=ConstraintRange(name="c", min_value=2, max_value=2),
+        )
+    )
+    assert "size[1..9]" in mtx and "cols[2..2]" in mtx  # 행수+고정열수 분리 노출
 
 
 # ---------- seed helper ----------

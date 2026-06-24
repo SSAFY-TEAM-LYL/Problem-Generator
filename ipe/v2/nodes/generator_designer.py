@@ -20,6 +20,7 @@ from typing import Protocol
 
 from ipe.v1.schema import GeneratorContract
 
+from ..generation.input_gen import describe_io_field
 from ..state import V2State
 
 GENERATOR_DESIGNER_MODEL = "claude-opus-4-8"
@@ -38,11 +39,19 @@ typed GeneratorContract (구조화된 tool call) 로 반환:
     stress 는 성능·정확성 경계용 더 많이.
   - field_bounds: 이 tier 의 per-field 크기/값 범위 (ConstraintRange list). **io_schema
     의 field 이름을 그대로** 쓰고, io_schema 의 전체 범위를 이 tier 로 **좁힌다**
-    (절대 io_schema 상한을 넘기지 말 것). 비우면 io_schema 기본 범위.
+    (절대 io_schema 상한을 넘기지 말 것). 비우면 io_schema 기본 범위. 참조 스칼라
+    (``→refs X`` 표시)는 생성기가 참조 대상 X 의 실제 크기에 자동 바인딩하므로
+    **field_bounds 를 주지 말 것**(줘도 무시됨). 컬렉션 X 의 size 만 tier 로 좁히면 된다.
   - description: 이 tier 가 무엇을 노리는지 한 줄.
 - edge_cases: 반드시 포함할 경계/퇴화 입력들 (EdgeCaseSpec name + description). 이
   알고리즘에서 자주 틀리는 케이스 (예: 'empty'/'single'/'all_equal'/'disconnected'/
   'max_size'/'negative_zero_weights' 등 — reduction_core 에 맞게).
+  **실현 가능한 종류만** 쓸 것 — 생성기는 크기/밀도 경계만 만든다: empty·single·
+  min/small(하한), max/large/stress(상한), disconnected/unreachable(분리, 그래프).
+  생성기가 **만들 수 없는 구조를 카테고리로 만들지 말 것** — 특히 ``self_loop``
+  (canonical 그래프엔 self-loop 가 없다)·specific 위상은 금지. 이런 카테고리는
+  채점셋 이름으로 남아 형식 계약과 모순돼 QA 가 reject 한다(N=18 실측). 카테고리
+  이름은 **실제 생성되는 입력**을 반영해야 한다.
 - determinism_seed: 보통 비워둔다 (생성기가 선택).
 - notes: 생성 시 주의점 (선택).
 
@@ -60,14 +69,7 @@ def _build_user_prompt(state: V2State) -> str:
     if bp is None:
         msg = "generator_designer requires state.blueprint — formalizer must run first"
         raise ValueError(msg)
-    fields = []
-    for f in bp.io_schema.inputs:
-        rng = ""
-        if f.size_range is not None:
-            rng += f" size[{f.size_range.min_value}..{f.size_range.max_value}]"
-        if f.value_range is not None:
-            rng += f" val[{f.value_range.min_value}..{f.value_range.max_value}]"
-        fields.append(f"{f.name}:{f.type}{rng}")
+    fields = [describe_io_field(f) for f in bp.io_schema.inputs]
     invariants = [f"{iv.kind}: {iv.description}" for iv in bp.output_invariants]
     return "\n".join(
         [
