@@ -68,6 +68,7 @@ from ipe.v1.nodes import (
 from ipe.v1.router import route_after_full_executor, route_after_reconcile
 from ipe.v1.verifiers import get_verifier
 
+from .config import PipelineMode
 from .nodes import (
     FaithfulnessLLM,
     FormalizerLLM,
@@ -88,8 +89,14 @@ from .nodes import (
     make_spec_patch_node,
     make_strategist_node,
     make_suite_assembler_node,
+    make_validator_node,
 )
-from .router import route_after_faithfulness, route_after_qa, route_after_spec_bridge
+from .router import (
+    route_after_faithfulness,
+    route_after_qa,
+    route_after_spec_bridge,
+    route_after_validator,
+)
 from .state import V2FinalStatus, V2State
 
 if TYPE_CHECKING:
@@ -111,6 +118,11 @@ def _bump_iteration(state: V2State) -> V2State:
 def _bump_qa_routebacks(state: V2State) -> dict[str, Any]:
     """qa_routeback 노드 — back-route(B) 예산 1회 소비 (narrative revise 진입 전)."""
     return {"qa_routebacks": state.qa_routebacks + 1}
+
+
+def _bump_validator_routebacks(state: V2State) -> dict[str, Any]:
+    """validator_routeback 노드 — IR 검증 실패 back-route 예산 1회 소비 (formalizer 재진입 전)."""
+    return {"validator_routebacks": state.validator_routebacks + 1}
 
 
 def _composed_aware_executor(
@@ -265,14 +277,43 @@ def build_v2_graph(
     builder.add_node(
         "end_faithfulness", cast(Any, _make_finalizer("fail_faithfulness"))
     )
+    # IR validator (RFC §6) — formalizer freeze 직후 순수코드 well-formedness 게이트.
+    # mode 는 composition_mode 에서 파생(composed=P2, single=P1) — P2 만 composition 검사.
+    validator_mode: PipelineMode = "p2" if composition_mode == "composed" else "p1"
+    builder.add_node(
+        "validator", cast(Any, make_validator_node(mode=validator_mode))
+    )
+    builder.add_node(
+        "validator_routeback", cast(Any, _bump_validator_routebacks)
+    )
+    builder.add_node(
+        "end_validation", cast(Any, _make_finalizer("fail_validation"))
+    )
 
     builder.set_entry_point("strategist")
     builder.add_edge("strategist", "formalizer")
-    builder.add_edge("formalizer", "narrative")
+    builder.add_edge("formalizer", "validator")  # IR 검증 후 narrative
     builder.add_edge("narrative", "faithfulness")
     builder.add_edge("regen", "narrative")  # 재생성 루프
+    builder.add_edge("validator_routeback", "formalizer")  # IR 수선 재진입
     builder.add_edge("end_success", END)
     builder.add_edge("end_faithfulness", END)
+    builder.add_edge("end_validation", END)
+
+    # validator 게이트 — well-formed 면 narrative, ill-posed 면 formalizer back-route
+    # (violations 진단 피드백+예산 바운드) — synthesis 전 싼 기각·수선.
+    builder.add_conditional_edges(
+        "validator",
+        route_after_validator,
+        cast(
+            Any,
+            {
+                "pass": "narrative",
+                "routeback": "validator_routeback",
+                "end_validation": "end_validation",
+            },
+        ),
+    )
 
     # faithful 통과 시 항상 synthesis 로 진행 (Phase 4 — modeling-only terminal 제거).
     builder.add_conditional_edges(

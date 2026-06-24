@@ -125,6 +125,15 @@ def _build_user_prompt(state: V2State) -> str:
     ]
     if strategy.rationale:
         parts.append(f"rationale: {strategy.rationale}")
+    # back-route 재진입 — 직전 IR 검증 위반을 수선 지시로 (첫 pass 는 validation=None
+    # 이라 빈 추가 = 메인 경로 prompt 불변). narrative 의 QA 피드백 패턴과 동일.
+    validation = state.validation
+    if validation is not None and not validation.valid:
+        parts.append("")
+        parts.append(
+            "[직전 IR 검증 실패 — 아래 위반을 해소하도록 io_schema 를 재설계하라]"
+        )
+        parts.extend(f"- {v}" for v in validation.violations)
     return "\n".join(parts)
 
 

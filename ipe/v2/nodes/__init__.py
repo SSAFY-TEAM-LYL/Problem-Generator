@@ -48,6 +48,7 @@ from .strategist import (
     make_strategist_node,
 )
 from .suite_assembler import make_suite_assembler_node
+from .validator import make_validator_node, validate_ir
 
 __all__ = [
     "AnthropicFaithfulnessLLM",
@@ -76,4 +77,6 @@ __all__ = [
     "make_spec_patch_node",
     "make_strategist_node",
     "make_suite_assembler_node",
+    "make_validator_node",
+    "validate_ir",
 ]

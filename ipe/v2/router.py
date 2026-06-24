@@ -31,6 +31,29 @@ def route_after_faithfulness(state: V2State) -> FaithfulnessDecision:
     return "regen"
 
 
+ValidatorDecision = Literal["pass", "routeback", "end_validation"]
+
+
+def route_after_validator(state: V2State) -> ValidatorDecision:
+    """validator 후 게이트 — IR well-formed 면 진행, ill-posed 면 formalizer back-route.
+
+    1. ``validation.valid`` → ``pass`` (narrative 로 진행).
+    2. invalid 이고 back-route 예산 잔여(``validator_routebacks <
+       max_validator_routebacks``) → ``routeback`` — formalizer 재진입 (violations
+       진단 피드백으로 io_schema 수선, narrative/synthesis 비용 절약).
+    3. invalid 이고 예산 소진(또는 report 부재=검사 불능) → ``end_validation``
+       (fail_validation). 모델링 단계의 싼 단발 종료 — full synthesis 낭비 회피.
+    """
+    v = state.validation
+    if v is None:
+        return "end_validation"
+    if v.valid:
+        return "pass"
+    if state.validator_routebacks < state.max_validator_routebacks:
+        return "routeback"
+    return "end_validation"
+
+
 SpecAuthoringDecision = Literal["designer", "end_spec_authoring"]
 
 

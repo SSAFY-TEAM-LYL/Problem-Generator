@@ -191,6 +191,7 @@ def _suite_graph(
     verifier_getter: Any = None,
 ) -> Any:
     return build_v2_graph(
+        composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),

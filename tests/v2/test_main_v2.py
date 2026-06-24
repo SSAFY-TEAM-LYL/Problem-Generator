@@ -168,6 +168,8 @@ def _full_graph(
         kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in _ALL_QA_KINDS
     }
     return build_v2_graph(
+        # 주입 그래프 — 단일-알고리즘 mock 이라 validator p1 (CLI --mode 는 print 만 좌우).
+        composition_mode="single",
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),

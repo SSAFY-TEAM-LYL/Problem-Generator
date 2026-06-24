@@ -151,6 +151,7 @@ def _full_graph(
     spec_bridge_llm: Any | None = None,
 ) -> Any:
     return build_v2_graph(
+        composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
         strategist_llm=(
             strategist_llm if strategist_llm is not None else _FixedStrategistLLM()
         ),

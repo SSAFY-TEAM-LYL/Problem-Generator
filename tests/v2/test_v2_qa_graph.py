@@ -191,6 +191,7 @@ def _qa_graph(
             kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in ALL_KINDS
         }
     return build_v2_graph(
+        composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=narrative_llm if narrative_llm is not None else _FixedNarrativeLLM(),

@@ -256,3 +256,23 @@ class NarrativeFaithfulnessReport(BaseModel):
     distortions: tuple[str, ...] = Field(
         default=(), description="왜곡 근거 (reject 사유, 사람이 읽는 설명)"
     )
+
+
+class IRValidationReport(BaseModel):
+    """IR validator 결과 — formalizer 직후 **순수코드** well-formedness 게이트 (RFC §6).
+
+    세 검증 관계 중 **IR ↔ 자기**(전역에서 well-defined 한 함수 명세인가)를 본다 —
+    faithfulness(narrative↔IR)·reconcile(golden↔IR)와 짝. Tier A 순수코드 검사:
+    완전성(collection size_range)·참조 해소(references→존재하는 sized 컬렉션)·P2
+    well-formedness(composition 비어있지 않음). invalid 면 formalizer 로 back-route
+    (진단 피드백+예산 바운드) — ill-posed IR 를 synthesis(golden×K+brute+suite+QA) 전에
+    싸게 기각·수선한다. realizability/coverage(backbone derive_edge_inputs)는 Phase 5.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    valid: bool = Field(..., description="IR 이 well-formed (모든 Tier A 검사 통과)")
+    violations: tuple[str, ...] = Field(
+        default=(),
+        description="위반 근거 (사람이 읽는 진단 — back-route 시 formalizer 가 수선)",
+    )
