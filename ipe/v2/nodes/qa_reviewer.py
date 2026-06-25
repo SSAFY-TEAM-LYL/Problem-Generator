@@ -20,6 +20,7 @@ from typing import Any, Protocol
 
 from ipe.v1.schema import QAReview, QAReviewerKind
 
+from ..generation.input_gen import format_constraint
 from ..state import V2State
 
 # QA 는 출하 여부를 정하는 **최종 품질 게이트** — ambiguity/fairness/leakage/difficulty
@@ -43,7 +44,9 @@ _CHARTERS: dict[QAReviewerKind, str] = {
     "leakage": (
         "유출 — 이 문제가 유명 문제(온라인 저지/교재의 고전 인스턴스)와 사실상 "
         "동형이라 검색·암기로 바로 풀리는가. 도메인 위장(은닉)이 무력할 정도의 "
-        "표면 유사성을 당신의 지식으로 판단한다 (외부 DB 조회 없음)."
+        "표면 유사성을 당신의 지식으로 판단한다 (외부 DB 조회 없음). 특히 "
+        "**제목·지문이 reduction_core(숨은 알고리즘) 이름이나 해법 자료구조·전략을 "
+        "직접 드러내면** 은닉이 즉시 깨지므로 blocker (예: 제목 '다익스트라 최단경로')."
     ),
     "difficulty": (
         "난이도 일관성 — **명백한 모순만** 본다: 사실상 퇴화해 trivial 하게 풀리거나 "
@@ -102,10 +105,7 @@ def _build_user_prompt(state: V2State) -> str:
             f"output_format: {spec.io_contract.output_format}",
             "constraints: "
             + (
-                ", ".join(
-                    f"{c.name} ∈ [{c.min_value}, {c.max_value}]"
-                    for c in spec.constraints
-                )
+                ", ".join(format_constraint(c) for c in spec.constraints)
                 or "(미명시)"
             ),
             f"samples (앞 2개):\n{samples}",

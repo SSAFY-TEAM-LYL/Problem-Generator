@@ -19,14 +19,11 @@ from ipe.v1.schema import (
     BlueprintFormalization,
     ComplexityBound,
     Invariant,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
     OutputInvariant,
-    ProblemSpec,
-    SampleTestCase,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -74,7 +71,7 @@ class _RecordingNarrativeLLM:
     def render(self, state: V2State, *, hidden: bool) -> NarrativeDraft:
         self.calls += 1
         self.last_hidden = hidden
-        return NarrativeDraft(scenario=f"시나리오 v{self.calls}")
+        return NarrativeDraft(title=f"문제 v{self.calls}", scenario=f"시나리오 v{self.calls}")
 
 
 class _ScriptedFaithfulnessLLM:
@@ -95,23 +92,6 @@ class _ScriptedFaithfulnessLLM:
 # ---------- synthesis mocks (Phase 4 — synthesis 항상 배선) ----------
 # faithful 통과 시 full 파이프라인이 돌아 success 로 종료하도록 최소 합의 mock 을 배선.
 # 모델링 루프 거동(regen/budget) 검증이 목적이라 synthesis 는 결정론 통과만 보장.
-
-_SYNTH_INPUTS = ["i0", "i1", "i2"]
-
-
-class _SpecBridgeLLM:
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.DIJKSTRA,
-            title="t",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"ans-{i}")
-                for i in _SYNTH_INPUTS
-            ],
-        )
-
 
 class _DesignerLLM:
     def generate(self, state: Any) -> AlgorithmDesign:
@@ -161,7 +141,6 @@ def _graph(
         ),
         faithfulness_llm=_ScriptedFaithfulnessLLM(faithful_seq),
         hidden=hidden,
-        spec_bridge_llm=_SpecBridgeLLM(),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM("# G0"), _CoderLLM("# G1")],
         brute_llm=_CoderLLM("# B"),

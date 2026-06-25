@@ -1,10 +1,9 @@
-"""generator_designer 노드 단위 테스트 (Phase 3 M4 step2).
+"""generator_designer 노드 단위 테스트 (Phase 3 — 순수 투영).
 
-- ``make_generator_designer_node``: frozen blueprint → GeneratorContract
-  (state.generator_contract). LLM 이 scale_families/edge_cases 저작 (생성 전략 = 새
-  설계라 carry-over 없음). 입력 *생성* 자체는 결정론(step3).
-
-mock LLM 으로 sandbox/네트워크 없이 결정론 검증.
+``make_generator_designer_node``: frozen blueprint.io_schema → GeneratorContract
+(state.generator_contract). LLM 없음 — ``derive_generator_contract`` 로 결정론 파생.
+계약 내용(scale tiers·실현가능 edge)의 정밀 검증은 ``test_input_gen`` 의 derive 테스트가
+담당; 여기선 노드 계약(블루프린트 요구·state 보존·파생 호출)에 집중한다.
 """
 
 from __future__ import annotations
@@ -13,88 +12,94 @@ import pytest
 
 from ipe.v1.schema import (
     ConstraintRange,
-    EdgeCaseSpec,
     GeneratorContract,
     IOFieldSpec,
     IOSchema,
     ProblemBlueprint,
-    ScaleFamily,
     TargetAlgorithm,
 )
 from ipe.v2.nodes import make_generator_designer_node
 from ipe.v2.state import V2State, initial_v2_state
 
 
-def _blueprint() -> ProblemBlueprint:
+def _blueprint(io_schema: IOSchema) -> ProblemBlueprint:
     return ProblemBlueprint(
         reduction_core=TargetAlgorithm.DIJKSTRA,
         domain="logistics",
-        io_schema=IOSchema(
-            inputs=(
-                IOFieldSpec(
-                    name="N",
-                    type="int",
-                    value_range=ConstraintRange(name="N", min_value=1, max_value=100000),
-                ),
-            ),
-            output_type="int",
-            output_format="단일 정수",
-        ),
+        io_schema=io_schema,
     )
 
 
-def _contract() -> GeneratorContract:
-    return GeneratorContract(
-        scale_families=(
-            ScaleFamily(
-                name="small",
-                case_count=3,
-                field_bounds=(ConstraintRange(name="N", min_value=1, max_value=10),),
+def _scalar_schema() -> IOSchema:
+    return IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="N",
+                type="int",
+                value_range=ConstraintRange(name="N", min_value=1, max_value=100000),
             ),
-            ScaleFamily(name="stress", case_count=2),
         ),
-        edge_cases=(EdgeCaseSpec(name="single", description="N=1"),),
+        output_type="int",
+        output_format="단일 정수",
     )
 
 
-def _state(*, with_blueprint: bool = True) -> V2State:
+def _graph_schema() -> IOSchema:
+    return IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="edges",
+                type="weighted_edges",
+                size_range=ConstraintRange(name="V", min_value=2, max_value=1000),
+                value_range=ConstraintRange(name="w", min_value=1, max_value=100),
+            ),
+        ),
+        output_type="int",
+        output_format="단일 정수",
+    )
+
+
+def _state(io_schema: IOSchema | None) -> V2State:
     base = initial_v2_state("run-v2", TargetAlgorithm.DIJKSTRA)
-    if with_blueprint:
-        return base.model_copy(update={"blueprint": _blueprint()})
-    return base
+    if io_schema is None:
+        return base
+    return base.model_copy(update={"blueprint": _blueprint(io_schema)})
 
 
-class _FixedGeneratorDesignerLLM:
-    def __init__(self, contract: GeneratorContract) -> None:
-        self._contract = contract
-
-    def design(self, state: V2State) -> GeneratorContract:
-        return self._contract
-
-
-def test_generator_designer_populates_contract() -> None:
-    out = make_generator_designer_node(_FixedGeneratorDesignerLLM(_contract()))(
-        _state()
-    )
+def test_generator_designer_projects_scalar_schema() -> None:
+    """sized 필드 없는 스칼라 schema → 단일 nominal family, edge 없음."""
+    out = make_generator_designer_node()(_state(_scalar_schema()))
 
     contract = out.generator_contract
     assert isinstance(contract, GeneratorContract)
-    assert len(contract.scale_families) == 2
-    assert contract.scale_families[0].name == "small"
-    assert len(contract.edge_cases) == 1
-    assert contract.total_planned_cases == 6  # 3 + 2 + 1 edge
+    assert [f.name for f in contract.scale_families] == ["nominal"]
+    assert contract.edge_cases == ()  # 스칼라엔 실현 가능한 퇴화 없음
+
+
+def test_generator_designer_projects_graph_schema() -> None:
+    """graph schema → small/large scale tier + 실현가능 edge(min/max/empty/disconnected)."""
+    out = make_generator_designer_node()(_state(_graph_schema()))
+
+    contract = out.generator_contract
+    assert isinstance(contract, GeneratorContract)
+    assert {f.name for f in contract.scale_families} == {"small", "large"}
+    assert {e.name for e in contract.edge_cases} == {
+        "min_size",
+        "max_size",
+        "empty",
+        "disconnected",
+    }
 
 
 def test_generator_designer_requires_blueprint() -> None:
-    bare = _state(with_blueprint=False)
-    node = make_generator_designer_node(_FixedGeneratorDesignerLLM(_contract()))
+    node = make_generator_designer_node()
     with pytest.raises(ValueError, match="blueprint"):
-        node(bare)
+        node(_state(None))
 
 
 def test_generator_designer_preserves_original_state() -> None:
-    state = _state()
-    out = make_generator_designer_node(_FixedGeneratorDesignerLLM(_contract()))(state)
+    state = _state(_graph_schema())
+    out = make_generator_designer_node()(state)
     assert state.generator_contract is None  # 원본 불변
     assert out.generator_contract is not None
     assert out.blueprint is state.blueprint  # 다른 채널 보존

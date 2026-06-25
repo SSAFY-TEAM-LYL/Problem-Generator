@@ -43,6 +43,7 @@ def _blueprint() -> ProblemBlueprint:
 
 def _narrative(hidden: bool = True) -> Narrative:
     return Narrative(
+        title="배송 센터 경로 비용",
         scenario="물류 센터에서 거점 간 최소 이동 비용을 구하라 ...",
         hidden=hidden,
         domain="logistics",

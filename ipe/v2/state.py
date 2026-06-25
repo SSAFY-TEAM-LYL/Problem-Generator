@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ipe.v1.schema import (
     AlgorithmDesign,
     GeneratorContract,
+    IRValidationReport,
     IterationContext,
     Narrative,
     NarrativeFaithfulnessReport,
@@ -28,6 +29,7 @@ from ipe.v1.schema import (
     QAReport,
     QAReview,
     ReconciliationResult,
+    ResolvedEdgeCase,
     SolutionAttempt,
     SolutionCandidate,
     StrategySeed,
@@ -40,7 +42,7 @@ from .config import MAX_ITERATIONS_DEFAULT
 
 V2FinalStatus = Literal[
     "success",
-    "fail_spec_authoring",  # spec_bridge LLM structured output 실패 (가드 종료)
+    "fail_validation",  # IR validator Tier A 실패 (ill-posed IR, back-route 예산 소진)
     "fail_synthesis_rejected",  # golden/brute 합의 실패
     "fail_verification",  # canonical 이 검증 실패
     "fail_faithfulness",  # narrative round-trip 왜곡 (다른 문제 기술)
@@ -91,22 +93,33 @@ class V2State(BaseModel):
     )
     iteration: int = Field(default=0, ge=0)
     max_iterations: int = Field(default=DEFAULT_MAX_ITERATIONS, gt=0)
+    validator_routebacks: int = Field(
+        default=0, ge=0, description="validator fail→formalizer back-route 소비 횟수"
+    )
+    max_validator_routebacks: int = Field(
+        default=1, ge=0, description="validator back-route 예산 (0=단발 게이트)"
+    )
 
     # blueprint-first 산출물 (단계별 lazily populate)
     strategy: StrategySeed | None = None  # Strategist 시드 (은닉 코어+합성+도메인)
     blueprint: ProblemBlueprint | None = None  # Formalizer FREEZE
+    validation: IRValidationReport | None = None  # IR validator Tier A (RFC §6)
     generator_contract: GeneratorContract | None = None  # M4 입력 생성기 계약 (LLM 저작)
-    spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 파생
-    spec_authoring_error: str | None = Field(
-        default=None,
-        description="spec_bridge LLM 저작 실패 예외 요약 (가드 — crash 대신 fail 종료 근거)",
-    )
+    spec: ProblemSpec | None = None  # blueprint → solver/executor 입력 순수 투영
     design: AlgorithmDesign | None = None  # spec → solver invariants (M2 designer 재사용)
     candidates: Annotated[list[SolutionCandidate], _merge_candidates] = Field(
         default_factory=list, description="golden×K + brute 병렬 후보 (reducer)"
     )
     reconciliation: ReconciliationResult | None = None
     attempt: SolutionAttempt | None = None  # reconciled canonical → executor 입력
+    resolved_edges: tuple[ResolvedEdgeCase, ...] = Field(
+        default=(),
+        description=(
+            "Phase 5a — IR 파생 퇴화 엣지 케이스. v2 reconciler 가 differential 에 더해 "
+            "diff·기록(pending), edge_filler 가 canonical golden 으로 expected 채움 "
+            "(엣지 의미 golden-defined, RFC §3.3)"
+        ),
+    )
     verification: VerificationResult | None = None
     narrative: Narrative | None = None  # late 렌더 (은닉)
     faithfulness: NarrativeFaithfulnessReport | None = None
@@ -151,17 +164,20 @@ def initial_v2_state(
     *,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
     max_qa_routebacks: int = 1,
+    max_validator_routebacks: int = 1,
 ) -> V2State:
     """Factory — 최소 입력으로 V2State 시작 상태 생성.
 
     ``context`` 는 같은 run_id / seed_algorithm 으로 초기화 (해자 IterationContext).
     ``max_qa_routebacks`` 는 QA fail 시 back-route(B) 예산 (0=단발 게이트).
+    ``max_validator_routebacks`` 는 IR validator fail 시 formalizer 재진입 예산.
     """
     return V2State(
         run_id=run_id,
         seed_algorithm=seed_algorithm,
         max_iterations=max_iterations,
         max_qa_routebacks=max_qa_routebacks,
+        max_validator_routebacks=max_validator_routebacks,
         context=IterationContext(
             run_id=run_id,
             target_algorithm=seed_algorithm,

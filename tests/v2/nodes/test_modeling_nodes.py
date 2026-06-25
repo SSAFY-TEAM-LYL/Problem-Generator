@@ -358,31 +358,16 @@ def test_composition_realization_rules_in_prompts() -> None:
     assert "장식" in _NARRATIVE_PROMPT  # 장식적 합성 금지
 
 
-def test_m6_step4_serialization_limit_and_sample_simplicity_rules() -> None:
-    """M6 step4: composed anchor 실측(N=3) 결함 대응 — ① formalizer: 간선 속성은
+def test_m6_step4_serialization_limit_rule() -> None:
+    """M6 step4: composed anchor 실측(N=3) 결함 대응 — formalizer: 간선 속성은
     **단일 가중치 w 뿐**(weighted_edges canonical 직렬화 `u v w` 가 간선 다속성을
-    표현 불가 — run1 의 지문 4필드 vs 형식 3필드 모순 원천 차단) ② spec_bridge:
-    composed 샘플은 **최소 규모** 강제+단계별 검산(composed expected 손계산 난도
-    — run2·3 verification reject 대응). 드리프트 방지."""
+    표현 불가 — run1 의 지문 4필드 vs 형식 3필드 모순 원천 차단). 드리프트 방지.
+    (샘플 최소 규모는 Phase 4 에서 spec_bridge 가 io_schema 결정적 생성으로 강제 —
+    프롬프트 아닌 ``_generate_sample_inputs`` 클램프, spec_bridge 노드 테스트가 커버.)"""
     from ipe.v2.nodes.formalizer import _SYSTEM_PROMPT as _FMT
-    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT as _SPEC
 
     assert "단일 가중치" in _FMT  # 간선 속성 = w 하나
     assert "다속성" in _FMT  # 간선 다속성 설계 금지
-    assert "최소 규모" in _SPEC  # composed 샘플 크기 강제 (input 크기)
-    # "검산"(expected 손계산 단계별 검산)은 제거 — expected 는 golden 이 채움
-
-
-def test_spec_bridge_prompt_warns_schema_structure() -> None:
-    """spec_bridge tool schema 구조 주의 규율 — BS-run3 실측 crash(Opus 가 중첩
-    io_contract 를 string 으로 emit + sample_testcases 누락 + 최상위 extra 필드
-    → 5-retry 전멸) 발생률 저감. 절대 방어는 노드 가드(fail_spec_authoring),
-    이 prompt 는 생성 구조화 측 (strategist enum 명시 선례). 드리프트 방지."""
-    from ipe.v2.nodes.spec_bridge import _SYSTEM_PROMPT
-
-    assert "중첩 객체" in _SYSTEM_PROMPT  # io_contract 는 dict (string 금지)
-    assert "누락 금지" in _SYSTEM_PROMPT  # sample_testcases 필수
-    assert "최상위" in _SYSTEM_PROMPT  # 스키마 밖 top-level 필드 금지
 
 
 def test_boundary_semantics_rules_in_prompts() -> None:

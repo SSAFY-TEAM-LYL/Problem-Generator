@@ -32,7 +32,6 @@ from ipe.v2.state import initial_v2_state
 
 VALID_FINAL_STATUSES = {
     "success",
-    "fail_spec_authoring",  # spec_bridge structured output 전멸 (가드 종료)
     "fail_synthesis_rejected",
     "fail_verification",
     "fail_faithfulness",
@@ -147,6 +146,3 @@ def test_v2_pipeline_single_run_real_llm(mode: str) -> None:
         for d in rec.disagreements:
             print(f"[e2e-{mode}-diag] reconcile: {d}")
 
-    # ---- 진단: spec 저작 실패 가드 발동 (BS-run3 crash 클래스 — 사유 가시화) ----
-    if final.spec_authoring_error is not None:
-        print(f"[e2e-{mode}-diag] spec_authoring_error: {final.spec_authoring_error}")

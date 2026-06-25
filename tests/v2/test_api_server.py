@@ -27,6 +27,8 @@ from ipe.v1.schema import (
     QAFinding,
     QAReport,
     QAReview,
+    ReconciliationResult,
+    ResolvedEdgeCase,
     SampleResult,
     SampleTestCase,
     SolutionAttempt,
@@ -133,10 +135,27 @@ def _final_state(final_status: str, *, qa: QAReport | None = None) -> V2State:
                 "attempt": _attempt(),
                 "test_suite": _suite(),
                 "qa_report": qa if qa is not None else _qa_pass(),
+                # Phase 5a — golden-defined 퇴화 엣지: min 채워짐(노출) / unreachable
+                # pending(미노출, golden 실행 실패분 진단 보존)
+                "resolved_edges": (
+                    ResolvedEdgeCase(
+                        name="min",
+                        input_text="2 1\n1 2 8\n1\n1",
+                        expected_output="0",
+                        rationale="경계",
+                    ),
+                    ResolvedEdgeCase(
+                        name="unreachable", input_text="4 2\n1 2 3\n3 4 5\n1\n3"
+                    ),
+                ),
             }
         )
-    if final_status == "fail_spec_authoring":
-        update["spec_authoring_error"] = "KeyError: boom"
+    if final_status == "fail_synthesis_rejected":
+        update["reconciliation"] = ReconciliationResult(
+            candidate_count=2,
+            all_agree=False,
+            disagreements=("golden≠brute: KeyError on sample 1",),
+        )
     return base.model_copy(update=update)
 
 
@@ -259,6 +278,11 @@ def test_success_package_shape() -> None:
     assert meta["timing"]["max_golden_elapsed_ms"] == 180
     assert meta["qa"]["overall_pass"] is True
     assert meta["generation"]["qa_routebacks"] == 1
+    # Phase 5a — golden-defined 퇴화 엣지 (채워진 것만 노출, pending 제외)
+    edges = meta["resolved_edge_cases"]
+    assert [e["name"] for e in edges] == ["min"]  # unreachable pending 제외
+    assert edges[0]["expected_output"] == "0"
+    assert edges[0]["rationale"] == "경계"
 
 
 def test_fail_qa_returns_package_with_qa_findings() -> None:
@@ -280,13 +304,13 @@ def test_fail_qa_returns_package_with_qa_findings() -> None:
 
 
 def test_other_fail_has_no_package_but_diagnostics() -> None:
-    client = _client(_FakeGraph(_final_state("fail_spec_authoring")))
+    client = _client(_FakeGraph(_final_state("fail_synthesis_rejected")))
     r = _generate(client)
     data = _poll_completed(client, r.json()["job_id"])
 
-    assert data["final_status"] == "fail_spec_authoring"
+    assert data["final_status"] == "fail_synthesis_rejected"
     assert data["package"] is None
-    assert "KeyError" in data["diagnostics"]["detail"]
+    assert "KeyError" in data["diagnostics"]["detail"]  # reconcile disagreement
 
 
 def test_diagnostics_unpacks_verification_failure_evidence() -> None:

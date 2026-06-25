@@ -21,21 +21,14 @@ from ipe.v1.schema import (
     AlgorithmDesign,
     BlueprintFormalization,
     ComplexityBound,
-    ConstraintRange,
-    EdgeCaseSpec,
-    GeneratorContract,
     Invariant,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
-    ProblemSpec,
     QAReport,
     QAReview,
     QAReviewerKind,
-    SampleTestCase,
-    ScaleFamily,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -45,7 +38,6 @@ from ipe.v2.router import route_after_qa
 from ipe.v2.state import V2State, initial_v2_state
 
 ALL_KINDS: tuple[QAReviewerKind, ...] = get_args(QAReviewerKind)
-_SAMPLE_INPUTS = ["i0", "i1", "i2"]
 
 
 # ---------- modeling/synthesis mocks (suite 통합테스트와 동일 골격) ----------
@@ -69,26 +61,12 @@ class _FixedFormalizerLLM:
 
 class _FixedNarrativeLLM:
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
-        return NarrativeDraft(scenario="물류 시나리오")
+        return NarrativeDraft(title="물류 경로", scenario="물류 시나리오")
 
 
 class _FaithfulLLM:
     def assess(self, state: Any) -> NarrativeFaithfulnessReport:
         return NarrativeFaithfulnessReport(faithful=True)
-
-
-class _SpecBridgeLLM:
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.SORT,
-            title="t",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"ans-{i}")
-                for i in _SAMPLE_INPUTS
-            ],
-        )
 
 
 class _DesignerLLM:
@@ -109,23 +87,6 @@ class _CoderLLM:
 
     def generate(self, state: Any) -> SolutionAttempt:
         return SolutionAttempt(code=self._code, iteration=0)
-
-
-class _FixedGeneratorDesignerLLM:
-    def design(self, state: Any) -> GeneratorContract:
-        return GeneratorContract(
-            scale_families=(
-                ScaleFamily(
-                    name="small",
-                    case_count=2,
-                    field_bounds=(
-                        ConstraintRange(name="N", min_value=5, max_value=5),
-                    ),
-                ),
-            ),
-            edge_cases=(EdgeCaseSpec(name="zero"),),
-            determinism_seed=7,
-        )
 
 
 class _EchoRunner:
@@ -173,7 +134,7 @@ class _SequencedNarrativeLLM:
 
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
         self.calls += 1
-        return NarrativeDraft(scenario=f"시나리오 v{self.calls}")
+        return NarrativeDraft(title=f"문제 v{self.calls}", scenario=f"시나리오 v{self.calls}")
 
 
 def _final(raw: Any) -> V2State:
@@ -191,11 +152,11 @@ def _qa_graph(
             kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in ALL_KINDS
         }
     return build_v2_graph(
+        composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=narrative_llm if narrative_llm is not None else _FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
-        spec_bridge_llm=_SpecBridgeLLM(),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM("# G0"), _CoderLLM("# G1")],
         brute_llm=_CoderLLM("# B"),
@@ -203,7 +164,6 @@ def _qa_graph(
         runner=_EchoRunner(),
         verifier_getter=lambda _a: None,
         with_test_suite=True,
-        generator_designer_llm=_FixedGeneratorDesignerLLM(),
         with_qa=True,
         qa_reviewer_llms=qa_llms,
     )

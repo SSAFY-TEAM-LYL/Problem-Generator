@@ -70,7 +70,10 @@ def _build_anchor_block(anchors: list[dict[str, Any]]) -> str:
 
 def _render_constraints(constraints: list[dict[str, Any]]) -> str:
     rendered = [
-        f"{c.get('name', '?')} ∈ [{c.get('min_value')}, {c.get('max_value')}]"
+        # symbolic_max(데이터 의존 상한 'V' 등)가 있으면 그것으로 — qa_reviewer
+        # format_constraint 와 동일 규약(참조 bound 정적숫자 vs 기호 모순 차단).
+        f"{c.get('name', '?')} ∈ "
+        f"[{c.get('min_value')}, {c.get('symbolic_max') or c.get('max_value')}]"
         for c in constraints
     ]
     return ", ".join(rendered) if rendered else "(미명시)"

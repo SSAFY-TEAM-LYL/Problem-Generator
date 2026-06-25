@@ -15,6 +15,7 @@ from ipe.v1.schema import (
     EdgeCaseSpec,
     GeneratedTestCase,
     GeneratorContract,
+    ResolvedEdgeCase,
     ScaleFamily,
     TestSuite,
 )
@@ -156,6 +157,44 @@ def test_generated_case_is_frozen_and_forbids_extra() -> None:
     with pytest.raises(ValidationError):
         GeneratedTestCase(
             input_text="x", category="s", unexpected="nope"  # type: ignore[call-arg]
+        )
+
+
+# ---------- ResolvedEdgeCase (Phase 5a — 엣지 의미 golden-defined) ----------
+
+
+def test_resolved_edge_case_pending_by_default() -> None:
+    # 부트스트랩: 입력은 IR 파생, expected 는 golden 실행 후 채움 (GeneratedTestCase 동형)
+    edge = ResolvedEdgeCase(
+        name="unreachable", input_text="2 0\n1\n2", rationale="분리 그래프"
+    )
+    assert edge.name == "unreachable"
+    assert edge.expected_output is None  # pending
+    assert edge.rationale == "분리 그래프"
+
+
+def test_resolved_edge_case_filled_expected() -> None:
+    edge = ResolvedEdgeCase(
+        name="min", input_text="1 0\n1\n1", expected_output="0"
+    )
+    assert edge.expected_output == "0"
+    assert edge.rationale == ""  # default
+
+
+def test_resolved_edge_case_requires_name_and_input() -> None:
+    with pytest.raises(ValidationError):
+        ResolvedEdgeCase(name="", input_text="x")  # name min_length=1
+    with pytest.raises(ValidationError):
+        ResolvedEdgeCase(name="min", input_text="")  # input_text min_length=1
+
+
+def test_resolved_edge_case_is_frozen_and_forbids_extra() -> None:
+    edge = ResolvedEdgeCase(name="min", input_text="x")
+    with pytest.raises(ValidationError):
+        edge.expected_output = "1"  # type: ignore[misc]
+    with pytest.raises(ValidationError):
+        ResolvedEdgeCase(
+            name="min", input_text="x", unexpected="nope"  # type: ignore[call-arg]
         )
 
 

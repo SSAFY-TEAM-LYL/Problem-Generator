@@ -2,7 +2,8 @@
 
 Marked ``@pytest.mark.e2e`` — CI 의 ``pytest -m "not e2e"`` 는 skip.
 ANTHROPIC_API_KEY env 필요. 1 run ≈ 모델링 4 + spec_bridge + designer + golden×2 +
-brute + generator_designer = approx 10 LLM call + sandbox, cost approx $2.5-3.5.
+brute = approx 9 LLM call + sandbox (generator_designer 는 Phase 3 에서 순수 투영으로
+강등·LLM 호출 0), cost approx $2.5-3.5.
 
 Gate 의도(full e2e 의 확장): **with_test_suite=True 그래프가 실 LLM 통합 경로에서
 crash 없이 end 까지 도달** + 검증 통과 시 채점셋이 assembled 로 populate. seed 는

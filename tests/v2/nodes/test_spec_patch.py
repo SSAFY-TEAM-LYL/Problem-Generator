@@ -1,8 +1,9 @@
 """spec_patch 노드 단위 테스트 (Phase 3 B — QA back-route). LLM 없음.
 
-revise 된 narrative.scenario 를 spec.description 에만 반영 — io_contract(canonical
-동결 렌더)/샘플/title/target_algorithm 은 보존해 verified golden·suite 를 무효화하지
-않는다 (synthesis 재실행 없는 싼 back-route 의 핵심).
+revise 된 narrative 의 scenario→spec.description, title→spec.title 반영 — io_contract
+(canonical 동결 렌더)/샘플/target_algorithm 은 보존해 verified golden·suite 를 무효화하지
+않는다 (synthesis 재실행 없는 싼 back-route 의 핵심). title 도 patch 하는 이유: Phase 4
+에서 ``spec.title = narrative.title`` 로 결합돼 revise 된 title 이 따라가야 한다.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from ipe.v2.state import initial_v2_state
 def _spec() -> ProblemSpec:
     return ProblemSpec(
         target_algorithm=TargetAlgorithm.DIJKSTRA,
-        title="t",
+        title="OLD title",
         description="OLD scenario",
         io_contract=IOContract(input_format="V E ...", output_format="int"),
         sample_testcases=[
@@ -33,21 +34,23 @@ def _spec() -> ProblemSpec:
     )
 
 
-def test_spec_patch_replaces_description_only() -> None:
+def test_spec_patch_replaces_description_and_title() -> None:
     state = initial_v2_state("r", TargetAlgorithm.DIJKSTRA).model_copy(
         update={
             "spec": _spec(),
-            "narrative": Narrative(scenario="NEW scenario", hidden=True, domain="d"),
+            "narrative": Narrative(
+                title="NEW title", scenario="NEW scenario", hidden=True, domain="d"
+            ),
         }
     )
     out = make_spec_patch_node()(state)
     assert isinstance(out, dict)
     patched = out["spec"]
     assert patched.description == "NEW scenario"
+    assert patched.title == "NEW title"  # revise 된 narrative.title 반영 (Phase 4 결합)
     assert state.spec is not None
     assert patched.io_contract == state.spec.io_contract  # canonical 렌더 보존
     assert patched.sample_testcases == state.spec.sample_testcases  # 샘플 보존
-    assert patched.title == "t"
     assert patched.target_algorithm is TargetAlgorithm.DIJKSTRA
 
 

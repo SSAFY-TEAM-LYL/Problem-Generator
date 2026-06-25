@@ -18,20 +18,13 @@ from ipe.v1.schema import (
     AlgorithmDesign,
     BlueprintFormalization,
     ComplexityBound,
-    ConstraintRange,
-    EdgeCaseSpec,
-    GeneratorContract,
     Invariant,
-    IOContract,
     IOFieldSpec,
     IOSchema,
     NarrativeDraft,
     NarrativeFaithfulnessReport,
-    ProblemSpec,
     QAReview,
     QAReviewerKind,
-    SampleTestCase,
-    ScaleFamily,
     SolutionAttempt,
     StrategySeed,
     TargetAlgorithm,
@@ -39,7 +32,6 @@ from ipe.v1.schema import (
 from ipe.v2.graph import build_v2_graph
 from ipe.v2.main_v2 import main
 
-_SYNTH_INPUTS = ["i0", "i1", "i2"]
 _ALL_QA_KINDS: tuple[QAReviewerKind, ...] = get_args(QAReviewerKind)
 
 
@@ -64,7 +56,7 @@ class _FixedFormalizerLLM:
 
 class _FixedNarrativeLLM:
     def render(self, state: Any, *, hidden: bool) -> NarrativeDraft:
-        return NarrativeDraft(scenario="물류 시나리오 지문")
+        return NarrativeDraft(title="물류 경로 비용", scenario="물류 시나리오 지문")
 
 
 class _ScriptedFaithfulnessLLM:
@@ -81,22 +73,6 @@ class _ScriptedFaithfulnessLLM:
 
 
 # ---------- synthesis / suite / qa mocks ----------
-
-
-class _SpecBridgeLLM:
-    """expected = f'ans-{input}' 인 spec 저작 — _MarkerRunner 와 일치."""
-
-    def author(self, state: Any) -> ProblemSpec:
-        return ProblemSpec(
-            target_algorithm=TargetAlgorithm.DIJKSTRA,
-            title="hidden-problem",
-            description="placeholder",
-            io_contract=IOContract(input_format="i", output_format="o"),
-            sample_testcases=[
-                SampleTestCase(input_text=i, expected_output=f"ans-{i}")
-                for i in _SYNTH_INPUTS
-            ],
-        )
 
 
 class _DesignerLLM:
@@ -131,23 +107,6 @@ class _MarkerRunner:
         )
 
 
-class _FixedGeneratorDesignerLLM:
-    def design(self, state: Any) -> GeneratorContract:
-        return GeneratorContract(
-            scale_families=(
-                ScaleFamily(
-                    name="small",
-                    case_count=2,
-                    field_bounds=(
-                        ConstraintRange(name="N", min_value=5, max_value=5),
-                    ),
-                ),
-            ),
-            edge_cases=(EdgeCaseSpec(name="zero"),),
-            determinism_seed=7,
-        )
-
-
 class _QAReviewerLLM:
     def __init__(self, passed: bool, kind: QAReviewerKind) -> None:
         self._passed = passed
@@ -168,11 +127,12 @@ def _full_graph(
         kind: _QAReviewerLLM(kind not in fail_kinds, kind) for kind in _ALL_QA_KINDS
     }
     return build_v2_graph(
+        # 주입 그래프 — 단일-알고리즘 mock 이라 validator p1 (CLI --mode 는 print 만 좌우).
+        composition_mode="single",
         strategist_llm=_FixedStrategistLLM(),
         formalizer_llm=_FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_ScriptedFaithfulnessLLM(faithful_seq or [True]),
-        spec_bridge_llm=_SpecBridgeLLM(),
         designer_llm=_DesignerLLM(),
         golden_llms=[_CoderLLM(c) for c in (golden_codes or ["# G0", "# G1"])],
         brute_llm=_CoderLLM("# B"),
@@ -180,7 +140,6 @@ def _full_graph(
         runner=_MarkerRunner(),
         verifier_getter=lambda _a: None,
         with_test_suite=True,
-        generator_designer_llm=_FixedGeneratorDesignerLLM(),
         with_qa=True,
         qa_reviewer_llms=qa_llms,
     )

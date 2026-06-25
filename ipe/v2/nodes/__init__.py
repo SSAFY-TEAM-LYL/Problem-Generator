@@ -8,6 +8,7 @@ Formalizer(Opus, blueprint freeze).
 
 from __future__ import annotations
 
+from .edge_filler import make_edge_filler_node
 from .faithfulness import (
     AnthropicFaithfulnessLLM,
     FaithfulnessLLM,
@@ -18,11 +19,7 @@ from .formalizer import (
     FormalizerLLM,
     make_formalizer_node,
 )
-from .generator_designer import (
-    AnthropicGeneratorDesignerLLM,
-    GeneratorDesignerLLM,
-    make_generator_designer_node,
-)
+from .generator_designer import make_generator_designer_node
 from .input_generator import make_input_generator_node
 from .narrative import (
     AnthropicNarrativeLLM,
@@ -35,12 +32,9 @@ from .qa_reviewer import (
     QAReviewerLLM,
     make_qa_reviewer_node,
 )
+from .reconciler import make_v2_reconciler_node
 from .sample_filler import make_sample_filler_node
-from .spec_bridge import (
-    AnthropicSpecBridgeLLM,
-    SpecBridgeLLM,
-    make_spec_bridge_node,
-)
+from .spec_bridge import make_spec_bridge_node
 from .spec_patch import make_spec_patch_node
 from .strategist import (
     AnthropicStrategistLLM,
@@ -48,22 +42,20 @@ from .strategist import (
     make_strategist_node,
 )
 from .suite_assembler import make_suite_assembler_node
+from .validator import make_validator_node, validate_ir
 
 __all__ = [
     "AnthropicFaithfulnessLLM",
     "AnthropicFormalizerLLM",
-    "AnthropicGeneratorDesignerLLM",
     "AnthropicNarrativeLLM",
     "AnthropicQAReviewerLLM",
-    "AnthropicSpecBridgeLLM",
     "AnthropicStrategistLLM",
     "FaithfulnessLLM",
     "FormalizerLLM",
-    "GeneratorDesignerLLM",
     "NarrativeLLM",
     "QAReviewerLLM",
-    "SpecBridgeLLM",
     "StrategistLLM",
+    "make_edge_filler_node",
     "make_faithfulness_node",
     "make_formalizer_node",
     "make_generator_designer_node",
@@ -76,4 +68,7 @@ __all__ = [
     "make_spec_patch_node",
     "make_strategist_node",
     "make_suite_assembler_node",
+    "make_v2_reconciler_node",
+    "make_validator_node",
+    "validate_ir",
 ]

@@ -18,14 +18,14 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
                        route(budget 소진) ── end_faithfulness
     faithfulness ─(faithful)→ spec_bridge → designer → dispatch ─┬→ golden_0..K ─┐
                                                                  └→ brute ───────┴→ reconciler
-      reconciler ─(채택)→ synth_bridge → sample_filler → executor ─(pass)→ (suite/qa or success)
-                                       (golden→sample expected)    └(fail)→ end_verification
+      reconciler ─(채택)→ synth_bridge → sample_filler → edge_filler → executor ─(pass)→ suite/qa
+       (sample+퇴화엣지 diff)        (golden→expected 채움)        └(fail)→ end_verification
       reconciler ─(reject)→ end_synthesis_rejected
 
 ``with_test_suite=True`` (M4 풀 채점셋 — verification 통과 후)::
 
     executor → route ─(pass)→ generator_designer → input_generator → suite_assembler
-                                (contract 저작)     (결정론 생성)      (golden→expected)
+                                (contract 투영)     (결정론 생성)      (golden→expected)
 
 ``with_qa=True`` (M5 QA/Critic 병렬 게이트 — with_test_suite 필수, ``qa_kinds`` fan-out)::
 
@@ -41,9 +41,10 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
   ``composition_mode`` 로 single(합성 금지)/composed(합성 필수) 분기.
 - synthesis 는 **v1 M2 노드 재사용**(designer/synthesis_coder/reconciler/synth_bridge/
   executor) — V2State 가 design/attempt 채널 + target_algorithm property 로 적응(step2a).
-  spec_bridge LLM 은 sample **input 만** 저작, expected 는 sample_filler 가 canonical
-  golden 실행으로 채움(사용자 원칙: 정답은 golden 부트스트랩). golden↔brute differential
-  + symbolic verifier 가 검증. fix-loop 없음(단발, M3+ 반복정제 별개).
+  spec_bridge 는 **순수 투영**(Phase 4, LLM 없음) — io_schema 에서 sample **input 만**
+  결정적 생성, expected 는 sample_filler 가 canonical golden 실행으로 채움(사용자 원칙:
+  정답은 golden 부트스트랩). golden↔brute differential + symbolic verifier 가 검증.
+  fix-loop 없음(단발, M3+ 반복정제 별개).
 - test-suite 는 **verification 통과 후에만** — expected 는 검증된 golden 실행으로
   부트스트랩(RFC §7 순환 회피)이라 검증 실패 경로에선 채점셋을 만들지 않는다.
 
@@ -61,21 +62,20 @@ from ipe.sandbox.selector import pick_runner
 from ipe.v1.nodes import (
     make_designer_node,
     make_executor_node,
-    make_reconciler_node,
     make_synth_bridge_node,
     make_synthesis_coder_node,
 )
 from ipe.v1.router import route_after_full_executor, route_after_reconcile
 from ipe.v1.verifiers import get_verifier
 
+from .config import PipelineMode
 from .nodes import (
     FaithfulnessLLM,
     FormalizerLLM,
-    GeneratorDesignerLLM,
     NarrativeLLM,
     QAReviewerLLM,
-    SpecBridgeLLM,
     StrategistLLM,
+    make_edge_filler_node,
     make_faithfulness_node,
     make_formalizer_node,
     make_generator_designer_node,
@@ -88,8 +88,14 @@ from .nodes import (
     make_spec_patch_node,
     make_strategist_node,
     make_suite_assembler_node,
+    make_v2_reconciler_node,
+    make_validator_node,
 )
-from .router import route_after_faithfulness, route_after_qa, route_after_spec_bridge
+from .router import (
+    route_after_faithfulness,
+    route_after_qa,
+    route_after_validator,
+)
 from .state import V2FinalStatus, V2State
 
 if TYPE_CHECKING:
@@ -111,6 +117,11 @@ def _bump_iteration(state: V2State) -> V2State:
 def _bump_qa_routebacks(state: V2State) -> dict[str, Any]:
     """qa_routeback 노드 — back-route(B) 예산 1회 소비 (narrative revise 진입 전)."""
     return {"qa_routebacks": state.qa_routebacks + 1}
+
+
+def _bump_validator_routebacks(state: V2State) -> dict[str, Any]:
+    """validator_routeback 노드 — IR 검증 실패 back-route 예산 1회 소비 (formalizer 재진입 전)."""
+    return {"validator_routebacks": state.validator_routebacks + 1}
 
 
 def _composed_aware_executor(
@@ -210,7 +221,6 @@ def build_v2_graph(
     faithfulness_llm: FaithfulnessLLM | None = None,
     hidden: bool = True,
     composition_mode: CompositionMode = "composed",
-    spec_bridge_llm: SpecBridgeLLM | None = None,
     designer_llm: DesignerLLM | None = None,
     golden_llms: Sequence[CoderLLM] | None = None,
     brute_llm: CoderLLM | None = None,
@@ -219,7 +229,6 @@ def build_v2_graph(
     runner: ExecutorRunner | None = None,
     verifier_getter: VerifierGetter = get_verifier,
     with_test_suite: bool = False,
-    generator_designer_llm: GeneratorDesignerLLM | None = None,
     with_qa: bool = False,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
     qa_kinds: tuple[QAReviewerKind, ...] = (
@@ -265,14 +274,43 @@ def build_v2_graph(
     builder.add_node(
         "end_faithfulness", cast(Any, _make_finalizer("fail_faithfulness"))
     )
+    # IR validator (RFC §6) — formalizer freeze 직후 순수코드 well-formedness 게이트.
+    # mode 는 composition_mode 에서 파생(composed=P2, single=P1) — P2 만 composition 검사.
+    validator_mode: PipelineMode = "p2" if composition_mode == "composed" else "p1"
+    builder.add_node(
+        "validator", cast(Any, make_validator_node(mode=validator_mode))
+    )
+    builder.add_node(
+        "validator_routeback", cast(Any, _bump_validator_routebacks)
+    )
+    builder.add_node(
+        "end_validation", cast(Any, _make_finalizer("fail_validation"))
+    )
 
     builder.set_entry_point("strategist")
     builder.add_edge("strategist", "formalizer")
-    builder.add_edge("formalizer", "narrative")
+    builder.add_edge("formalizer", "validator")  # IR 검증 후 narrative
     builder.add_edge("narrative", "faithfulness")
     builder.add_edge("regen", "narrative")  # 재생성 루프
+    builder.add_edge("validator_routeback", "formalizer")  # IR 수선 재진입
     builder.add_edge("end_success", END)
     builder.add_edge("end_faithfulness", END)
+    builder.add_edge("end_validation", END)
+
+    # validator 게이트 — well-formed 면 narrative, ill-posed 면 formalizer back-route
+    # (violations 진단 피드백+예산 바운드) — synthesis 전 싼 기각·수선.
+    builder.add_conditional_edges(
+        "validator",
+        route_after_validator,
+        cast(
+            Any,
+            {
+                "pass": "narrative",
+                "routeback": "validator_routeback",
+                "end_validation": "end_validation",
+            },
+        ),
+    )
 
     # faithful 통과 시 항상 synthesis 로 진행 (Phase 4 — modeling-only terminal 제거).
     builder.add_conditional_edges(
@@ -290,7 +328,6 @@ def build_v2_graph(
 
     _wire_synthesis(
         builder,
-        spec_bridge_llm=spec_bridge_llm,
         designer_llm=designer_llm,
         golden_llms=golden_llms,
         brute_llm=brute_llm,
@@ -299,7 +336,6 @@ def build_v2_graph(
         runner=runner,
         verifier_getter=verifier_getter,
         with_test_suite=with_test_suite,
-        generator_designer_llm=generator_designer_llm,
         with_qa=with_qa,
         qa_reviewer_llms=qa_reviewer_llms,
         qa_kinds=qa_kinds,
@@ -314,7 +350,6 @@ def build_v2_graph(
 def _wire_synthesis(
     builder: Any,
     *,
-    spec_bridge_llm: SpecBridgeLLM | None,
     designer_llm: DesignerLLM | None,
     golden_llms: Sequence[CoderLLM] | None,
     brute_llm: CoderLLM | None,
@@ -323,7 +358,6 @@ def _wire_synthesis(
     runner: ExecutorRunner | None,
     verifier_getter: VerifierGetter,
     with_test_suite: bool = False,
-    generator_designer_llm: GeneratorDesignerLLM | None = None,
     with_qa: bool = False,
     qa_reviewer_llms: Mapping[QAReviewerKind, QAReviewerLLM] | None = None,
     qa_kinds: tuple[QAReviewerKind, ...] = (
@@ -356,7 +390,7 @@ def _wire_synthesis(
         raise ValueError(msg)
     synth_runner: Any = runner if runner is not None else pick_runner()
 
-    builder.add_node("spec_bridge", cast(Any, make_spec_bridge_node(spec_bridge_llm)))
+    builder.add_node("spec_bridge", cast(Any, make_spec_bridge_node()))
     builder.add_node(
         "designer", cast(Any, _v2_full_node(make_designer_node(designer_llm)))
     )
@@ -387,8 +421,11 @@ def _wire_synthesis(
             ),
         ),
     )
+    # reconciler — v2-native (Phase 5a): sample + backbone 파생 퇴화 엣지로 differential
+    # 확장(RFC §6 Tier B 유일성). 엣지에서 골든 불합의면 그 입력 witness 로 reject.
+    # 이미 dict[str, Any] 반환이라 _v2_partial_node 래퍼 불요.
     builder.add_node(
-        "reconciler", cast(Any, _v2_partial_node(make_reconciler_node(synth_runner)))
+        "reconciler", cast(Any, make_v2_reconciler_node(synth_runner))
     )
     builder.add_node(
         "synth_bridge", cast(Any, _v2_partial_node(make_synth_bridge_node()))
@@ -398,6 +435,12 @@ def _wire_synthesis(
     # executor(검증) 전에 배선.
     builder.add_node(
         "sample_filler", cast(Any, make_sample_filler_node(runner=synth_runner))
+    )
+    # edge_filler — canonical golden 으로 resolved_edges(퇴화 엣지) expected 채움 (Phase
+    # 5a, RFC §3.3). 엣지 의미 golden-defined. sample_filler 와 동형, resolved_edges 빈
+    # (비-graph) 면 no-op. sample_filler 후·executor 전.
+    builder.add_node(
+        "edge_filler", cast(Any, make_edge_filler_node(runner=synth_runner))
     )
     builder.add_node(
         "executor",
@@ -413,20 +456,9 @@ def _wire_synthesis(
         "end_synthesis_rejected",
         cast(Any, _make_finalizer("fail_synthesis_rejected")),
     )
-    builder.add_node(
-        "end_spec_authoring", cast(Any, _make_finalizer("fail_spec_authoring"))
-    )
 
-    # spec 저작 실패(LLM structured output 전멸) 가드 — crash 대신 valid fail 종료
-    builder.add_conditional_edges(
-        "spec_bridge",
-        cast(Any, route_after_spec_bridge),
-        cast(
-            Any,
-            {"designer": "designer", "end_spec_authoring": "end_spec_authoring"},
-        ),
-    )
-    builder.add_edge("end_spec_authoring", END)
+    # spec_bridge 는 순수 투영(Phase 4) — 실패 클래스 없음, designer 로 직진.
+    builder.add_edge("spec_bridge", "designer")
     builder.add_edge("designer", "dispatch")
     for name in (*golden_names, "brute"):
         builder.add_edge("dispatch", name)  # fan-out (parallel superstep)
@@ -443,7 +475,8 @@ def _wire_synthesis(
         ),
     )
     builder.add_edge("synth_bridge", "sample_filler")
-    builder.add_edge("sample_filler", "executor")
+    builder.add_edge("sample_filler", "edge_filler")
+    builder.add_edge("edge_filler", "executor")
     # 검증 통과 시: 채점셋 생성(M4) 또는 즉시 success
     pass_target = "generator_designer" if with_test_suite else "end_success"
     builder.add_conditional_edges(
@@ -461,12 +494,12 @@ def _wire_synthesis(
     builder.add_edge("end_synthesis_rejected", END)
 
     if with_test_suite:
-        # M4: contract 저작(LLM) → 결정론 입력 생성 → verified golden 으로 expected.
-        # 세 노드 모두 v2-native(V2State 주석) — v1 임피던스 래퍼 불요. full-state
-        # 재emit 은 candidates dedup reducer 가 멱등 처리.
+        # M4: contract 투영(순수, Phase 3) → 결정론 입력 생성 → verified golden 으로
+        # expected. 세 노드 모두 v2-native(V2State 주석)·LLM 0 — v1 임피던스 래퍼 불요.
+        # full-state 재emit 은 candidates dedup reducer 가 멱등 처리.
         builder.add_node(
             "generator_designer",
-            cast(Any, make_generator_designer_node(generator_designer_llm)),
+            cast(Any, make_generator_designer_node()),
         )
         builder.add_node("input_generator", cast(Any, make_input_generator_node()))
         builder.add_node(

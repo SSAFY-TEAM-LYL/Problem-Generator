@@ -75,6 +75,68 @@ class GraphShape(BaseModel):
     )
 
 
+class SequenceShape(BaseModel):
+    """int_array 필드의 **구조 사실** — 정렬성/중복 (정렬 잠재 모순 핀).
+
+    ``GraphShape`` 의 수열판 동형. graph 의 ``directed`` 는 같은 바이트(``u v w``)의
+    *의미 해석* 이라 byte-identical 하게 사실만 추가할 수 있었지만, 수열의 ``sortedness``
+    는 *바이트 자체가 다르다*(정렬 배열 ≠ 무정렬 배열). 오늘날 직렬화기는 무정렬·중복허용
+    배열만 방출(값 random)하고 narrative 는 '정렬된 배열' 을 자유 서술할 수 있어
+    binary_search 류는 golden·채점셋과 모순될 수 있다(F8 directedness 와 같은 잠재 모순).
+    sortedness 를 IR 필드로 끌어올리면 직렬화기가 이것을 **READ** 해 실제 정렬 배열을
+    방출하고 narrative/QA/faithfulness 가 prose 규칙이 아니라 **기계 비교** 로 검증한다.
+
+    기본값(``unsorted``·``duplicates_allowed=True``)은 현 직렬화기 동작과 **동일** →
+    sequence_shape 가 None 이거나 이 기본값이면 생성 바이트가 byte-identical. ``sortedness``
+    만은 binary_search 가 정렬 입력을 요구하는데 어디에도 결정 안 돼 있어 **필수** 로 핀한다.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sortedness: Literal["unsorted", "non_decreasing", "strictly_increasing"] = Field(
+        ...,
+        description=(
+            "정렬 보장 (정렬 잠재 모순 핀). unsorted=무정렬(현 직렬화기 상수)/"
+            "non_decreasing=비내림차(중복 가능)/strictly_increasing=순증가(중복 없음). "
+            "binary_search 는 정렬 입력을 요구 → 반드시 명시. 오늘날 어디에도 결정 안 됨."
+        ),
+    )
+    duplicates_allowed: bool = Field(
+        default=True,
+        description=(
+            "같은 값 중복 허용 여부 (현 상수=True). strictly_increasing 이면 "
+            "암묵 False(순증가는 중복 불가)라 무의미."
+        ),
+    )
+
+
+class StringShape(BaseModel):
+    """string 필드의 **구조 사실** — 문자 집합(alphabet) (잠재 모순 핀).
+
+    ``GraphShape``/``SequenceShape`` 의 문자열판 동형. 오늘날 직렬화기는 영소문자 a-z 만
+    방출(``_ALPHABET`` 하드코딩)하고 narrative 는 'DNA 서열(ACGT)'·'이진 문자열(01)' 을
+    자유 서술할 수 있어 golden·채점셋과 모순될 수 있다(sequence ``sortedness`` 와 같은
+    byte-level 잠재 모순 — 문자 자체가 다르다). alphabet 를 IR 필드로 끌어올리면 직렬화기가
+    이것을 **READ** 해 실제 문자 집합을 방출하고 narrative/QA/faithfulness 가 기계 비교로
+    검증한다.
+
+    기본값 ``lowercase`` 는 현 직렬화기 상수(a-z)와 **동일** → string_shape 가 None 이거나
+    lowercase 면 생성 바이트가 byte-identical. ``empty`` 는 ``_STRING_MIN_LEN=1`` 강제로
+    실현 불가(graph connectivity-금지-unreachable 패턴 동형)라 alphabet 만 핀한다.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    alphabet: Literal["lowercase", "uppercase", "binary", "dna", "alphanumeric"] = Field(
+        ...,
+        description=(
+            "문자 집합 (잠재 모순 핀). lowercase=a-z(현 상수)/uppercase=A-Z/binary=01/"
+            "dna=ACGT/alphanumeric=a-zA-Z0-9. 직렬화기가 이 집합에서만 문자를 뽑는다 — "
+            "narrative 의 문자 집합 서술과 정합되도록 반드시 명시."
+        ),
+    )
+
+
 class IOFieldSpec(BaseModel):
     """입력 한 필드의 formal 명세 — 타입 + 크기/값 범위 (prose 아님)."""
 
@@ -114,6 +176,23 @@ class IOFieldSpec(BaseModel):
             "multi_edges/connectivity (F6~F8). None 이면 직렬화기가 현 상수(self-loop "
             "없음·다중간선 허용·연결 비보장)로 동작(byte-identical). 설정 시 직렬화기가 "
             "이것을 READ 하고 narrative/QA 가 기계 비교로 검증한다. 비-graph 필드엔 무의미."
+        ),
+    )
+    sequence_shape: SequenceShape | None = Field(
+        default=None,
+        description=(
+            "int_array 타입의 구조 사실 — sortedness/duplicates_allowed (정렬 잠재 모순 핀). "
+            "None 이면 직렬화기가 현 동작(무정렬·중복허용 random)으로 동작(byte-identical). "
+            "설정 시 직렬화기가 sortedness 를 READ 해 실제 정렬 배열을 방출하고 narrative/QA 가 "
+            "기계 비교로 검증한다. 비-int_array 필드엔 무의미."
+        ),
+    )
+    string_shape: StringShape | None = Field(
+        default=None,
+        description=(
+            "string 타입의 구조 사실 — alphabet(문자 집합) 잠재 모순 핀. None 이면 직렬화기가 "
+            "현 동작(영소문자 a-z)으로 동작(byte-identical). 설정 시 직렬화기가 READ 해 실제 "
+            "문자 집합을 방출하고 narrative/QA 가 기계 비교로 검증. 비-string 필드엔 무관."
         ),
     )
     description: str = ""
@@ -222,22 +301,28 @@ class Narrative(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    title: str = Field(..., min_length=1, description="문제 제목 (narrative author 저작)")
     scenario: str = Field(..., min_length=1, description="현실 시나리오 지문")
     hidden: bool = Field(..., description="알고리즘 은닉 렌더 여부")
     domain: str = Field(..., min_length=1)
 
 
 class NarrativeDraft(BaseModel):
-    """Narrative Author(창작) LLM 의 structured output — scenario 프로즈만 (M3 step3).
+    """Narrative Author(창작) LLM 의 structured output — title + scenario 프로즈 (M3 step3).
 
     Narrative 노드는 이 draft 에 ``hidden``(렌더 모드, graph config)과 ``domain``
     (frozen blueprint 에서 carry-over)을 스탬프해 ``Narrative`` 로 완성한다. LLM 은
-    **시나리오 지문만** 쓰고 hidden/domain 은 노드가 authoritative — Formalizer 의
-    carry-over 규율과 동일 (렌더 모드/도메인을 LLM 이 임의로 못 바꿈).
+    **제목과 시나리오 지문만** 쓰고 hidden/domain 은 노드가 authoritative — Formalizer 의
+    carry-over 규율과 동일 (렌더 모드/도메인을 LLM 이 임의로 못 바꿈). ``title`` 은
+    RFC §F21 의 creative slot — spec_bridge 가 순수 투영으로 강등되며 제목 저작이
+    narrative 로 접혔다 (별도 Opus 호출 제거).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    title: str = Field(
+        ..., min_length=1, description="문제 제목 (도메인 한 줄 — 은닉 모드면 알고리즘명 누설 금지)"
+    )
     scenario: str = Field(..., min_length=1, description="현실 시나리오 지문 (은닉/직접)")
 
 
@@ -255,4 +340,24 @@ class NarrativeFaithfulnessReport(BaseModel):
     )
     distortions: tuple[str, ...] = Field(
         default=(), description="왜곡 근거 (reject 사유, 사람이 읽는 설명)"
+    )
+
+
+class IRValidationReport(BaseModel):
+    """IR validator 결과 — formalizer 직후 **순수코드** well-formedness 게이트 (RFC §6).
+
+    세 검증 관계 중 **IR ↔ 자기**(전역에서 well-defined 한 함수 명세인가)를 본다 —
+    faithfulness(narrative↔IR)·reconcile(golden↔IR)와 짝. Tier A 순수코드 검사:
+    완전성(collection size_range)·참조 해소(references→존재하는 sized 컬렉션)·P2
+    well-formedness(composition 비어있지 않음). invalid 면 formalizer 로 back-route
+    (진단 피드백+예산 바운드) — ill-posed IR 를 synthesis(golden×K+brute+suite+QA) 전에
+    싸게 기각·수선한다. realizability/coverage(backbone derive_edge_inputs)는 Phase 5.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    valid: bool = Field(..., description="IR 이 well-formed (모든 Tier A 검사 통과)")
+    violations: tuple[str, ...] = Field(
+        default=(),
+        description="위반 근거 (사람이 읽는 진단 — back-route 시 formalizer 가 수선)",
     )

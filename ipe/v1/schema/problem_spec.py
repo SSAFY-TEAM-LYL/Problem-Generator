@@ -53,6 +53,15 @@ class ConstraintRange(BaseModel):
     name: str = Field(..., min_length=1, description="변수 이름 (예: 'N', 'V', 'E')")
     min_value: int = Field(..., description="최소값 (inclusive)")
     max_value: int = Field(..., description="최대값 (inclusive)")
+    symbolic_max: str | None = Field(
+        default=None,
+        description=(
+            "데이터 의존 상한의 **기호 표현** (예: 참조 스칼라 origin 의 상한 'V'). "
+            "설정 시 constraints 텍스트가 max_value(정적 최대) 대신 이 기호로 렌더된다 — "
+            "input_format 의 '크기 이하' 서술과 정합(정적 [1, V상한] vs 기호 '≤V' 모순 해소). "
+            "None 이면 max_value 숫자 사용(현행). max_value 는 numeric fallback 으로 보존."
+        ),
+    )
     description: str = ""
 
     @model_validator(mode="after")
