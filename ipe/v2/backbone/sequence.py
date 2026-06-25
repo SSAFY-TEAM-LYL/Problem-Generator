@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..generation.input_gen import derive_degenerate_inputs
 from .base import DegenerateInput
 
 if TYPE_CHECKING:
@@ -75,8 +76,24 @@ class SequenceBackbone:
         return facts
 
     def derive_edge_inputs(self, io_schema: IOSchema) -> tuple[DegenerateInput, ...]:
-        """**Reserved (G1b)** — realizable-degeneracy inputs for the reconcile
-        differential (Tier-B uniqueness). Returns ``()`` until G1b wires the
-        empty / min / value-pattern degeneracies, so today's pipeline is unchanged
-        on the edge-differential axis when this backbone owns a schema."""
-        return ()
+        """**Active (G1b)** — realizable-degeneracy inputs for the reconcile differential
+        (Tier-B uniqueness). Delegates to ``input_gen.derive_degenerate_inputs`` (the
+        serialization-coupled degeneracy enumerator, a documented deferred coupling in
+        ``base.py``) exactly as ``GraphBackbone`` does — for a sequence schema it yields
+        the **min** witness (minimal-size array).
+
+        Note empty and min *coincide* for sequences: ``empty`` is realizable only when
+        ``size_range`` allows 0 (``_empty_safe``), and at that point ``bias="min"`` already
+        emits the 0-length array — so there is no separate ``empty`` degeneracy to add (the
+        realizable-today set is the single ``min`` witness).
+
+        Value-pattern degeneracies (all-equal / sorted-tie / value-boundary) probe answer
+        uniqueness under ties but need the serializer to grow value-pattern biases (RFC
+        G1c); they are intentionally absent until then. Each agreeing golden ⇒ that minimal
+        edge is well-posed and its output operationally defined; diverging ⇒ ill-posed IR
+        with the minimal input as the witness.
+        """
+        return tuple(
+            DegenerateInput(name=name, input_text=text, rationale=rationale)
+            for name, text, rationale in derive_degenerate_inputs(io_schema)
+        )

@@ -5,14 +5,16 @@ structural facts (narrative DATA + faithfulness check), ``resolve_backbone``
 dispatch picking sequence over the ``NullBackbone`` fallback, and the
 ``owns`` realizability gate (int_array field with a *pinned* shape only).
 
-``derive_edge_inputs`` is wired in G1b — here it is the empty tuple (the
-graph-pre-5a shape), so these tests assert only the structural half.
+``derive_edge_inputs`` (G1b) delegates to ``input_gen.derive_degenerate_inputs``
+like ``GraphBackbone``, yielding the realizable ``min`` witness for the reconcile
+differential (Tier-B uniqueness).
 """
 
 from __future__ import annotations
 
 from ipe.v1.schema import ConstraintRange, IOFieldSpec, IOSchema, SequenceShape
 from ipe.v2.backbone import (
+    DegenerateInput,
     NullBackbone,
     SequenceBackbone,
     resolve_backbone,
@@ -107,7 +109,34 @@ def test_resolve_backbone_falls_back_to_null_for_unpinned_array() -> None:
     assert isinstance(resolved, NullBackbone)
 
 
-def test_sequence_derive_edge_inputs_empty_until_g1b() -> None:
-    # G1a ships the structural half only; edge-input derivation is wired in G1b.
+# ---------- derive_edge_inputs: G1b active (realizable "min" witness) ----------
+
+
+def test_sequence_derive_edge_inputs_min_witness() -> None:
+    # G1b delegates to derive_degenerate_inputs → "min" witness for the reconcile
+    # differential (Tier-B uniqueness), mirroring GraphBackbone. Sequences aren't
+    # separable, so no "unreachable"; empty coincides with min (no separate entry).
     field = _shaped_array(SequenceShape(sortedness="unsorted"))
-    assert SequenceBackbone().derive_edge_inputs(_io_schema(field)) == ()
+    edges = SequenceBackbone().derive_edge_inputs(_io_schema(field))
+    assert [e.name for e in edges] == ["min"]
+    assert all(isinstance(e, DegenerateInput) for e in edges)
+    assert all(e.input_text for e in edges)  # 비지 않은 직렬화 입력
+    assert all(e.rationale for e in edges)  # 사람 설명 존재
+
+
+def test_sequence_derive_edge_inputs_deterministic() -> None:
+    # 고정 seed — 같은 io_schema 면 항상 같은 입력 (reconcile diff == edge_filler fill).
+    schema = _io_schema(_shaped_array(SequenceShape(sortedness="non_decreasing")))
+    first = SequenceBackbone().derive_edge_inputs(schema)
+    second = SequenceBackbone().derive_edge_inputs(schema)
+    assert first == second
+
+
+def test_sequence_min_witness_respects_pinned_sortedness() -> None:
+    # min 입력도 직렬화기를 거치므로 sortedness 핀을 존중 (정렬 배열이면 정렬된 min).
+    field = _shaped_array(
+        SequenceShape(sortedness="strictly_increasing"),
+    )
+    edges = SequenceBackbone().derive_edge_inputs(_io_schema(field))
+    vals = [int(x) for x in edges[0].input_text.split("\n")[1].split()]
+    assert vals == sorted(set(vals))  # 순증가·distinct (핀 일관)
