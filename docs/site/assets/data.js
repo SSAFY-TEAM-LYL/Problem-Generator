@@ -8,12 +8,12 @@
 
 window.IPE_DATA = {
   meta: {
-    version: "v1.0 · v2 그래프 완료 · 출하율 수선 + 단일 IR refactor",
+    version: "v1.0 · v2 그래프 + 단일 IR 아키텍처 · 초급 트랙",
     repo: "https://github.com/LsMin124/IPE",
-    mainCommit: "0ceb6b6",          // main HEAD — formalizer graph_shape EMIT + 구조사실 검증 (Phase 1b, F8 폐쇄, #171)
-    devBranch: "— (출하율 수선 + 단일 ProblemIR refactor Phase 0~1b: #169~171)",
-    devCommit: "0ceb6b6",           // 활성 dev 트랙 없음 — #169 출하율 수선 · #170 구조 IR 필드 · #171 graph_shape EMIT 까지 통합
-    updated: "2026-06-24",
+    mainCommit: "c59244a",          // main HEAD — sequence write-side N=0/sortedness 단일소스화 (#175)
+    devBranch: "— (단일-IR 아키텍처 Phase 2~5a + 백본 일반화 G0~G2 + 초급 트랙: #172·#174·#175)",
+    devCommit: "c59244a",           // 활성 dev 트랙 없음 — #172 단일-IR + #174 초급 트랙 + #175 sequence 모순해소 까지 통합
+    updated: "2026-06-26",
 
     // v1.0 측정 anchor (Phase 2c RCA3 final = CHANGES §67, freeze)
     gatePass: "52/57",
@@ -26,7 +26,7 @@ window.IPE_DATA = {
     meanIteration: 1.07,
 
     // 코드 베이스 (측정값)
-    tests: 768,                     // v1 506 + v2 262 collected (0ceb6b6 worktree 실측; #169~171 IR 필드·구조검증으로 +41)
+    tests: 862,                     // v1 515 + v2 347 collected (c59244a worktree 실측; #172 단일-IR Phase 2~5a +#174 초급 +#175 로 +94)
     testsSkipped: 3,
     coverage: 87,                   // ipe/v1 scope, pytest-cov 실측
     coverageScope: "ipe/v1",
@@ -45,7 +45,7 @@ window.IPE_DATA = {
       "이어 전달/연동 국면 — 생성 엔진을 실제 서비스에 연결하는 스택을 구축했다. HTTP delivery layer (FastAPI generate/jobs/healthz, #144~145) + 배치 검증/문제 은행 적재 CLI(#146) + 출하 병목 규율(코더 파서·입력 캡 #147, QA 하류 #148, tie-break #149). 그리고 공유 PostgreSQL 문제 은행 직접 적재(#150)·결정적 파서 주입(#151)·composition/도메인 회전 팔레트로 leakage 구조적 분산(#152·#159)·synthesis 견고화(#153~154)·QA 리뷰어 Sonnet 승급(#156)·문제 은행 관리 콘솔(#155)·QA-fix remediation(#158)·canonical/hybrid ingest(#160). " +
       "별도 트랙 R4 난이도 — 판별 에이전트로 BOJ 티어 calibration 착수(#161), solved.ac 실측 20티어(Bronze~Platinum) anchor 확장(#162). 그리고 #163 에서 3세대(v0/v1/v2) → 2 파이프라인 수렴(레거시 v0 제거 + v1 prune), 이어 P1/P2 2-모드 수렴(#164~165, 계약 v2.0) — 한 모드 노브가 합성·은닉·지문·QA관점 4축을 결정한다(p1=단일·공개·QA 3종 / p2=합성·은닉·QA 4종). " +
       "최근에는 백엔드 연동을 위해 계약을 끌어올렸다 — 알고리즘 분류를 N:M 정션(problem_algorithms, core+composition role)으로 교체(#166, 계약 v3.0), UUID 와 별개의 사람용 공개 검색 번호 problem_number(BOJ식 1000~)를 추가(#167, v3.1), 공유 docs 재정리(#168). prod DB 마이그레이션(0003→0005) 적용 — 25문제 무손실 이행. " +
-      "이어 출하율(ship-rate)을 진단·수선했다 — P1 출하율 N=18 진단(authoring 정합성 결함) → 입력생성·정합성 fix 로 P1 1/9→6/9(11%→67%) 실측 회복(#169, dijkstra 0→2/3·sort 0→3/3), prod 6문제 추가 적재(#1025~1030 → 31문제). 동시에 모순 표면을 구조적으로 붕괴시키는 단일 ProblemIR 아키텍처 RFC 착수 — 단일 IR + 순수 투영 + 검증 슬롯 2개로 노드 간 정합성 검사 O(N²)→O(2)(consistency-by-construction). Phase 0(출하율 수선) → Phase 1 구조 IR 필드 GraphShape/indexing(F6~F8 단일 진실원천, #170) → Phase 1b formalizer graph_shape EMIT + 구조사실 검증(F8 폐쇄, #171). 다음은 IR validator(Phase 2)로 P2 합성 출하 언락·leakage corpus(Q2).",
+      "이어 출하율(ship-rate)을 진단·수선했다 — P1 출하율 N=18 진단(authoring 정합성 결함) → 입력생성·정합성 fix 로 P1 1/9→6/9(11%→67%) 실측 회복(#169), prod 6문제 추가 적재(#1025~1030 → 31문제). 그리고 모순 표면을 구조적으로 붕괴시키는 단일 ProblemIR 아키텍처를 구축했다 — 단일 IR + 순수 투영(generator_designer/spec_bridge→io_schema) + 검증 슬롯 2개로 노드 간 정합성 검사 O(N²)→O(2)(consistency-by-construction). Phase 0(출하율 수선, #169) → Phase 1 구조 IR 필드(#170~171) → Phase 2~5a IR validator + 순수투영 + 백본 일반화 G0~G2(#172) 완결. 이어 초급 문제 트랙(seed-파생 난이도 + difficulty 완화 + abstract orthogonal, #174)·sequence write-side N=0/sortedness 모순 해소(#175). 다음은 출하율 재측정·leakage corpus(Q2).",
   },
 
   // ── 해자 (왜 이 산출물을 신뢰할 수 있는가) ─────────────────────────
@@ -150,11 +150,8 @@ window.IPE_DATA = {
     note: "검증 통과 문제만 적재. #169 출하율 수선으로 P1 6문제 추가(#1025~1030, 모두 P1=단일이라 composition 0). 백엔드 연동 대기 (소비자 0). 번호는 적재 시점 채번, draft 탈락분 결번 허용.",
   },
 
-  // ── 최근 대표 PR (전달/연동 → 출하율 수선 + 단일 IR refactor) ─────────
+  // ── 최근 대표 PR (단일 IR 아키텍처 완성 + 초급 트랙) ─────────
   recentPrs: [
-    { num: 152, title: "composition 회전 팔레트 — fenwick 어휘 붕괴(leakage) 구조적 분산", type: "feat", impact: "유출 방어 — 어휘 다양성 결정적 분산" },
-    { num: 154, title: "canonical 파서 기계적 보장 — fail_synthesis RTE 게이트", type: "feat", impact: "파서 불일치 결정론 차단" },
-    { num: 155, title: "문제 은행 관리 콘솔 — 단일 페이지 CRUD 운영툴", type: "feat", impact: "은행 운영 어드민(ipe.v2.admin)" },
     { num: 156, title: "QA 리뷰어 모델 Haiku→Sonnet 승급", type: "feat", impact: "최종 품질 게이트 정성판단 강화" },
     { num: 157, title: "알고리즘 분류를 problems 1급 컬럼으로 승격 (DB 스키마)", type: "feat", impact: "은행 분류·조회 1급화" },
     { num: 158, title: "QA-fix remediation — fail_qa 지문 수정→재리뷰 (재생성 아님)", type: "feat", impact: "QA 실패 저비용 구제 경로" },
@@ -171,11 +168,14 @@ window.IPE_DATA = {
     { num: 169, title: "authoring 정합성 수선 — P1 출하율 1/9→6/9 + 단일 IR RFC", type: "feat", impact: "P1 출하율 11%→67% 실측 회복" },
     { num: 170, title: "구조 IR 필드 GraphShape/indexing — F6~F8 단일 진실원천 (Phase 1)", type: "feat", impact: "단일 ProblemIR 인프라 — 모순 표면 축소" },
     { num: 171, title: "formalizer graph_shape EMIT + narrative/faithfulness 구조사실 검증 (Phase 1b)", type: "feat", impact: "F8 폐쇄 — 구조 사실 단일화" },
+    { num: 172, title: "단일-IR 아키텍처 (Phase 2~5a) + 백본 일반화 (G0~G2)", type: "feat", impact: "IR validator + 순수투영 — 모순표면 O(N²)→O(2)" },
+    { num: 174, title: "초급 문제 트랙 — seed-파생 난이도 + difficulty 완화 + abstract orthogonal", type: "feat", impact: "쉬운 문제 생성 트랙 확장" },
+    { num: 175, title: "sequence write-side N=0/sortedness 단일소스화 — 'N=0↔constraints' 모순 해소", type: "fix", impact: "sequence 정합성 단일소스" },
   ],
 
   // ── 후속 / 별도 트랙 (추적용) ─────────────────────────────────────
   backlog: [
-    { id: "단일 IR refactor (Phase 2~)", priority: "진행", desc: "단일 ProblemIR + 순수 투영 + 검증 슬롯으로 모순 표면 O(N²)→O(2). Phase 0~1b 완료(#169~171, P1 출하율 11%→67%). 다음 Phase 2 IR validator 로 P2 합성 출하(현 0%) 언락" },
+    { id: "출하율 재측정 (P1/P2)", priority: "후속", desc: "단일-IR 아키텍처(Phase 2~5a, #172) + sequence 모순해소(#175) 후 P1/P2 출하율 N≥3 재측정 — IR validator 가 P2 합성 ill-posed 를 구조적으로 차단" },
     { id: "백엔드 연동 핸드오프",  priority: "대기",     desc: "계약 v3.1(mode p1/p2 + difficulty + algorithm 정션 + problem_number) 공유 repo 송부 — 파이프라인측 정비 완료, 백엔드 소비 대기" },
     { id: "leakage corpus (Q2)",   priority: "품질",     desc: "유출 정량화 코퍼스 — composition/도메인 회전 팔레트 효과를 수치로 측정" },
     { id: "anchor Diamond·Ruby 확장", priority: "조건부", desc: "고난도 문제 생성 시 solved.ac anchor 를 Platinum 위로 확장 (현 Bronze~Platinum 20티어)" },
@@ -216,7 +216,7 @@ window.IPE_DATA = {
     { id: "NFR-3",  title: "보안",        metric: "API key .env / 코드 sandbox / network 차단 (T1)" },
     { id: "NFR-4",  title: "확장성",      metric: "algorithm = cluster verifier 패턴 (1 enum = family), 언어 추가 = 함수 분기" },
     { id: "NFR-5",  title: "유지보수성",  metric: "파일 ≤ 800 lines, mypy --strict 0, ruff 0" },
-    { id: "NFR-6",  title: "테스트 품질", metric: "v1 506 + v2 262 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
+    { id: "NFR-6",  title: "테스트 품질", metric: "v1 515 + v2 347 collected, coverage 87% (ipe/v1), mypy --strict 0 · ruff 0" },
     { id: "NFR-7",  title: "비용 효율",   metric: "1 run 실측 $0.4~0.6 (백엔드 계약 §5), list price 대비 ≈0.4x (Tier+cache)" },
     { id: "NFR-8",  title: "관측성",      metric: "LLM trace + replay + outputs/ 영속화 + LangSmith/OTel 옵션" },
     { id: "NFR-9",  title: "운영성",      metric: "make install / ipe CLI / resume·replay / measurement runner / 관리 콘솔" },
@@ -242,7 +242,7 @@ window.IPE_DATA = {
       { tier: "T3",   name: "POSIX RLIMIT", env: "all OS (fallback)", note: "RLIMIT_AS/CPU/NPROC" },
     ],
     quality: [
-      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 506 + v2 262 collected" },
+      { name: "pytest", version: "≥8.0.0", note: "테스트 러너 — v1 515 + v2 347 collected" },
       { name: "pytest-mock", version: "≥3.12.0", note: "LLM mock" },
       { name: "pytest-cov", version: "≥4.1.0", note: "coverage 87% (ipe/v1)" },
       { name: "ruff", version: "≥0.5.0", note: "lint (E/F/W/I/N/UP/B/C4/SIM) — 0 errors" },
