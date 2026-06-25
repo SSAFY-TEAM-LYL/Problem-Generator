@@ -118,14 +118,38 @@ def test_resolve_backbone_falls_back_to_null_for_unpinned_graph() -> None:
     assert resolved.name == "none"
 
 
-# ---------- derive_edge_inputs: Phase 5 예약 (오늘 () ⇒ byte-identical) ----------
+# ---------- derive_edge_inputs: Phase 5a 활성 (realizable 퇴화 입력) ----------
 
 
-def test_graph_derive_edge_inputs_reserved_empty_today() -> None:
+def test_graph_derive_edge_inputs_min_and_unreachable_for_separable() -> None:
+    # maybe_disconnected weighted_edges → min(경계) + unreachable(분리) 둘 다 실현가능
     field = _shaped_edges(
         GraphShape(directed=False, connectivity="maybe_disconnected")
     )
-    assert GraphBackbone().derive_edge_inputs(_io_schema(field)) == ()
+    edges = GraphBackbone().derive_edge_inputs(_io_schema(field))
+    names = [e.name for e in edges]
+    assert names == ["min", "unreachable"]
+    assert all(isinstance(e, DegenerateInput) for e in edges)
+    assert all(e.input_text for e in edges)  # 비지 않은 직렬화 입력
+    assert all(e.rationale for e in edges)  # 사람 설명 존재
+
+
+def test_graph_derive_edge_inputs_min_only_for_connected() -> None:
+    # connectivity=connected → 분리 불가 → unreachable 미실현, min 만
+    field = _shaped_edges(GraphShape(directed=True, connectivity="connected"))
+    edges = GraphBackbone().derive_edge_inputs(_io_schema(field))
+    assert [e.name for e in edges] == ["min"]
+
+
+def test_graph_derive_edge_inputs_deterministic() -> None:
+    # 고정 seed — 같은 io_schema 면 항상 같은 입력 (reconcile diff == edge_filler fill 보장)
+    field = _shaped_edges(
+        GraphShape(directed=False, connectivity="maybe_disconnected")
+    )
+    schema = _io_schema(field)
+    first = GraphBackbone().derive_edge_inputs(schema)
+    second = GraphBackbone().derive_edge_inputs(schema)
+    assert first == second
 
 
 def test_degenerate_input_is_constructible() -> None:

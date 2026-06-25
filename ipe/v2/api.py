@@ -144,6 +144,20 @@ def _build_package(
             "golden_code": attempt.code,
             "language": attempt.language,
         }
+    # resolved edge cases — golden-defined 퇴화 의미 (RFC §3.3, Phase 5a). reconcile 가
+    # 유일성 검증한 퇴화 입력에 canonical golden 을 실행해 채운 (input, expected). golden
+    # 정의 완료분(expected 채워진 것)만 노출 — 비-graph 면 빈 list. 내부용(test_suite·
+    # solution 과 동급, 응시자 비노출). 백엔드 additive — 무시해도 안전.
+    resolved_edge_block = [
+        {
+            "name": e.name,
+            "input_text": e.input_text,
+            "expected_output": e.expected_output,
+            "rationale": e.rationale,
+        }
+        for e in final.resolved_edges
+        if e.expected_output is not None
+    ]
     return {
         "problem": {
             "title": spec.title,
@@ -173,6 +187,7 @@ def _build_package(
             "domain": bp.domain if bp is not None else "",
             "golden_language": GOLDEN_LANGUAGE,
             "qa": qa_block,
+            "resolved_edge_cases": resolved_edge_block,
             "verification": (
                 {"overall_pass": final.verification.overall_pass}
                 if final.verification is not None

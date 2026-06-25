@@ -459,6 +459,54 @@ def derive_generator_contract(io_schema: IOSchema) -> GeneratorContract:
     )
 
 
+# ---------- 퇴화 입력 파생 (Phase 5a — reconcile differential 의 Tier B 유일성 probe) ----------
+# RFC §3.3/§6: io_schema 의 realizable-degeneracy 집합을 결정론 직렬화해 reconcile
+# differential 에 더한다. 골든들이 퇴화 입력에 합의 → 그 엣지 well-posed·출력 operational
+# 정의; 불합의 → 그 입력이 witness 인 ill-posed IR. 채점셋(generate_inputs)과 달리 **고정
+# seed**(canonical — IR 만의 함수, run 무관 재현). graph_shape 핀된 graph 만 backbone 이
+# 호출하므로(비-graph=NullBackbone) 실질 적용 대상은 graph 문제다.
+_EDGE_SEED = 0
+
+
+def derive_degenerate_inputs(io_schema: IOSchema) -> tuple[tuple[str, str, str], ...]:
+    """io_schema → 실현가능 퇴화 입력 ``(name, input_text, rationale)`` 들 (순수 투영).
+
+    - **min**: sized 필드가 있으면 — 최소 규모 입력(질의 참조 스칼라는 ``min`` bias 로
+      모두 하한=동일 정점에 수렴 → s==t 동치 케이스도 겸함). 경계 출력 의미를 probe.
+    - **unreachable**: 분리가능 graph(``maybe_disconnected`` weighted_edges)면 — 두
+      컴포넌트 분리 그래프. 도달 불가 가능성의 출력 의미를 probe (graph 의 핵심 ill-posed
+      축: 도달 불가 시 답이 유일하게 정의되는가).
+
+    각 입력은 ``_serialize_inputs`` 로 **고정 seed** 직렬화 — 같은 io_schema 면 항상 같은
+    입력이라 (reconcile 가 diff 한 입력) == (edge_filler 가 golden 으로 채우는 입력). 직렬화는
+    채점셋 생성기와 같은 규약을 쓰므로 골든 파서와 정합(format-valid, 의미만 퇴화). 퇴화가
+    없으면(스칼라 only schema 등) 빈 튜플.
+    """
+    sized = [f for f in io_schema.inputs if _is_sized(f)]
+    out: list[tuple[str, str, str]] = []
+    if sized:
+        text = _serialize_inputs(io_schema, {}, random.Random(_EDGE_SEED), bias="min")
+        out.append(
+            (
+                "min",
+                text,
+                "최소 규모 입력(질의 정점 하한·동일 경계) — 경계 출력 의미",
+            )
+        )
+    if any(_separable_graph(f) for f in io_schema.inputs):
+        text = _serialize_inputs(
+            io_schema, {}, random.Random(_EDGE_SEED), bias="disconnected"
+        )
+        out.append(
+            (
+                "unreachable",
+                text,
+                "분리 그래프(컴포넌트 2개) — 도달 불가 가능성의 출력 의미",
+            )
+        )
+    return tuple(out)
+
+
 def generate_inputs(
     contract: GeneratorContract,
     io_schema: IOSchema,

@@ -23,6 +23,7 @@ from ipe.v1.schema import (
     BlueprintFormalization,
     ComplexityBound,
     ConstraintRange,
+    GraphShape,
     Invariant,
     InvariantViolation,
     IOFieldSpec,
@@ -59,6 +60,33 @@ class _FixedFormalizerLLM:
                         type="weighted_edges",
                         size_range=ConstraintRange(name="V", min_value=3, max_value=8),
                         value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+                    ),
+                ),
+                output_type="int",
+                output_format="단일 정수",
+            )
+        )
+
+
+class _ShapedFormalizerLLM:
+    """graph_shape 핀된 weighted_edges — GraphBackbone 이 owns → Phase 5a 퇴화 엣지 파생.
+
+    `_FixedFormalizerLLM` 과 동일하되 graph_shape(maybe_disconnected) 를 핀해 reconciler 가
+    min/unreachable 퇴화 입력을 differential 에 더하고 edge_filler 가 채우게 한다.
+    """
+
+    def formalize(self, state: Any) -> BlueprintFormalization:
+        return BlueprintFormalization(
+            io_schema=IOSchema(
+                inputs=(
+                    IOFieldSpec(
+                        name="edges",
+                        type="weighted_edges",
+                        size_range=ConstraintRange(name="V", min_value=3, max_value=8),
+                        value_range=ConstraintRange(name="w", min_value=1, max_value=9),
+                        graph_shape=GraphShape(
+                            directed=False, connectivity="maybe_disconnected"
+                        ),
                     ),
                 ),
                 output_type="int",
@@ -140,11 +168,14 @@ def _suite_graph(
     *,
     runner_fn: Callable[[str, str], tuple[str, str]] = _echo_answer,
     verifier_getter: Any = None,
+    formalizer_llm: Any = None,
 ) -> Any:
     return build_v2_graph(
         composition_mode="single",  # 단일-알고리즘 flow 테스트 → validator p1
         strategist_llm=_FixedStrategistLLM(),
-        formalizer_llm=_FixedFormalizerLLM(),
+        formalizer_llm=formalizer_llm
+        if formalizer_llm is not None
+        else _FixedFormalizerLLM(),
         narrative_llm=_FixedNarrativeLLM(),
         faithfulness_llm=_FaithfulLLM(),
         designer_llm=_DesignerLLM(),
@@ -217,6 +248,42 @@ def test_suite_pipeline_success() -> None:
     }
     # echo runner → expected = ans-{input} (golden 부트스트랩 정합)
     assert all(c.expected_output == f"ans-{c.input_text}" for c in suite.cases)
+
+
+# ---------- 1b. Phase 5a: graph_shape 핀 → 퇴화 엣지 파생·채움 (실제 그래프) ----------
+
+
+def test_resolved_edges_flow_through_real_graph() -> None:
+    """graph_shape 핀 schema 면 reconciler 가 min/unreachable 퇴화 입력을 differential 에
+    더하고(골든 합의 → canonical 채택), edge_filler 가 canonical golden 으로 expected 를
+    채운다. 실제 컴파일 그래프로 reconciler→sample_filler→edge_filler→executor→suite 전
+    경로에서 resolved_edges 가 **clobber 없이 filled 로 보존**됨을 경험적으로 검증."""
+    graph = _suite_graph(formalizer_llm=_ShapedFormalizerLLM())
+    final = _run(graph, "run-edge-sem")
+
+    assert final.final_status == "success"
+    edges = final.resolved_edges
+    assert [e.name for e in edges] == ["min", "unreachable"]  # IR 파생됨
+    # edge_filler 가 채움 — clobber 없음(executor/suite full-state 재emit 후에도 filled)
+    assert all(e.expected_output is not None for e in edges)
+    # edge_filler 의 full-state 반환(sample_filler twin)이 candidates reducer 를 멱등
+    # 재실행해도 fan-out 폭(3)에 고정 — 더블 누적 없음(frozen 후보 값동등, M2 step4)
+    assert len(final.candidates) == 3
+    assert all(e.expected_output.startswith("ans-") for e in edges)  # echo golden 출력
+    # 패키지 meta 표면화 (additive, 채워진 것만)
+    from ipe.v2.api import _build_package
+
+    pkg = _build_package(final, mode="p1", elapsed_s=1.0)
+    assert pkg is not None
+    surfaced = pkg["meta"]["resolved_edge_cases"]
+    assert {e["name"] for e in surfaced} == {"min", "unreachable"}
+
+
+def test_non_graph_schema_derives_no_edges() -> None:
+    """비-graph(shape 미핀 = NullBackbone) → 퇴화 엣지 0 (blast radius 한정 확증)."""
+    final = _run(_suite_graph(), "run-no-edge")  # 기본 _FixedFormalizerLLM = shape 미핀
+    assert final.final_status == "success"
+    assert final.resolved_edges == ()
 
 
 # ---------- 2. verification fail → suite 미진입 ----------

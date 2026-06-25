@@ -35,6 +35,7 @@ from .test_suite import (
     EdgeCaseSpec,
     GeneratedTestCase,
     GeneratorContract,
+    ResolvedEdgeCase,
     ScaleFamily,
     TestSuite,
 )
@@ -83,6 +84,7 @@ __all__ = [
     "QAReviewerKind",
     "QASeverity",
     "ReconciliationResult",
+    "ResolvedEdgeCase",
     "SampleResult",
     "SampleTestCase",
     "ScaleFamily",

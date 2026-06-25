@@ -18,6 +18,7 @@ from ipe.v1.schema import (
 )
 from ipe.v2.generation.input_gen import (
     _MAX_ELEMENTS,
+    derive_degenerate_inputs,
     derive_edge_cases,
     derive_generator_contract,
     derive_scale_families,
@@ -1057,3 +1058,62 @@ def test_derive_empty_suppressed_when_any_sized_field_unsafe() -> None:
     names = {e.name for e in derive_edge_cases(schema)}
     assert "empty" not in names  # array(min=1) 가 empty 를 억제
     assert {"min_size", "max_size", "disconnected"} <= names  # 나머지는 여전히 방출
+
+
+# ---------- derive_degenerate_inputs (Phase 5a — reconcile Tier B 퇴화 probe) ----------
+
+
+def test_derive_degenerate_inputs_min_and_unreachable_for_graph() -> None:
+    # dijkstra 형상(분리가능 graph) → min(경계) + unreachable(분리) 둘 다 실현
+    schema = _graph_and_query_schema(2, 10)
+    degens = derive_degenerate_inputs(schema)
+    assert [name for name, _text, _rat in degens] == ["min", "unreachable"]
+    assert all(text for _n, text, _r in degens)  # 비지 않은 직렬화
+    assert all(rat for _n, _t, rat in degens)  # 사람 설명
+
+
+def test_derive_degenerate_inputs_min_folds_source_equals_target() -> None:
+    # min bias → 질의 참조 스칼라가 모두 하한으로 수렴 → s==t (source_equals_target 겸함)
+    schema = _graph_and_query_schema(2, 10)
+    min_text = derive_degenerate_inputs(schema)[0][1]
+    assert _query_value(min_text, 0) == _query_value(min_text, 1)  # s == t
+
+
+def test_derive_degenerate_inputs_unreachable_separates_query_vertices() -> None:
+    # unreachable 입력은 두 컴포넌트 분리 그래프 (도달 불가 의미를 probe)
+    schema = _graph_and_query_schema(6, 6)
+    unreachable_text = derive_degenerate_inputs(schema)[1][1]
+    v, e = (int(x) for x in unreachable_text.split("\n")[0].split())
+    assert e == v - 2  # 두 컴포넌트 backbone (각 절반-1 간선 = V-2)
+
+
+def test_derive_degenerate_inputs_min_only_for_connected_graph() -> None:
+    # connectivity=connected → 분리 미실현 → min 만
+    base = _graph_and_query_schema(2, 10)
+    grid = base.inputs[0].model_copy(
+        update={"graph_shape": GraphShape(directed=True, connectivity="connected")}
+    )
+    schema = base.model_copy(update={"inputs": (grid, *base.inputs[1:])})
+    assert [n for n, _t, _r in derive_degenerate_inputs(schema)] == ["min"]
+
+
+def test_derive_degenerate_inputs_empty_for_scalar_only_schema() -> None:
+    # sized 필드 없음(스칼라 only) → probe 할 퇴화 없음
+    schema = IOSchema(
+        inputs=(
+            IOFieldSpec(
+                name="x",
+                type="int",
+                value_range=ConstraintRange(name="x", min_value=1, max_value=9),
+            ),
+        ),
+        output_type="int",
+        output_format="y",
+    )
+    assert derive_degenerate_inputs(schema) == ()
+
+
+def test_derive_degenerate_inputs_deterministic() -> None:
+    # 고정 seed — reconcile 가 diff 한 입력 == edge_filler 가 채우는 입력 보장
+    schema = _graph_and_query_schema(3, 12)
+    assert derive_degenerate_inputs(schema) == derive_degenerate_inputs(schema)

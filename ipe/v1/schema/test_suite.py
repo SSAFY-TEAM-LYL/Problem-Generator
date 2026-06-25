@@ -99,6 +99,38 @@ class GeneratedTestCase(BaseModel):
     )
 
 
+class ResolvedEdgeCase(BaseModel):
+    """실현가능 퇴화 입력 + golden 이 정의한 출력 (RFC §3.3, F11 — 엣지 의미 golden-defined).
+
+    ``input_text`` 는 IR 의 realizable-degeneracy 집합에서 backbone 이 **결정론 파생**한
+    퇴화 입력(타입+GraphShape 함수); ``expected_output`` 은 reconcile 채택된 canonical
+    golden 을 그 입력에 실행해 후행 채움(operational 정의 — ``GeneratedTestCase`` 와 동일
+    부트스트랩). ``rationale`` 은 그 퇴화의 사람 설명(narrative 가 일치 서술·QA 가 검증할
+    근거, Phase 5b 예약).
+
+    엣지 의미를 formalizer prose 로 *처방*하던 것을 golden 으로 *정의*하게 바꾼다: IR 은
+    **어떤** 퇴화가 존재하는지(파생)만 선언하고, golden 이 **무엇을 하는지**(reconcile 로
+    유일성 검증된 출력)를 정의하며, prose 는 관찰된 것을 기술만 한다. reconcile differential
+    에 이 입력을 더해 골든들이 합의하면 그 엣지는 well-posed·출력이 operationally 정의됨,
+    불합의면 그 입력을 witness 로 IR 이 그 엣지에서 ill-posed (RFC §6 Tier B 유일성).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(
+        ..., min_length=1, description="퇴화 종류 (예: 'min' / 'unreachable')"
+    )
+    input_text: str = Field(
+        ..., min_length=1, description="IR 에서 결정론 파생된 퇴화 입력"
+    )
+    expected_output: str | None = Field(
+        default=None, description="None=golden 미실행(pending), str=golden 정의 출력"
+    )
+    rationale: str = Field(
+        default="", description="퇴화의 사람 설명 (narrative/QA 검증 근거)"
+    )
+
+
 class TestSuite(BaseModel):
     """assembled 풀 채점셋 — verified golden 으로 expected 채운 (in, out) 배터리.
 

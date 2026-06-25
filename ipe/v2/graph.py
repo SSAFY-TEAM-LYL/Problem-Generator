@@ -18,8 +18,8 @@ production 모드 다 full 검증). 모드 차이는 4 노브 (caller 가 조합
                        route(budget 소진) ── end_faithfulness
     faithfulness ─(faithful)→ spec_bridge → designer → dispatch ─┬→ golden_0..K ─┐
                                                                  └→ brute ───────┴→ reconciler
-      reconciler ─(채택)→ synth_bridge → sample_filler → executor ─(pass)→ (suite/qa or success)
-                                       (golden→sample expected)    └(fail)→ end_verification
+      reconciler ─(채택)→ synth_bridge → sample_filler → edge_filler → executor ─(pass)→ suite/qa
+       (sample+퇴화엣지 diff)        (golden→expected 채움)        └(fail)→ end_verification
       reconciler ─(reject)→ end_synthesis_rejected
 
 ``with_test_suite=True`` (M4 풀 채점셋 — verification 통과 후)::
@@ -62,7 +62,6 @@ from ipe.sandbox.selector import pick_runner
 from ipe.v1.nodes import (
     make_designer_node,
     make_executor_node,
-    make_reconciler_node,
     make_synth_bridge_node,
     make_synthesis_coder_node,
 )
@@ -76,6 +75,7 @@ from .nodes import (
     NarrativeLLM,
     QAReviewerLLM,
     StrategistLLM,
+    make_edge_filler_node,
     make_faithfulness_node,
     make_formalizer_node,
     make_generator_designer_node,
@@ -88,6 +88,7 @@ from .nodes import (
     make_spec_patch_node,
     make_strategist_node,
     make_suite_assembler_node,
+    make_v2_reconciler_node,
     make_validator_node,
 )
 from .router import (
@@ -420,8 +421,11 @@ def _wire_synthesis(
             ),
         ),
     )
+    # reconciler — v2-native (Phase 5a): sample + backbone 파생 퇴화 엣지로 differential
+    # 확장(RFC §6 Tier B 유일성). 엣지에서 골든 불합의면 그 입력 witness 로 reject.
+    # 이미 dict[str, Any] 반환이라 _v2_partial_node 래퍼 불요.
     builder.add_node(
-        "reconciler", cast(Any, _v2_partial_node(make_reconciler_node(synth_runner)))
+        "reconciler", cast(Any, make_v2_reconciler_node(synth_runner))
     )
     builder.add_node(
         "synth_bridge", cast(Any, _v2_partial_node(make_synth_bridge_node()))
@@ -431,6 +435,12 @@ def _wire_synthesis(
     # executor(검증) 전에 배선.
     builder.add_node(
         "sample_filler", cast(Any, make_sample_filler_node(runner=synth_runner))
+    )
+    # edge_filler — canonical golden 으로 resolved_edges(퇴화 엣지) expected 채움 (Phase
+    # 5a, RFC §3.3). 엣지 의미 golden-defined. sample_filler 와 동형, resolved_edges 빈
+    # (비-graph) 면 no-op. sample_filler 후·executor 전.
+    builder.add_node(
+        "edge_filler", cast(Any, make_edge_filler_node(runner=synth_runner))
     )
     builder.add_node(
         "executor",
@@ -465,7 +475,8 @@ def _wire_synthesis(
         ),
     )
     builder.add_edge("synth_bridge", "sample_filler")
-    builder.add_edge("sample_filler", "executor")
+    builder.add_edge("sample_filler", "edge_filler")
+    builder.add_edge("edge_filler", "executor")
     # 검증 통과 시: 채점셋 생성(M4) 또는 즉시 success
     pass_target = "generator_designer" if with_test_suite else "end_success"
     builder.add_conditional_edges(

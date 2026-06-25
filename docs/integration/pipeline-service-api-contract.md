@@ -1,12 +1,13 @@
-# IPE 파이프라인 ↔ 서비스 백엔드 API 계약 (v3.1)
+# IPE 파이프라인 ↔ 서비스 백엔드 API 계약 (v3.2)
 
-> **문서 상태**: 확정 — 2026-06-22 (v3.1), 파이프라인 측 작성.
+> **문서 상태**: 확정 — 2026-06-25 (v3.2), 파이프라인 측 작성.
 > **대상 독자**: 서비스 백엔드(BOJ 유사) 구현 개발자.
 > **변경 절차**: 본 문서가 계약의 단일 진실원천. 필드 추가는 minor(하위호환),
 > 제거/의미 변경은 major + 양측 합의.
 > **⚠ 미연동 단계 변경(소비자 없음)**: v1.0 이후 ① `mode` `hidden`/`direct`→`p1`/`p2`(v2.0)
 > ② 알고리즘 분류 `problems.algorithm` 스칼라 → `problem_algorithms` N:M 정션(v3.0, §3.4)
-> ③ `problems.problem_number` 공개 검색 번호 추가(v3.1). 상세 변경이력 §7.
+> ③ `problems.problem_number` 공개 검색 번호 추가(v3.1) ④ `meta.resolved_edge_cases`
+> golden-defined 퇴화 의미 추가(v3.2, additive). 상세 변경이력 §7.
 
 ---
 
@@ -196,6 +197,9 @@ two_sum, segtree, fenwick, heap, sieve, string_match
         { "kind": "ambiguity", "severity": "blocker", "description": "…" }
       ]
     },
+    "resolved_edge_cases": [                // ⚠ 내부 메타 — golden-defined 퇴화 의미 (RFC §3.3)
+      { "name": "min", "input_text": "2 1\n1 2 8\n1\n1", "expected_output": "0", "rationale": "최소 규모(질의 정점 하한)" }
+    ],
     "verification": { "overall_pass": true },
     "timing": { "max_golden_elapsed_ms": 180 },   // suite 전 케이스 중 최대
     "generation": { "elapsed_s": 272, "iteration": 1, "qa_routebacks": 1 }
@@ -232,6 +236,14 @@ two_sum, segtree, fenwick, heap, sieve, string_match
   가능하나 `reasoning`/`factors` 는 정해 단서가 될 수 있어 비노출 권장(노출 정책은 백엔드
   product 단 결정). **출하 게이트가 아니라 측정값** — 모든 난이도가 양산 대상이며 난이도로
   reject 하지 않는다(퇴화/모순 게이트는 QA `difficulty` charter 가 별도로 담당).
+- **`meta.resolved_edge_cases` (RFC §3.3, Phase 5a)** — IR 에서 결정론 파생한 실현가능
+  퇴화 입력(`min` 경계, `unreachable` 분리 그래프 등)에 canonical golden 을 실행해 채운
+  `(name, input_text, expected_output, rationale)` 들. 합성/검증 단계에서 reconcile 이 이
+  입력들로 골든 유일성을 교차검증(합의=well-posed·출력 operational 정의 / 불합의=ill-posed
+  reject)한 뒤 채운 **operational 엣지 의미**다. golden 정의 완료분(`expected_output` 채워진
+  것)만 노출하며, 비-graph 문제면 빈 list. **내부 메타** — `test_suite`·`solution` 과 동급
+  (`expected_output` 노출이므로 응시자 비노출). additive, `package_version` 무변경 — 기존
+  백엔드는 무시해도 안전.
 
 ### 2.6 `GET /healthz`
 
@@ -336,6 +348,7 @@ two_sum, segtree, fenwick, heap, sieve, string_match
 
 | 버전 | 일자 | 변경 |
 |---|---|---|
+| **v3.2** | 2026-06-25 | **[additive]** `meta.resolved_edge_cases` — golden-defined 퇴화 엣지 의미(RFC §3.3, 단일-IR Phase 5a). IR 파생 실현가능 퇴화 입력(`min`/`unreachable` 등)에 reconcile 유일성 검증 후 canonical golden 을 실행해 채운 `(name, input_text, expected_output, rationale)` 들. 내부 메타(`test_suite`·`solution` 동급, 응시자 비노출), 비-graph 면 빈 list. `package_version` 무변경 `1.0` — 기존 백엔드는 무시해도 안전. |
 | **v3.1** | 2026-06-22 | **[additive]** `problems.problem_number` 공개 검색 번호(정수 unique, base 1000) 추가 — UUID(`id`)와 별개로 사람이 검색/노출에 쓰는 핸들(BOJ 문제번호 격). 적재 시 파이프라인 채번. 기존 컬럼 불변(하위호환). |
 | **v3.0** | 2026-06-22 | **[breaking]** 알고리즘 분류가 `problems.algorithm` 스칼라(코어 1개) → `problem_algorithms` N:M 정션으로 교체(§3.4). 코어(role `core`) + 합성(role `composition`, §2.1 P2) 전부 행으로 — 백엔드가 합성 기법까지 필터 가능. 패키지(`meta.hidden_algorithm`/`composition`)는 불변, DB 적재 형상만 변경. 백엔드 미연동 시점 반영(소비자 없음). |
 | **v2.0** | 2026-06-22 | **[breaking]** `mode` enum `hidden`/`direct` → `p1`/`p2` (§2.1). 의미 변경=major. `p1`=단일·공개·QA 3종 / `p2`=합성·은닉·QA 4종 — 모드가 합성/은닉/지문/QA관점 4노브를 한 번에 결정. 패키지 `meta.mode`·`meta.composition`·`meta.qa.verdicts` 도 모드에 종속. 백엔드 미연동 시점 반영(기존 v1.0 소비자 없음).<br>**[additive]** `meta.difficulty`(RFC R4 사후 calibration, 옵션 — `--with-difficulty`/`IPE_WITH_DIFFICULTY` 켤 때만) + 직접 적재 DB 의 `problems.algorithm`·`problems.difficulty` 1급 컬럼. 키/컬럼 부재 시 무시 안전(하위호환). |

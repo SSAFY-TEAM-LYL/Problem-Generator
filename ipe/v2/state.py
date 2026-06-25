@@ -29,6 +29,7 @@ from ipe.v1.schema import (
     QAReport,
     QAReview,
     ReconciliationResult,
+    ResolvedEdgeCase,
     SolutionAttempt,
     SolutionCandidate,
     StrategySeed,
@@ -111,6 +112,14 @@ class V2State(BaseModel):
     )
     reconciliation: ReconciliationResult | None = None
     attempt: SolutionAttempt | None = None  # reconciled canonical → executor 입력
+    resolved_edges: tuple[ResolvedEdgeCase, ...] = Field(
+        default=(),
+        description=(
+            "Phase 5a — IR 파생 퇴화 엣지 케이스. v2 reconciler 가 differential 에 더해 "
+            "diff·기록(pending), edge_filler 가 canonical golden 으로 expected 채움 "
+            "(엣지 의미 golden-defined, RFC §3.3)"
+        ),
+    )
     verification: VerificationResult | None = None
     narrative: Narrative | None = None  # late 렌더 (은닉)
     faithfulness: NarrativeFaithfulnessReport | None = None

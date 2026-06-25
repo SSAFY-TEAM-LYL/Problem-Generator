@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..generation.input_gen import derive_degenerate_inputs
 from .base import DegenerateInput
 
 if TYPE_CHECKING:
@@ -75,21 +76,30 @@ class GraphBackbone:
         return facts
 
     def derive_edge_inputs(self, io_schema: IOSchema) -> tuple[DegenerateInput, ...]:
-        """**Reserved for RFC Phase 5** (returns ``()`` today ⇒ byte-identical).
+        """**Active (RFC Phase 5a)** — realizable-degeneracy inputs for the reconcile
+        differential (Tier-B uniqueness).
 
-        Will enumerate the realizable-degeneracy set as a deterministic function of
-        ``GraphShape`` + ``references`` + sizes, e.g.:
+        Enumerates the realizable-degeneracy set as a deterministic function of
+        ``GraphShape`` + sizes, e.g.:
 
-        - ``connectivity="maybe_disconnected"`` ⇒ an ``unreachable`` input;
-        - a self-pointing scalar ``references`` ⇒ ``source_equals_target``;
-        - any sized field ⇒ ``empty`` / ``min``.
+        - any sized field ⇒ a ``min`` input (minimal graph; query scalars converge to
+          the lower bound, so ``source_equals_target`` is folded in);
+        - ``connectivity="maybe_disconnected"`` ⇒ an ``unreachable`` input.
 
-        Each becomes a ``DegenerateInput`` added to the reconcile differential set
-        (Tier-B uniqueness): goldens agreeing ⇒ that edge is well-posed and its
-        output operationally defined; diverging ⇒ ill-posed IR with the witnessing
-        input. A degeneracy the shape forbids (e.g. ``unreachable`` under
-        ``connectivity="connected"``) is simply not in the realizable set, so it is
-        never derived — which is why this derivation must be owned by the backbone
-        that knows the shape, not the universal skeleton.
+        Delegates the serialization (and the shape-aware realizability decision) to
+        ``input_gen.derive_degenerate_inputs`` — the graph serializer is a *documented
+        deferred coupling* (see ``base.py``): it already knows the graph format and
+        which degeneracies it can realize, so it stays co-located with serialization
+        rather than re-implemented here. The seam holds because the universal skeleton
+        reaches this only via ``resolve_backbone`` (never importing the graph function
+        directly), and a degeneracy the shape forbids (e.g. ``unreachable`` under
+        ``connectivity="connected"``) is simply absent from the realizable set.
+
+        Each ``DegenerateInput`` is added to the reconcile differential: goldens
+        agreeing ⇒ that edge is well-posed and its output operationally defined;
+        diverging ⇒ ill-posed IR with the witnessing input.
         """
-        return ()
+        return tuple(
+            DegenerateInput(name=name, input_text=text, rationale=rationale)
+            for name, text, rationale in derive_degenerate_inputs(io_schema)
+        )
