@@ -16,6 +16,7 @@ from ipe.v1.schema import (
     IOSchema,
     ScaleFamily,
     SequenceShape,
+    StringShape,
 )
 from ipe.v2.generation.input_gen import (
     _MAX_ELEMENTS,
@@ -243,6 +244,58 @@ def test_sequence_shape_unsorted_dups_is_byte_identical_to_no_shape() -> None:
     contract = GeneratorContract(
         scale_families=(ScaleFamily(name="s", case_count=5),)
     )
+    a = generate_inputs(contract, _io_schema(plain), seed=42)
+    b = generate_inputs(contract, _io_schema(shaped), seed=42)
+    assert [c.input_text for c in a] == [c.input_text for c in b]
+
+
+# ---------- string_shape alphabet honoring (G2) ----------
+
+
+def _shaped_string_field(
+    shape: StringShape, *, size_lo: int = 5, size_hi: int = 20
+) -> IOFieldSpec:
+    return IOFieldSpec(
+        name="s",
+        type="string",
+        size_range=ConstraintRange(name="s", min_value=size_lo, max_value=size_hi),
+        string_shape=shape,
+    )
+
+
+def _string_cases(field: IOFieldSpec, *, seed: int = 3) -> list[str]:
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=5),))
+    return [c.input_text for c in generate_inputs(contract, _io_schema(field), seed=seed)]
+
+
+def test_string_shape_dna_emits_only_acgt() -> None:
+    field = _shaped_string_field(StringShape(alphabet="dna"))
+    for text in _string_cases(field):
+        assert text  # 비지 않음
+        assert set(text) <= set("ACGT")  # DNA 염기만
+
+
+def test_string_shape_binary_emits_only_01() -> None:
+    field = _shaped_string_field(StringShape(alphabet="binary"))
+    for text in _string_cases(field):
+        assert set(text) <= set("01")
+
+
+def test_string_shape_uppercase_emits_only_upper() -> None:
+    field = _shaped_string_field(StringShape(alphabet="uppercase"))
+    for text in _string_cases(field):
+        assert set(text) <= set("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+def test_string_shape_lowercase_byte_identical_to_no_shape() -> None:
+    # 핀된 lowercase 는 미핀(현 상수 a-z)과 byte-identical (동일 seed)
+    plain = IOFieldSpec(
+        name="s",
+        type="string",
+        size_range=ConstraintRange(name="s", min_value=5, max_value=20),
+    )
+    shaped = _shaped_string_field(StringShape(alphabet="lowercase"))
+    contract = GeneratorContract(scale_families=(ScaleFamily(name="s", case_count=5),))
     a = generate_inputs(contract, _io_schema(plain), seed=42)
     b = generate_inputs(contract, _io_schema(shaped), seed=42)
     assert [c.input_text for c in a] == [c.input_text for c in b]

@@ -110,6 +110,33 @@ class SequenceShape(BaseModel):
     )
 
 
+class StringShape(BaseModel):
+    """string 필드의 **구조 사실** — 문자 집합(alphabet) (잠재 모순 핀).
+
+    ``GraphShape``/``SequenceShape`` 의 문자열판 동형. 오늘날 직렬화기는 영소문자 a-z 만
+    방출(``_ALPHABET`` 하드코딩)하고 narrative 는 'DNA 서열(ACGT)'·'이진 문자열(01)' 을
+    자유 서술할 수 있어 golden·채점셋과 모순될 수 있다(sequence ``sortedness`` 와 같은
+    byte-level 잠재 모순 — 문자 자체가 다르다). alphabet 를 IR 필드로 끌어올리면 직렬화기가
+    이것을 **READ** 해 실제 문자 집합을 방출하고 narrative/QA/faithfulness 가 기계 비교로
+    검증한다.
+
+    기본값 ``lowercase`` 는 현 직렬화기 상수(a-z)와 **동일** → string_shape 가 None 이거나
+    lowercase 면 생성 바이트가 byte-identical. ``empty`` 는 ``_STRING_MIN_LEN=1`` 강제로
+    실현 불가(graph connectivity-금지-unreachable 패턴 동형)라 alphabet 만 핀한다.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    alphabet: Literal["lowercase", "uppercase", "binary", "dna", "alphanumeric"] = Field(
+        ...,
+        description=(
+            "문자 집합 (잠재 모순 핀). lowercase=a-z(현 상수)/uppercase=A-Z/binary=01/"
+            "dna=ACGT/alphanumeric=a-zA-Z0-9. 직렬화기가 이 집합에서만 문자를 뽑는다 — "
+            "narrative 의 문자 집합 서술과 정합되도록 반드시 명시."
+        ),
+    )
+
+
 class IOFieldSpec(BaseModel):
     """입력 한 필드의 formal 명세 — 타입 + 크기/값 범위 (prose 아님)."""
 
@@ -158,6 +185,14 @@ class IOFieldSpec(BaseModel):
             "None 이면 직렬화기가 현 동작(무정렬·중복허용 random)으로 동작(byte-identical). "
             "설정 시 직렬화기가 sortedness 를 READ 해 실제 정렬 배열을 방출하고 narrative/QA 가 "
             "기계 비교로 검증한다. 비-int_array 필드엔 무의미."
+        ),
+    )
+    string_shape: StringShape | None = Field(
+        default=None,
+        description=(
+            "string 타입의 구조 사실 — alphabet(문자 집합) 잠재 모순 핀. None 이면 직렬화기가 "
+            "현 동작(영소문자 a-z)으로 동작(byte-identical). 설정 시 직렬화기가 READ 해 실제 "
+            "문자 집합을 방출하고 narrative/QA 가 기계 비교로 검증. 비-string 필드엔 무관."
         ),
     )
     description: str = ""

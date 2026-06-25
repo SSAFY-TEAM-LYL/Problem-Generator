@@ -56,6 +56,7 @@ if TYPE_CHECKING:
         IOFieldSpec,
         IOSchema,
         SequenceShape,
+        StringShape,
     )
 
 # 범위 미지정 시 기본값
@@ -63,6 +64,16 @@ _DEFAULT_SIZE = (1, 10)
 _DEFAULT_VALUE = (0, 100)
 _STRING_MIN_LEN = 1  # 빈 문자열 금지 (GeneratedTestCase.input_text min_length=1 보존)
 _ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+
+# string_shape.alphabet → 실제 문자 풀 (StringBackbone 의미 사실과 짝, 이쪽은 직렬화 바이트).
+# lowercase 는 현 상수 _ALPHABET 와 동일 객체 → 미핀/lowercase 면 byte-identical.
+_ALPHABETS = {
+    "lowercase": _ALPHABET,
+    "uppercase": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "binary": "01",
+    "dna": "ACGT",
+    "alphanumeric": _ALPHABET + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+}
 
 # 단일 입력의 총 원소 수(배열 N·그래프 간선 E·행렬 R*C·문자열 길이) 상한. LLM contract
 # 가 V=200000 같은 상한을 줘도 결정론 클램프 — 패키지 비대화(케이스당 7.8MB·60케이스
@@ -139,6 +150,18 @@ def _sequence_clause(shape: SequenceShape) -> str:
     return f"{sort}, {dup}"
 
 
+def _string_clause(shape: StringShape) -> str:
+    """string 문자 집합 prose (string_shape 단일 진실 투영). format prose 는 직렬화 바이트와
+    드리프트 금지라 serializer 동거 — ``_string_alphabet`` 이 같은 alphabet 을 READ 한다."""
+    return {
+        "lowercase": "영소문자(a-z)",
+        "uppercase": "영대문자(A-Z)",
+        "binary": "이진(0/1)",
+        "dna": "DNA 염기(A,C,G,T)",
+        "alphanumeric": "영문자+숫자(a-zA-Z0-9)",
+    }[shape.alphabet]
+
+
 def _render_field(field: IOFieldSpec, indexing: int) -> str:
     if _is_reference(field):
         # 참조 스칼라 — 가리키는 collection 의 원소/정점 번호 (indexing base).
@@ -165,6 +188,8 @@ def _render_field(field: IOFieldSpec, indexing: int) -> str:
             f"{field.name}: {_FORMAT_TEXT['int_array']} "
             f"{_sequence_clause(field.sequence_shape)}."
         )
+    if field.type == "string" and field.string_shape is not None:
+        return f"{field.name}: 한 줄에 {_string_clause(field.string_shape)} 문자열."
     if field.type in ("int_matrix", "grid") and field.cols_range is not None:
         cr = field.cols_range
         cols = (
@@ -611,7 +636,8 @@ def _serialize_field(
     if t == "string":
         n = max(_pick_size(_size_bounds(field, tier_bound), bias, rng), _STRING_MIN_LEN)
         n = min(n, _MAX_ELEMENTS)  # 길이 캡
-        return "".join(rng.choice(_ALPHABET) for _ in range(n)), n
+        pool = _string_alphabet(field.string_shape)
+        return "".join(rng.choice(pool) for _ in range(n)), n
     if t == "int_array":
         return _serialize_int_array(field, tier_bound, rng, bias=bias)
     if t in ("int_matrix", "grid"):  # grid = int_matrix 와 동일 canonical 규약
@@ -685,6 +711,15 @@ def _sequence_values(
     if shape.sortedness in ("non_decreasing", "strictly_increasing"):
         values.sort()
     return values
+
+
+def _string_alphabet(shape: StringShape | None) -> str:
+    """string 필드 문자 풀 — ``string_shape.alphabet`` 을 honor (G2). None(미핀) 또는
+    lowercase 면 현 상수 ``_ALPHABET``(a-z) → byte-identical(같은 풀에서 같은 rng.choice).
+    """
+    if shape is None:
+        return _ALPHABET
+    return _ALPHABETS[shape.alphabet]
 
 
 def _cap_matrix(r: int, c: int) -> tuple[int, int]:

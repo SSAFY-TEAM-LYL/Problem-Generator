@@ -19,6 +19,7 @@ from .blueprint import (
     ProblemBlueprint,
     SequenceShape,
     StrategySeed,
+    StringShape,
 )
 from .difficulty import DifficultyFactors, DifficultyReport, DifficultyTier
 from .iteration_context import FailedStrategy, IterationContext, IterationRecord
@@ -93,6 +94,7 @@ __all__ = [
     "SolutionAttempt",
     "SolutionCandidate",
     "StrategySeed",
+    "StringShape",
     "StructuredFeedback",
     "TargetAlgorithm",
     "TargetNode",
