@@ -510,8 +510,8 @@ def derive_generator_contract(io_schema: IOSchema) -> GeneratorContract:
 # RFC §3.3/§6: io_schema 의 realizable-degeneracy 집합을 결정론 직렬화해 reconcile
 # differential 에 더한다. 골든들이 퇴화 입력에 합의 → 그 엣지 well-posed·출력 operational
 # 정의; 불합의 → 그 입력이 witness 인 ill-posed IR. 채점셋(generate_inputs)과 달리 **고정
-# seed**(canonical — IR 만의 함수, run 무관 재현). graph_shape 핀된 graph 만 backbone 이
-# 호출하므로(비-graph=NullBackbone) 실질 적용 대상은 graph 문제다.
+# seed**(canonical — IR 만의 함수, run 무관 재현). graph(graph_shape)·sequence(sequence_
+# shape)·string(string_shape) 백본이 호출; 어느 백본도 소유 안 한 타입은 NullBackbone=빈 튜플.
 _EDGE_SEED = 0
 
 
