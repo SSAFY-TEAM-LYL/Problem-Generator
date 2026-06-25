@@ -17,6 +17,7 @@ from .blueprint import (
     NarrativeFaithfulnessReport,
     OutputInvariant,
     ProblemBlueprint,
+    SequenceShape,
     StrategySeed,
 )
 from .difficulty import DifficultyFactors, DifficultyReport, DifficultyTier
@@ -88,6 +89,7 @@ __all__ = [
     "SampleResult",
     "SampleTestCase",
     "ScaleFamily",
+    "SequenceShape",
     "SolutionAttempt",
     "SolutionCandidate",
     "StrategySeed",

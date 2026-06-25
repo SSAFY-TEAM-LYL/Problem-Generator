@@ -12,12 +12,15 @@ from typing import TYPE_CHECKING
 
 from .base import AlgorithmBackbone, DegenerateInput, NullBackbone
 from .graph import GraphBackbone
+from .sequence import SequenceBackbone
 
 if TYPE_CHECKING:
     from ipe.v1.schema import IOSchema
 
 # Backbone registry — first ``owns`` match wins. Adding a family = one entry here.
-_REGISTRY: tuple[AlgorithmBackbone, ...] = (GraphBackbone(),)
+# Families are disjoint by IOFieldType (graph=edges, sequence=int_array), so order
+# is immaterial today; ``owns`` realizability keeps dispatch unambiguous.
+_REGISTRY: tuple[AlgorithmBackbone, ...] = (GraphBackbone(), SequenceBackbone())
 _NULL: AlgorithmBackbone = NullBackbone()
 
 
@@ -35,5 +38,6 @@ __all__ = [
     "DegenerateInput",
     "GraphBackbone",
     "NullBackbone",
+    "SequenceBackbone",
     "resolve_backbone",
 ]

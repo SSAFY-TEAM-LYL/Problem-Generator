@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from ipe.v1.schema import (
         IOFieldSpec,
         IOSchema,
+        SequenceShape,
     )
 
 # 범위 미지정 시 기본값
@@ -122,6 +123,22 @@ def _structural_clause(field: IOFieldSpec) -> str:
     return ", ".join(parts)
 
 
+def _sequence_clause(shape: SequenceShape) -> str:
+    """int_array 정렬/중복 사실 prose (sequence_shape 단일 진실 투영). format prose 는
+    직렬화 바이트와 **드리프트 금지** 라 serializer 동거 — ``_serialize_int_array`` 가
+    같은 shape 를 READ 해 실제 정렬/distinct 배열을 방출한다(SequenceBackbone.
+    structural_facts 의 *의미* 사실과 짝, 이쪽은 *형식* 기술)."""
+    sort = {
+        "unsorted": "무정렬(임의 순서)",
+        "non_decreasing": "비내림차(오름차순) 정렬",
+        "strictly_increasing": "순증가 정렬(중복 없음)",
+    }[shape.sortedness]
+    if shape.sortedness == "strictly_increasing":
+        return sort  # distinct 함축 — 중복 절 생략
+    dup = "중복 값 가능" if shape.duplicates_allowed else "중복 값 없음(서로 다른 값)"
+    return f"{sort}, {dup}"
+
+
 def _render_field(field: IOFieldSpec, indexing: int) -> str:
     if _is_reference(field):
         # 참조 스칼라 — 가리키는 collection 의 원소/정점 번호 (indexing base).
@@ -142,6 +159,11 @@ def _render_field(field: IOFieldSpec, indexing: int) -> str:
         return (
             f"{field.name}: 첫 줄에 정점 수 V, 이어서 V-1 줄에 {edge_line}. "
             f"정점 번호는 {_vertex_index_phrase(indexing)}, 트리(연결·무사이클) 보장."
+        )
+    if field.type == "int_array" and field.sequence_shape is not None:
+        return (
+            f"{field.name}: {_FORMAT_TEXT['int_array']} "
+            f"{_sequence_clause(field.sequence_shape)}."
         )
     if field.type in ("int_matrix", "grid") and field.cols_range is not None:
         cr = field.cols_range
@@ -628,8 +650,41 @@ def _serialize_int_array(
         return "0", 0
     n = min(n, _MAX_ELEMENTS)  # 원소 총량 캡 (패키지 비대화/생성 OOM 차단)
     lo, hi = _element_bounds(field)
-    vals = " ".join(str(rng.randint(lo, hi)) for _ in range(n))
-    return f"{n}\n{vals}", n  # 크기 = 원소 개수 N (참조 바인딩 대상)
+    values = _sequence_values(field.sequence_shape, n, lo, hi, rng)
+    vals = " ".join(str(v) for v in values)
+    return f"{len(values)}\n{vals}", len(values)  # 크기 = 원소 개수 N (참조 바인딩 대상)
+
+
+def _sequence_values(
+    shape: SequenceShape | None,
+    n: int,
+    lo: int,
+    hi: int,
+    rng: random.Random,
+) -> list[int]:
+    """int_array 원소값 — ``sequence_shape`` 의 sortedness/duplicates 를 honor (G1a).
+
+    - shape=None **또는** (unsorted·duplicates_allowed): 현 동작과 **동일 rng 추출**
+      순서/개수 → byte-identical 경로 (핀 안 했거나 현 상수와 동일하면 무변).
+    - distinct(strictly_increasing **또는** duplicates_allowed=False): 서로 다른 값을
+      표본추출. 범위가 n 보다 좁으면 범위 크기로 캡 — 실현가능성(같은 값 없이 n 개를
+      못 담으면 담을 수 있는 만큼만).
+    - 정렬 요구(non_decreasing/strictly_increasing): 추출 후 오름차순 정렬.
+
+    정렬/distinct 가 켜진 경로는 byte-identical 대상이 아니므로(핀된 의도적 변주) rng
+    추출 방식이 달라도 무방 — 고정 seed 면 여전히 결정론.
+    """
+    if shape is None or (shape.sortedness == "unsorted" and shape.duplicates_allowed):
+        return [rng.randint(lo, hi) for _ in range(n)]  # byte-identical 경로
+    distinct = shape.sortedness == "strictly_increasing" or not shape.duplicates_allowed
+    if distinct:
+        span = hi - lo + 1
+        values = rng.sample(range(lo, hi + 1), min(n, span))  # 서로 다른 값
+    else:
+        values = [rng.randint(lo, hi) for _ in range(n)]
+    if shape.sortedness in ("non_decreasing", "strictly_increasing"):
+        values.sort()
+    return values
 
 
 def _cap_matrix(r: int, c: int) -> tuple[int, int]:
